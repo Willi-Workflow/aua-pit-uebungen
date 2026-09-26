@@ -526,6 +526,7 @@ test('erzeugeParcours ist bestimmt und liefert Kandidat, Kreuzungen und Umriss',
   assert.ok(a.kreuzungen >= 0);
   assert.ok(a.fuellung > 0);
   assert.equal(typeof a.zulaessig, 'boolean');
+  assert.equal(a.drehung, a.geometrie.drehung);
   assert.ok(a.geometrie.umriss.maxX > a.geometrie.umriss.minX);
   assert.equal(a.geometrie.beschriftungen.length >= a.elemente.filter((e) => e.art === 'segment').length, true);
 });
@@ -553,7 +554,8 @@ test('keine Zeile einer Segmentbeschriftung liegt auf ihrer eigenen Linie, Blät
     for (const b of blatt.parcours.geometrie.beschriftungen) {
       if (b.mitte === null) continue;
       const w = (b.winkel * Math.PI) / 180;
-      const k = (b.kurs * Math.PI) / 180;
+      // Die Linie läuft in gezeichneter Richtung, Kurs minus Drehung des Blatts
+      const k = ((b.kurs - blatt.parcours.drehung) * Math.PI) / 180;
       const d = { x: Math.sin(k), y: -Math.cos(k) };
       for (let i = 0; i < b.zeilen.length; i++) {
         const c = { x: b.x - i * ZEILENABSTAND * Math.sin(w), y: b.y + i * ZEILENABSTAND * Math.cos(w) };
@@ -748,4 +750,98 @@ test('Blätter mit Nummer teilbar durch 3 haben 3 bis 4 Gates, die anderen keine
       for (const zeile of b.zeilen) assert.match(zeile, GATE_ZEILE, `Blatt ${blatt.nummer}`);
     }
   }
+});
+
+// Richtung einer gezeichneten Strecke als Kurs, Norden der Zeichnung oben
+function streckenRichtung(s) {
+  return richtungGrad(s.punkte[0], s.punkte[s.punkte.length - 1]);
+}
+
+test('Drehung: geometrie zeichnet jeden Kurs als Kurs minus Drehung, ohne Angabe ungedreht', () => {
+  const ohne = geometrie([segment(90)]);
+  assert.equal(ohne.drehung, 0);
+  const geo = geometrie([segment(90)], 90);
+  assert.equal(geo.drehung, 90);
+  const [a, e] = geo.stuecke[0].punkte;
+  // Kurs 090 zeigt bei Drehung 90 nach oben, Richtungsvektor (0, -1)
+  assert.ok(naheBei((e.x - a.x) / 50, 0) && naheBei((e.y - a.y) / 50, -1), `${e.x - a.x}, ${e.y - a.y}`);
+  // Der Inhalt der Beschriftung bleibt, ihr Winkel folgt der gezeichneten Richtung
+  assert.deepEqual(geo.beschriftungen[0].zeilen, ['090°/10"']);
+  assert.equal(Math.abs(geo.beschriftungen[0].winkel), 90);
+  // Querstriche kennen Kurs und gezeichnete Richtung
+  assert.equal(geo.marken[0].kurs, 90);
+  assert.equal(geo.marken[0].gezeichnet, 0);
+  // Das Flugzeugsymbol sitzt hinter dem Start entgegen der gezeichneten Richtung
+  assert.ok(naheBei(geo.flugzeug.mitte.x, 0) && naheBei(geo.flugzeug.mitte.y, FLUGZEUG_ABSTAND));
+});
+
+test('Drehung: Ecken, Vollkreis und relative Ecke drehen mit, Weg und Beschriftungen bleiben gleich', () => {
+  const elemente = [
+    segment(90, 20),
+    { art: 'vollkreis', richtung: 'rechts', profile: ['steigen', 'horizontal'] },
+    { art: 'segment', kurs: 30, anzeige: 'keine', himmelsrichtung: null, relativ: -60, dauer: 15, profil: 'steigen', rechenaufgabe: 120 },
+    segment(200, 20),
+  ];
+  const gerade = geometrie(elemente);
+  for (const drehung of [37, 90, 181, 300]) {
+    const geo = geometrie(elemente, drehung);
+    assert.equal(geo.stuecke.length, gerade.stuecke.length);
+    // Ein starr gedrehter Weg: gleiche Längen, gleiche Pfadbefehle, gleiche Abstände zum Start
+    geo.stuecke.forEach((s, i) => {
+      assert.ok(naheBei(s.laenge, gerade.stuecke[i].laenge));
+      const ende = s.punkte[s.punkte.length - 1];
+      const endeGerade = gerade.stuecke[i].punkte[gerade.stuecke[i].punkte.length - 1];
+      assert.ok(naheBei(Math.hypot(ende.x, ende.y), Math.hypot(endeGerade.x, endeGerade.y)), `Stück ${i} bei Drehung ${drehung}`);
+    });
+    const strecken = geo.stuecke.filter((s) => s.art === 'strecke');
+    const kurse = elemente.filter((e) => e.art === 'segment').map((e) => e.kurs);
+    strecken.forEach((s, i) => assert.ok(Math.abs(differenz(streckenRichtung(s), kurse[i] - drehung)) < 0.01, `Segment ${i} bei Drehung ${drehung}`));
+    assert.deepEqual(geo.beschriftungen.map((b) => b.zeilen), gerade.beschriftungen.map((b) => b.zeilen));
+    for (const m of geo.marken) assert.ok(naheBei(m.gezeichnet, normieren(m.kurs - drehung)), JSON.stringify(m));
+  }
+});
+
+test('Drehung: Gate-Kästen bleiben achsenparallel, Ankunft und Austritt auf dem Rand', () => {
+  const pruefen = (geo, wo) => {
+    const kaesten = geo.stuecke.map((s, i) => i).filter((i) => geo.stuecke[i].art === 'gate');
+    for (const g of kaesten) {
+      const ecken = geo.stuecke[g].punkte;
+      assert.equal(new Set(ecken.map((q) => q.x)).size, 2, `${wo}: Kasten schräg`);
+      assert.equal(new Set(ecken.map((q) => q.y)).size, 2, `${wo}: Kasten schräg`);
+      const ankunft = geo.stuecke[g - 1].punkte[geo.stuecke[g - 1].punkte.length - 1];
+      assert.ok(randAbstand(ankunft, ecken) < 0.01, `${wo}: Ankunft nicht am Rand`);
+      assert.ok(randAbstand(geo.stuecke[g + 1].punkte[0], ecken) < 0.01, `${wo}: Austritt nicht am Rand`);
+    }
+    return kaesten.length;
+  };
+  for (const drehung of [37, 90, 200, 333]) {
+    assert.equal(pruefen(geometrie([segment(90, 20), BEISPIEL_GATE, segment(180)], drehung), `Beispiel, Drehung ${drehung}`), 1);
+  }
+  let gedreht = 0;
+  for (const blatt of blaetter.filter((b) => hatGates(2, b.nummer))) {
+    pruefen(blatt.parcours.geometrie, `Blatt ${blatt.nummer}`);
+    if (blatt.parcours.drehung > 0) gedreht += 1;
+  }
+  assert.ok(gedreht >= 30, `nur ${gedreht} Gate-Blätter gedreht`);
+});
+
+test('Blätter 1 bis 100: Drehung ganzzahlig in [0, 360), Start im oberen Drittel, Beschriftungswinkel in [-90, 90]', () => {
+  const drehungen = new Set();
+  for (const blatt of blaetter) {
+    const { drehung, geometrie: geo } = blatt.parcours;
+    assert.ok(Number.isInteger(drehung) && drehung >= 0 && drehung < 360, `Blatt ${blatt.nummer}: Drehung ${drehung}`);
+    assert.equal(geo.drehung, drehung);
+    drehungen.add(drehung);
+    const start = geo.marken[0].punkt;
+    const { minY, maxY } = geo.umriss;
+    const lage = (start.y - minY) / (maxY - minY);
+    assert.ok(lage <= 0.34, `Blatt ${blatt.nummer}: Start bei ${lage.toFixed(2)} der Höhe`);
+    for (const b of geo.beschriftungen) assert.ok(b.winkel >= -90 && b.winkel <= 90, `Blatt ${blatt.nummer}: Winkel ${b.winkel}`);
+    // Jede Strecke läuft in Kurs minus Drehung
+    const kurse = blatt.parcours.elemente.filter((e) => e.art === 'segment').map((e) => e.kurs);
+    geo.stuecke.filter((s) => s.art === 'strecke').forEach((s, i) => {
+      assert.ok(Math.abs(differenz(streckenRichtung(s), kurse[i] - drehung)) < 0.01, `Blatt ${blatt.nummer}, Segment ${i + 1}`);
+    });
+  }
+  assert.ok(drehungen.size >= 50, `nur ${drehungen.size} verschiedene Drehungen`);
 });

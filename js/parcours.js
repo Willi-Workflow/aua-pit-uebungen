@@ -5,7 +5,7 @@
 // beschriftet wird. Ein Gate ersetzt eine Ecke durch einen Kasten mit drei bis
 // vier Anweisungen, die aus dem Gedächtnis geflogen und nicht gezeichnet werden.
 
-import { normieren, differenz, drehung, kursText, himmelsrichtungGrad, himmelsrichtungName, SCHREIBWEISE } from './kurs.js';
+import { normieren, differenz, drehung as drehwinkel, kursText, himmelsrichtungGrad, himmelsrichtungName, SCHREIBWEISE } from './kurs.js';
 
 // Maße in Einheiten der Zeichnung, abgelesen an der Vorlage: ein 10-Sekunden-Segment
 // ist etwa sechsmal so lang wie der Strich breit (9), ein Vollkreis hat etwa seinen Radius.
@@ -15,6 +15,9 @@ export const SCHLEIFENRADIUS = 28;
 export const KREISRADIUS = 35;
 export const KANDIDATEN = 3000;
 export const SEITENVERHAELTNIS = { min: 0.7, max: 1.25 };
+// Der Start liegt im oberen Teil des gedrehten Umrisses, höchstens bei diesem
+// Anteil der Höhe von oben gemessen
+export const START_OBEN = 0.34;
 // Kleinster Abstand der Mittellinien zweier Stücke: Bei Strichbreite 9 berühren
 // sich die Striche dann höchstens, sie liegen nie übereinander.
 export const LINIENBREITE_ABSTAND = 9;
@@ -256,7 +259,8 @@ function punktText(punkt) {
 }
 
 // Kreisbogen ab "start" mit Anfangskurs "kursVon" um "winkel" Grad in "richtung".
-// Liefert SVG-Pfad, Polygonzug für die Prüfungen, Länge, Endpunkt, Endkurs und
+// Liefert SVG-Pfad (als Funktion, siehe bahn), Polygonzug für die Prüfungen,
+// Länge, Endpunkt, Endkurs und
 // "aussen(anteil, abstand)": Punkt und Richtung außerhalb des Bogens, beim Anteil
 // des Drehwinkels, "abstand" jenseits der Linie.
 function bogen(start, kursVon, winkel, richtung, radius) {
@@ -277,14 +281,14 @@ function bogen(start, kursVon, winkel, richtung, radius) {
     const n = rechts(kursVon + s * winkel * anteil);
     return { punkt: punktBei(kursVon + s * winkel * anteil, radius + abstand), richtung: { x: -s * n.x, y: -s * n.y } };
   };
-  const pfad = `M ${punktText(start)} A ${radius} ${radius} 0 ${winkel > 180 ? 1 : 0} ${s === 1 ? 1 : 0} ${punktText(ende)}`;
+  const pfad = () => `M ${punktText(start)} A ${radius} ${radius} 0 ${winkel > 180 ? 1 : 0} ${s === 1 ? 1 : 0} ${punktText(ende)}`;
   return { pfad, punkte, laenge: (radius * winkel * Math.PI) / 180, ende, kursNach, aussen, kreis: { mitte: zentrum, radius } };
 }
 
 function strecke(start, kurs, laenge) {
   const v = vektor(kurs);
   const ende = { x: start.x + v.x * laenge, y: start.y + v.y * laenge };
-  return { pfad: `M ${punktText(start)} L ${punktText(ende)}`, punkte: [start, ende], laenge, ende };
+  return { pfad: () => `M ${punktText(start)} L ${punktText(ende)}`, punkte: [start, ende], laenge, ende };
 }
 
 function vorzeichenText(zahl) {
@@ -306,10 +310,12 @@ function laengsteZeile(zeilen) {
 // "mitte" ist der Fußpunkt auf der Mittellinie des Segments, in der ersten Lage
 // die Segmentmitte. Weitere Zeilen stehen im gedrehten Textrahmen unter der
 // ersten. Zeigt "unten" zur Linie, rückt der ganze Block um die zusätzlichen
-// Zeilen nach außen, damit keine Zeile auf dem Strich landet.
-function segmentBeschriftung(element, mitte, seite) {
-  const normale = seite === 'links' ? rechts(element.kurs + 180) : rechts(element.kurs);
-  let winkel = normieren(element.kurs - 90);
+// Zeilen nach außen, damit keine Zeile auf dem Strich landet. Lage und Winkel
+// folgen der gezeichneten Richtung, Kurs minus "drehung"; "kurs" bleibt der Kurs.
+function segmentBeschriftung(element, mitte, seite, drehung) {
+  const gezeichnet = normieren(element.kurs - drehung);
+  const normale = seite === 'links' ? rechts(gezeichnet + 180) : rechts(gezeichnet);
+  let winkel = normieren(gezeichnet - 90);
   if (winkel > 180) winkel -= 360;
   if (winkel > 90) winkel -= 180;
   if (winkel < -90) winkel += 180;
@@ -367,7 +373,7 @@ function gateKasten(texte, ankunft, kursVorher, kursNachher) {
     { x: linkerRand, y: obererRand }, { x: rechterRand, y: obererRand }, { x: rechterRand, y: untererRand },
     { x: linkerRand, y: untererRand }, { x: linkerRand, y: obererRand },
   ];
-  const pfad = `M ${punktText(punkte[0])} L ${punktText(punkte[1])} L ${punktText(punkte[2])} L ${punktText(punkte[3])} Z`;
+  const pfad = () => `M ${punktText(punkte[0])} L ${punktText(punkte[1])} L ${punktText(punkte[2])} L ${punktText(punkte[3])} Z`;
   return { mitte, austritt, halbeBreite, halbeHoehe, punkte, pfad };
 }
 
@@ -420,7 +426,14 @@ function umrissBerechnen(stuecke, beschriftungen) {
 
 // Weg ohne gesetzte Beschriftungen: Stücke, Querstriche und je Beschriftung die
 // möglichen Lagen. Kreuzungen und Abstände hängen nur hiervon ab.
-function bahn(elemente) {
+// Gezeichnet wird jeder Kurs als Kurs minus "drehung": Das Blatt ist um diesen
+// Winkel gedreht, Norden zeigt in der Zeichnung nach "-drehung". Kurse,
+// Drehrichtungen und Beschriftungstexte bleiben, wie sie sind; Gate-Kästen und
+// Eckbeschriftungen bleiben waagerecht.
+// SVG-Pfade und Beschriftungslagen sind hier noch Funktionen: Die meisten
+// Kandidaten scheitern an den Prüfungen des Wegs, erst vollenden braucht sie.
+function bahn(elemente, drehung = 0) {
+  const gezeichnet = (kurs) => normieren(kurs - drehung);
   const stuecke = [];
   const marken = [];
   const beschriftungen = [];
@@ -435,11 +448,11 @@ function bahn(elemente) {
       // Das nächste Element ist immer ein Segment mit Kurs; es beginnt am
       // Austritt ohne Bogen, sein Querstrich markiert den Austritt
       const texte = element.zeilen.map(gateZeileText);
-      const kasten = gateKasten(texte, punkt, kurs, elemente[n + 1].kurs);
+      const kasten = gateKasten(texte, punkt, gezeichnet(kurs), gezeichnet(elemente[n + 1].kurs));
       stuecke.push({ art: 'gate', profil: null, pfad: kasten.pfad, punkte: kasten.punkte, laenge: 0, schleife: false });
       beschriftungen.push({
         eigeneStuecke: [stuecke.length - 1],
-        varianten: [{
+        varianten: () => [{
           zeilen: texte,
           x: kasten.mitte.x,
           y: kasten.mitte.y,
@@ -459,7 +472,7 @@ function bahn(elemente) {
     }
 
     if (element.art === 'vollkreis') {
-      const erste = bogen(punkt, kurs, 180, element.richtung, KREISRADIUS);
+      const erste = bogen(punkt, gezeichnet(kurs), 180, element.richtung, KREISRADIUS);
       const zweite = bogen(erste.ende, erste.kursNach, 180, element.richtung, KREISRADIUS);
       // Der Kreis schließt sich exakt am Ausgangspunkt, damit die Kreuzungsprüfung
       // Berührungen an diesem Punkt als solche erkennt
@@ -467,8 +480,8 @@ function bahn(elemente) {
       stuecke.push({ art: 'bogen', profil: element.profile[0], pfad: erste.pfad, punkte: erste.punkte, laenge: erste.laenge, schleife: false, kreis: erste.kreis });
       stuecke.push({ art: 'bogen', profil: element.profile[1], pfad: zweite.pfad, punkte: zweite.punkte, laenge: zweite.laenge, schleife: false, kreis: zweite.kreis });
       // Querstrich am Berührpunkt, der Anfang und Ende zugleich ist, und bei 180°
-      marken.push({ punkt, kurs });
-      marken.push({ punkt: erste.ende, kurs: erste.kursNach });
+      marken.push({ punkt, kurs, gezeichnet: gezeichnet(kurs) });
+      marken.push({ punkt: erste.ende, kurs: normieren(kurs + 180), gezeichnet: erste.kursNach });
       profil = element.profile[1];
       continue;
     }
@@ -477,30 +490,31 @@ function bahn(elemente) {
       const richtung = element.relativ !== null
         ? (element.relativ > 0 ? 'rechts' : 'links')
         : (differenz(kurs, element.kurs) >= 0 ? 'rechts' : 'links');
-      const winkel = element.relativ !== null ? Math.abs(element.relativ) : drehung(kurs, element.kurs, richtung);
+      const winkel = element.relativ !== null ? Math.abs(element.relativ) : drehwinkel(kurs, element.kurs, richtung);
       const schleife = winkel > 180;
-      const ecke = bogen(punkt, kurs, winkel, richtung, schleife ? SCHLEIFENRADIUS : ECKENRADIUS);
+      const ecke = bogen(punkt, gezeichnet(kurs), winkel, richtung, schleife ? SCHLEIFENRADIUS : ECKENRADIUS);
       // Der Bogen gehört noch zum vorherigen Flugzustand, das neue Profil beginnt am Querstrich danach
       stuecke.push({ art: 'bogen', profil, pfad: ecke.pfad, punkte: ecke.punkte, laenge: ecke.laenge, schleife, kreis: schleife ? ecke.kreis : null });
       if (element.relativ !== null) {
         const text = `${vorzeichenText(element.relativ)}°`;
         beschriftungen.push({
           eigeneStuecke: [stuecke.length - 1],
-          varianten: [0.5, 0.25, 0.75].map((anteil) => eckBeschriftung(text, ecke, anteil)),
+          varianten: () => [0.5, 0.25, 0.75].map((anteil) => eckBeschriftung(text, ecke, anteil)),
         });
       }
       punkt = ecke.ende;
     }
 
-    marken.push({ punkt: austrittsKasten ? austrittsMarke(punkt, element.kurs, austrittsKasten) : punkt, kurs: element.kurs });
+    const richtung = gezeichnet(element.kurs);
+    marken.push({ punkt: austrittsKasten ? austrittsMarke(punkt, richtung, austrittsKasten) : punkt, kurs: element.kurs, gezeichnet: richtung });
     austrittsKasten = null;
-    const gerade = strecke(punkt, element.kurs, element.dauer * SEKUNDE_LAENGE);
+    const gerade = strecke(punkt, richtung, element.dauer * SEKUNDE_LAENGE);
     stuecke.push({ art: 'strecke', profil: element.profil, pfad: gerade.pfad, punkte: gerade.punkte, laenge: gerade.laenge, schleife: false });
     beschriftungen.push({
       eigeneStuecke: [stuecke.length - 1],
-      varianten: [0.5, 0.3, 0.7].flatMap((t) => {
+      varianten: () => [0.5, 0.3, 0.7].flatMap((t) => {
         const fuss = { x: gerade.punkte[0].x + t * (gerade.ende.x - gerade.punkte[0].x), y: gerade.punkte[0].y + t * (gerade.ende.y - gerade.punkte[0].y) };
-        return [segmentBeschriftung(element, fuss, 'links'), segmentBeschriftung(element, fuss, 'rechts')];
+        return [segmentBeschriftung(element, fuss, 'links', drehung), segmentBeschriftung(element, fuss, 'rechts', drehung)];
       }),
     });
     punkt = gerade.ende;
@@ -518,33 +532,55 @@ function bahn(elemente) {
       .filter((i) => i === eigenes || (i >= 0 && i < stuecke.length && stuecke[i].art === nachbarArt));
   }
 
-  marken.push({ punkt, kurs });
-  return { stuecke, marken, entwuerfe: beschriftungen, flugzeug: flugzeugLage(marken[0]) };
+  marken.push({ punkt, kurs, gezeichnet: gezeichnet(kurs) });
+  return { stuecke, marken, entwuerfe: beschriftungen, flugzeug: flugzeugLage(marken[0]), drehung };
 }
 
-// Kreis um das Flugzeugsymbol, hinter dem Start entgegen der Richtung des ersten Segments
+// Kreis um das Flugzeugsymbol, hinter dem Start entgegen der gezeichneten Richtung
+// des ersten Segments
 function flugzeugLage(start) {
-  const v = vektor(start.kurs);
+  const v = vektor(start.gezeichnet);
   return {
     mitte: { x: start.punkt.x - v.x * FLUGZEUG_ABSTAND, y: start.punkt.y - v.y * FLUGZEUG_ABSTAND },
     radius: FLUGZEUG_RADIUS,
   };
 }
 
-// Setzt die Beschriftungen und bestimmt den Umriss
+// Schreibt die SVG-Pfade aus, setzt die Beschriftungen und bestimmt den Umriss
 function vollenden(roh) {
-  const beschriftungen = beschriftungenSetzen(roh.stuecke, roh.entwuerfe, roh.flugzeug);
+  const stuecke = roh.stuecke.map((s) => ({ ...s, pfad: s.pfad() }));
+  const entwuerfe = roh.entwuerfe.map((e) => ({ eigeneStuecke: e.eigeneStuecke, varianten: e.varianten() }));
+  const beschriftungen = beschriftungenSetzen(stuecke, entwuerfe, roh.flugzeug);
   return {
-    stuecke: roh.stuecke,
+    stuecke,
     marken: roh.marken,
     beschriftungen,
-    umriss: umrissBerechnen(roh.stuecke, beschriftungen),
+    umriss: umrissBerechnen(stuecke, beschriftungen),
     flugzeug: roh.flugzeug,
+    drehung: roh.drehung,
   };
 }
 
-export function geometrie(elemente) {
-  return vollenden(bahn(elemente));
+// Geometrie mit Zeichenwinkel "drehung" in Grad, siehe bahn
+export function geometrie(elemente, drehung = 0) {
+  return vollenden(bahn(elemente, drehung));
+}
+
+// Zeichenwinkel, bei dem der Start oben liegt: der Kurs vom Mittelpunkt M des
+// ungedrehten Wegs zum Start S, auf ganze Grad gerundet. Um diesen Winkel
+// gedreht liegt S in der Zeichnung über M.
+function drehungBestimmen(elemente) {
+  const roh = bahn(elemente, 0);
+  const k = kasten(roh.stuecke.flatMap((s) => s.punkte));
+  const m = { x: (k.minX + k.maxX) / 2, y: (k.minY + k.maxY) / 2 };
+  const s = roh.marken[0].punkt;
+  return normieren(Math.round((Math.atan2(s.x - m.x, -(s.y - m.y)) * 180) / Math.PI));
+}
+
+// Liegt der Start im oberen Teil des Umrisses, höchstens START_OBEN von oben?
+export function startOben(geo) {
+  const { minY, maxY } = geo.umriss;
+  return (geo.marken[0].punkt.y - minY) / (maxY - minY) <= START_OBEN;
 }
 
 // Setzt die Beschriftungen der Reihe nach, jede in die erste freie ihrer Lagen:
@@ -820,8 +856,8 @@ function fuellungObergrenze(stuecke) {
 }
 
 // Ausweichlösung, solange kein Kandidat zulässig ist: wenigste Kreuzungen, dann
-// größter kleinster Abstand, dann wenigste verdeckte Beschriftungen, dann das
-// Seitenverhältnis am nächsten an 1. Der Abstand zählt nur bis LINIENBREITE_ABSTAND:
+// größter kleinster Abstand, dann wenigste verdeckte Beschriftungen, dann der
+// Start oben, dann das Seitenverhältnis am nächsten an 1. Der Abstand zählt nur bis LINIENBREITE_ABSTAND:
 // Darüber liegt nichts mehr übereinander, und mehr Abstand hieße nur einen
 // weitläufigeren, langgezogenen Weg. "kreuzungen" ist bis zur Zahl des bisherigen
 // Ersatzes genau. Liefert die Kennzahlen des neuen Ersatzes oder null.
@@ -834,14 +870,20 @@ function besserErsatz(roh, geoHolen, kreuzungen, ersatz) {
   const geo = geoHolen();
   const verdeckt = verdeckteBeschriftungen(geo, gleicherAbstand ? ersatz.verdeckt : Infinity);
   if (gleicherAbstand && verdeckt > ersatz.verdeckt) return null;
+  const gleichVerdeckt = gleicherAbstand && verdeckt === ersatz.verdeckt;
+  const oben = startOben(geo);
+  if (gleichVerdeckt && ersatz.oben && !oben) return null;
+  const gleichOben = gleichVerdeckt && oben === ersatz.oben;
   const abweichung = Math.abs(seitenverhaeltnis(geo.umriss) - 1);
-  if (gleicherAbstand && verdeckt === ersatz.verdeckt && abweichung >= ersatz.abweichung) return null;
-  return { kreuzungen, abstand, verdeckt, abweichung };
+  if (gleichOben && abweichung >= ersatz.abweichung) return null;
+  return { kreuzungen, abstand, verdeckt, oben, abweichung };
 }
 
-// Zieht KANDIDATEN Parcours aus dem Zufallsstrom. Zulässig ist ein Kandidat ohne
-// Kreuzung, mit Strichen, die sich höchstens berühren und das Flugzeugsymbol
-// frei lassen, im Seitenverhältnis und mit freien Beschriftungen. Unter den
+// Zieht KANDIDATEN Parcours aus dem Zufallsstrom und dreht jeden so, dass sein
+// Start oben liegt; alle Prüfungen laufen auf der gedrehten Geometrie.
+// Zulässig ist ein Kandidat ohne Kreuzung, mit Strichen, die sich höchstens
+// berühren und das Flugzeugsymbol frei lassen, im Seitenverhältnis, mit dem
+// Start im oberen Drittel und mit freien Beschriftungen. Unter den
 // zulässigen gewinnt die höchste Füllung, bei Gleichstand der frühere. Die
 // Prüfungen laufen billig zuerst und nur so weit, wie sie das Ergebnis noch
 // ändern können; es ist dasselbe wie bei voller Prüfung aller. "start" ist der
@@ -851,14 +893,14 @@ export function erzeugeParcours(zufall, mitGates = false, start = null) {
   let ersatz = null;
   for (let kandidat = 1; kandidat <= KANDIDATEN; kandidat++) {
     const elemente = erzeugeElemente(zufall, mitGates, start);
-    const roh = bahn(elemente);
+    const roh = bahn(elemente, drehungBestimmen(elemente));
     if (bester && fuellungObergrenze(roh.stuecke) <= bester.fuellung) continue;
     const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity));
     let geo = null;
     if (kreuzungen === 0 && kleinsterAbstand(roh.stuecke, LINIENBREITE_ABSTAND, roh.flugzeug) >= LINIENBREITE_ABSTAND) {
       geo = vollenden(roh);
       const fuellung = fuellungBerechnen(geo);
-      if (seitenverhaeltnisPasst(geo.umriss) && (!bester || fuellung > bester.fuellung) && beschriftungFrei(geo)) {
+      if (seitenverhaeltnisPasst(geo.umriss) && startOben(geo) && (!bester || fuellung > bester.fuellung) && beschriftungFrei(geo)) {
         bester = { elemente, geometrie: geo, kreuzungen: 0, kandidat, fuellung };
         continue;
       }
@@ -874,6 +916,7 @@ export function erzeugeParcours(zufall, mitGates = false, start = null) {
     kreuzungen: sieger.kreuzungen,
     kandidat: sieger.kandidat,
     fuellung: sieger.fuellung,
+    drehung: sieger.geometrie.drehung,
     zulaessig: bester !== null,
   };
 }
