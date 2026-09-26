@@ -1,7 +1,9 @@
 // Parcours der Stufe 2: Bausteine, Geometrie und Kandidatensuche.
-// Ein Parcours ist eine Kette aus Segmenten und Vollkreisen. Zwischen zwei
-// Segmenten liegt eine Ecke: kürzester Weg, wenn das nächste Segment einen Kurs
-// trägt, sonst eine relative Kursänderung, die an der Ecke beschriftet wird.
+// Ein Parcours ist eine Kette aus Segmenten, Vollkreisen und auf manchen Blättern
+// Gates. Zwischen zwei Segmenten liegt eine Ecke: kürzester Weg, wenn das nächste
+// Segment einen Kurs trägt, sonst eine relative Kursänderung, die an der Ecke
+// beschriftet wird. Ein Gate ersetzt eine Ecke durch einen Kasten mit drei bis
+// vier Anweisungen, die aus dem Gedächtnis geflogen und nicht gezeichnet werden.
 
 import { normieren, differenz, drehung, kursText, himmelsrichtungGrad, himmelsrichtungName, SCHREIBWEISE } from './kurs.js';
 
@@ -17,6 +19,8 @@ export const SEITENVERHAELTNIS = { min: 0.7, max: 1.25 };
 // sich die Striche dann höchstens, sie liegen nie übereinander.
 export const LINIENBREITE_ABSTAND = 9;
 export const ZEILENABSTAND = 9;
+// Halbe Länge eines Querstrichs, er ragt so weit zu beiden Seiten der Mittellinie
+export const MARKENLAENGE = 9;
 
 const BESCHRIFTUNGSABSTAND = 12;
 // Halbe Breite eines Zeichens bei Schriftgröße 9; im Browser gemessen 2,4 bis 3,1
@@ -59,7 +63,72 @@ function dauerWaehlen(zufall) {
   ]);
 }
 
-export function erzeugeElemente(zufall) {
+// Stellen der Gates: Ecken nach Segment i, nicht nach dem ersten und nicht vor
+// dem letzten Segment, nicht am Vollkreis und nicht vor einer relativen Ecke, weil
+// die Ecke im Gate verschwindet. Zwischen zwei Gates liegen mindestens zwei
+// Segmente. Es bleiben immer mindestens neun Stellen, und jede Wahl sperrt
+// höchstens drei, also finden sich stets mindestens drei Gates.
+function gateStellenWaehlen(zufall, anzahl, kreisNach, relativeIndizes) {
+  const moeglich = bereich(1, anzahl - 3).filter((i) => !kreisNach.includes(i) && !relativeIndizes.has(i + 1));
+  const ziel = zufall.ganzzahl(3, 4);
+  const stellen = [];
+  for (const i of zufall.mischen(moeglich)) {
+    if (stellen.length === ziel) break;
+    if (stellen.every((j) => Math.abs(i - j) >= 2)) stellen.push(i);
+  }
+  return new Set(stellen);
+}
+
+// Eine Gate-Zeile ab "kursDavor". Relativ: Betrag 20 bis 490, der neue Kurs
+// mindestens 20° vom alten. Himmelsrichtung und Gradkurs wie bei Segmenten.
+function gateZeileErzeugen(zufall, typ, kursDavor, verlauf, bilanz) {
+  let kurs;
+  let kursDanach;
+  if (typ === 'relativ') {
+    let wert;
+    do {
+      wert = zufall.auswahl([1, -1]) * zufall.ganzzahl(20, 490);
+    } while (abstand(kursDavor, normieren(kursDavor + wert)) < 20);
+    kurs = { typ, wert };
+    kursDanach = normieren(kursDavor + wert);
+  } else if (typ === 'himmelsrichtung') {
+    let index;
+    do { index = zufall.ganzzahl(0, 15); } while (!imBereich(abstand(kursDavor, himmelsrichtungGrad(index))));
+    kurs = { typ, index };
+    kursDanach = himmelsrichtungGrad(index);
+  } else {
+    let grad;
+    do { grad = zufall.ganzzahl(0, 359); } while (!imBereich(abstand(kursDavor, grad)));
+    kurs = { typ, grad };
+    kursDanach = grad;
+  }
+  const profil = profilWaehlen(zufall, verlauf, bilanz);
+  const dauer = zufall.auswahl([10, 15, 20]);
+  return { kurs, kursDanach, profil, dauer };
+}
+
+// Gate mit drei bis vier Zeilen, je Zeile etwa zur Hälfte relativ, zu je einem
+// Viertel Himmelsrichtung und Gradkurs, mindestens eine Zeile relativ
+function gateErzeugen(zufall, kursDavor, verlauf, bilanz) {
+  const typen = Array.from({ length: zufall.ganzzahl(3, 4) }, () => zufall.gewichteteAuswahl([
+    { wert: 'relativ', gewicht: 2 },
+    { wert: 'himmelsrichtung', gewicht: 1 },
+    { wert: 'grad', gewicht: 1 },
+  ]));
+  if (!typen.includes('relativ')) typen[zufall.ganzzahl(0, typen.length - 1)] = 'relativ';
+  const zeilen = [];
+  let kurs = kursDavor;
+  for (const typ of typen) {
+    const zeile = gateZeileErzeugen(zufall, typ, kurs, verlauf, bilanz);
+    zeilen.push(zeile);
+    kurs = zeile.kursDanach;
+  }
+  return { art: 'gate', zeilen };
+}
+
+// Ohne "mitGates" zieht die Erzeugung genau dieselben Zahlen wie vor den Gates,
+// die Blätter ohne Gates bleiben also unverändert.
+export function erzeugeElemente(zufall, mitGates = false) {
   const anzahl = zufall.ganzzahl(18, 22);
 
   // Vollkreise folgen auf Segment a und b, mit mindestens zwei Segmenten davor,
@@ -72,6 +141,7 @@ export function erzeugeElemente(zufall) {
   const himmelsIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(3, 4), mitKurs));
   // Rechenaufgaben auch an Segmenten ohne Kurs, wie in der Vorlage (/30" mit +115)
   const rechenIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(4, 5), bereich(0, anzahl - 1)));
+  const gateNach = mitGates ? gateStellenWaehlen(zufall, anzahl, kreisNach, relativeIndizes) : new Set();
 
   const verlauf = [];
   const bilanz = { horizontal: 0, steigen: 0, sinken: 0 };
@@ -107,6 +177,14 @@ export function erzeugeElemente(zufall) {
       const erste = profilWaehlen(zufall, verlauf, bilanz);
       const zweite = profilWaehlen(zufall, verlauf, bilanz);
       elemente.push({ art: 'vollkreis', richtung: null, profile: [erste, zweite] });
+    }
+
+    // Nach dem Gate gilt der Kurs der letzten Zeile; das nächste Segment trägt
+    // immer einen Kurs und wird gegen diesen gewählt
+    if (gateNach.has(i)) {
+      const gate = gateErzeugen(zufall, kurs, verlauf, bilanz);
+      elemente.push(gate);
+      kurs = gate.zeilen[gate.zeilen.length - 1].kursDanach;
     }
   }
 
@@ -214,6 +292,71 @@ function segmentBeschriftung(element, mitte, seite) {
   };
 }
 
+const GATE_PFEILE = { horizontal: '→', steigen: '↗', sinken: '↘' };
+
+// Zeile eines Gates: erster Wert, Pfeil für das Profil, Dauer. Relativwerte mit
+// Vorzeichen, Himmelsrichtung englisch, Gradkurs dreistellig mit Gradzeichen.
+function gateZeileText(zeile) {
+  const { kurs } = zeile;
+  let wert;
+  if (kurs.typ === 'relativ') wert = vorzeichenText(kurs.wert);
+  else if (kurs.typ === 'himmelsrichtung') wert = himmelsrichtungName(kurs.index, SCHREIBWEISE.zeichnung);
+  else wert = `${kursText(kurs.grad)}°`;
+  return `${wert} ${GATE_PFEILE[zeile.profil]} ${zeile.dauer}"`;
+}
+
+// Weg vom Kastenmittelpunkt in Richtung "richtung" bis zum Rand
+function bisZumRand(richtung, halbeBreite, halbeHoehe) {
+  return Math.min(halbeBreite / Math.abs(richtung.x), halbeHoehe / Math.abs(richtung.y));
+}
+
+// Achsenparalleler Kasten eines Gates um seine Zeilentexte "texte". Die Ankunft
+// liegt auf dem Rand, der Mittelpunkt in Richtung des alten Kurses dahinter; der
+// Austritt ist der Punkt, an dem der neue Kurs vom Mittelpunkt aus den Rand verlässt.
+function gateKasten(texte, ankunft, kursVorher, kursNachher) {
+  const halbeBreite = (6.2 * laengsteZeile(texte) + 10) / 2;
+  const halbeHoehe = (texte.length * ZEILENABSTAND + 8) / 2;
+  const d = vektor(kursVorher);
+  const t = bisZumRand(d, halbeBreite, halbeHoehe);
+  const mitte = { x: ankunft.x + d.x * t, y: ankunft.y + d.y * t };
+  const d2 = vektor(kursNachher);
+  const t2 = bisZumRand(d2, halbeBreite, halbeHoehe);
+  const austritt = { x: mitte.x + d2.x * t2, y: mitte.y + d2.y * t2 };
+  const linkerRand = mitte.x - halbeBreite;
+  const rechterRand = mitte.x + halbeBreite;
+  const obererRand = mitte.y - halbeHoehe;
+  const untererRand = mitte.y + halbeHoehe;
+  // Ecken im Uhrzeigersinn ab links oben, die erste am Ende wiederholt
+  const punkte = [
+    { x: linkerRand, y: obererRand }, { x: rechterRand, y: obererRand }, { x: rechterRand, y: untererRand },
+    { x: linkerRand, y: untererRand }, { x: linkerRand, y: obererRand },
+  ];
+  const pfad = `M ${punktText(punkte[0])} L ${punktText(punkte[1])} L ${punktText(punkte[2])} L ${punktText(punkte[3])} Z`;
+  return { mitte, austritt, halbeBreite, halbeHoehe, punkte, pfad };
+}
+
+// Querstrich am Austritt eines Gates. Verlässt die Strecke den Kasten schräg,
+// ragte ein Querstrich genau am Austritt bis an den Text; er rückt deshalb auf der
+// Strecke so weit nach außen, dass keines seiner Enden mehr als 2 Einheiten in den
+// Kasten reicht. Verlässt sie ihn senkrecht, liegt er auf dem Kastenrand.
+function austrittsMarke(austritt, kurs, ecken) {
+  const d = vektor(kurs);
+  const n = rechts(kurs);
+  const minX = ecken[0].x + 2;
+  const minY = ecken[0].y + 2;
+  const maxX = ecken[2].x - 2;
+  const maxY = ecken[2].y - 2;
+  let weg = 0;
+  for (const seite of [1, -1]) {
+    const ende = { x: austritt.x + seite * MARKENLAENGE * n.x, y: austritt.y + seite * MARKENLAENGE * n.y };
+    if (ende.x <= minX || ende.x >= maxX || ende.y <= minY || ende.y >= maxY) continue;
+    const wegX = d.x > 0 ? (maxX - ende.x) / d.x : d.x < 0 ? (minX - ende.x) / d.x : Infinity;
+    const wegY = d.y > 0 ? (maxY - ende.y) / d.y : d.y < 0 ? (minY - ende.y) / d.y : Infinity;
+    weg = Math.max(weg, Math.min(wegX, wegY));
+  }
+  return { x: austritt.x + weg * d.x, y: austritt.y + weg * d.y };
+}
+
 // Beschriftung einer relativen Ecke, waagrecht außen am Bogen. Sie rückt um den
 // Teil der halben Textbreite weiter nach außen, der in Richtung der Versetzung
 // zeigt, damit der Text nicht in den Bogen ragt.
@@ -229,6 +372,8 @@ function umrissBerechnen(stuecke, beschriftungen) {
   const ys = [];
   for (const s of stuecke) for (const q of s.punkte) { xs.push(q.x); ys.push(q.y); }
   for (const b of beschriftungen) {
+    // Gate-Texte liegen im Kasten, dessen Ecken schon zählen
+    if (b.gate) continue;
     const halbeBreite = 3 + HALBE_ZEICHENBREITE * laengsteZeile(b.zeilen);
     const halbeHoehe = 5 + (b.zeilen.length - 1) * ZEILENABSTAND;
     xs.push(b.x - halbeBreite, b.x + halbeBreite);
@@ -246,8 +391,37 @@ function bahn(elemente) {
   let punkt = { x: 0, y: 0 };
   let kurs = null;
   let profil = null; // Profil des zuletzt geflogenen Stücks
+  let austrittsKasten = null; // Ecken des Gates, an dessen Austritt das nächste Segment beginnt
 
-  for (const element of elemente) {
+  for (let n = 0; n < elemente.length; n++) {
+    const element = elemente[n];
+    if (element.art === 'gate') {
+      // Das nächste Element ist immer ein Segment mit Kurs; es beginnt am
+      // Austritt ohne Bogen, sein Querstrich markiert den Austritt
+      const texte = element.zeilen.map(gateZeileText);
+      const kasten = gateKasten(texte, punkt, kurs, elemente[n + 1].kurs);
+      stuecke.push({ art: 'gate', profil: null, pfad: kasten.pfad, punkte: kasten.punkte, laenge: 0, schleife: false });
+      beschriftungen.push({
+        eigeneStuecke: [stuecke.length - 1],
+        varianten: [{
+          zeilen: texte,
+          x: kasten.mitte.x,
+          y: kasten.mitte.y,
+          winkel: 0,
+          mitte: null,
+          kurs: null,
+          gate: true,
+          halbeBreite: kasten.halbeBreite,
+          halbeHoehe: kasten.halbeHoehe,
+        }],
+      });
+      punkt = kasten.austritt;
+      austrittsKasten = kasten.punkte;
+      kurs = null; // wie am Anfang: keine Ecke vor dem nächsten Segment
+      profil = element.zeilen[element.zeilen.length - 1].profil;
+      continue;
+    }
+
     if (element.art === 'vollkreis') {
       const erste = bogen(punkt, kurs, 180, element.richtung, KREISRADIUS);
       const zweite = bogen(erste.ende, erste.kursNach, 180, element.richtung, KREISRADIUS);
@@ -282,7 +456,8 @@ function bahn(elemente) {
       punkt = ecke.ende;
     }
 
-    marken.push({ punkt, kurs: element.kurs });
+    marken.push({ punkt: austrittsKasten ? austrittsMarke(punkt, element.kurs, austrittsKasten) : punkt, kurs: element.kurs });
+    austrittsKasten = null;
     const gerade = strecke(punkt, element.kurs, element.dauer * SEKUNDE_LAENGE);
     stuecke.push({ art: 'strecke', profil: element.profil, pfad: gerade.pfad, punkte: gerade.punkte, laenge: gerade.laenge, schleife: false });
     beschriftungen.push({
@@ -298,7 +473,8 @@ function bahn(elemente) {
   }
 
   // Eigene Stücke einer Beschriftung: ihr Stück und die angrenzenden, bei einem
-  // Segment die Bögen davor und danach, bei einer Ecke die Strecken davor und danach
+  // Segment die Bögen davor und danach, bei einer Ecke und einem Gate die Strecken
+  // davor und danach. Die Strecken enden am Kastenrand, der Kasten deckt sie dort ab.
   for (const b of beschriftungen) {
     const eigenes = b.eigeneStuecke[0];
     const nachbarArt = stuecke[eigenes].art === 'strecke' ? 'bogen' : 'strecke';
@@ -326,12 +502,17 @@ export function geometrie(elemente) {
 // Bogens. Frei heißt: kein fremdes Stück und keine schon gesetzte Beschriftung
 // stört. Ist keine Lage frei, bleibt die erste; das verwirft dann die Auswahl.
 // So hält es auch die Vorlage: die Beschriftung steht dort, wo Platz ist.
+// Gate-Texte stehen fest in ihrem Kasten; die übrigen weichen ihnen von Anfang an aus.
 function beschriftungenSetzen(stuecke, entwuerfe) {
   const kaesten = stuecke.map((s) => kasten(s.punkte));
   const gesetzt = [];
-  const kapseln = [];
+  const kapseln = entwuerfe.filter((e) => e.varianten[0].gate).map((e) => beschriftungKapsel(e.varianten[0]));
   for (const entwurf of entwuerfe) {
     const varianten = entwurf.varianten.map((v) => ({ ...v, eigeneStuecke: entwurf.eigeneStuecke }));
+    if (varianten[0].gate) {
+      gesetzt.push(varianten[0]);
+      continue;
+    }
     let wahl = varianten[0];
     for (const v of varianten) {
       if (!beschriftungStoert(v, beschriftungKapsel(v), stuecke, kaesten, kapseln)) {
@@ -436,18 +617,20 @@ export function zaehleKreuzungen(stuecke, grenze = Infinity) {
   return anzahl;
 }
 
-// Kleinster Abstand zwischen zwei Stücken, die mindestens eine Strecke trennt.
-// Stücke, zwischen denen nur Bögen liegen, gehören zu einer Figur: an einer Ecke
-// die beiden Strecken (Sehne des Eckbogens, bei 20° nur gut 4 Einheiten), am
-// Vollkreis alles, was den Berührpunkt teilt, und die Schleife. Bricht ab, sobald
-// ein Abstand unter "grenze" gefunden ist; sonst ist das Ergebnis genau.
+// Kleinster Abstand zwischen zwei Stücken, die mindestens eine Strecke oder ein
+// Gate-Kasten trennt. Stücke, zwischen denen nur Bögen liegen, gehören zu einer
+// Figur: an einer Ecke die beiden Strecken (Sehne des Eckbogens, bei 20° nur gut
+// 4 Einheiten), am Vollkreis alles, was den Berührpunkt teilt, und die Schleife.
+// Die Strecken vor und nach einem Gate zählen dagegen: Liegt der Austritt nahe
+// der Ankunft, liefen sie übereinander. Bricht ab, sobald ein Abstand unter
+// "grenze" gefunden ist; sonst ist das Ergebnis genau.
 export function kleinsterAbstand(stuecke, grenze = 0) {
   const kaesten = stuecke.map((s) => kasten(s.punkte));
   let kleinster = Infinity;
   for (let i = 0; i < stuecke.length; i++) {
     let getrennt = false;
     for (let j = i + 2; j < stuecke.length; j++) {
-      if (stuecke[j - 1].art === 'strecke') getrennt = true;
+      if (stuecke[j - 1].art === 'strecke' || stuecke[j - 1].art === 'gate') getrennt = true;
       if (!getrennt) continue;
       if (kastenAbstand(kaesten[i], kaesten[j]) >= kleinster) continue;
       const d = zugAbstand(stuecke[i].punkte, stuecke[j].punkte);
@@ -462,8 +645,16 @@ export function kleinsterAbstand(stuecke, grenze = 0) {
 
 // Fläche einer Beschriftung als Kapsel: Achse längs der Zeilen durch die Blockmitte,
 // Radius halbe Blockhöhe. Die Halbbreite folgt der gemessenen Zeichenbreite, damit
-// auch die Zeilenenden geschützt sind.
+// auch die Zeilenenden geschützt sind. Ein Gate-Text belegt die Kapsel, die dem
+// Kasten einbeschrieben ist; so steht auch innen im Kasten keine fremde Beschriftung.
 function beschriftungKapsel(b) {
+  if (b.gate) {
+    const radius = b.halbeHoehe;
+    const achse = Math.max(0, b.halbeBreite - radius);
+    const a = { x: b.x - achse, y: b.y };
+    const e = { x: b.x + achse, y: b.y };
+    return { a, e, radius, umfang: { minX: a.x - radius, minY: b.y - radius, maxX: e.x + radius, maxY: b.y + radius } };
+  }
   const w = (b.winkel * Math.PI) / 180;
   const laengs = { x: Math.cos(w), y: Math.sin(w) };
   const unten = { x: -Math.sin(w), y: Math.cos(w) };
@@ -571,11 +762,11 @@ function besserErsatz(roh, geoHolen, kreuzungen, ersatz) {
 // freien Beschriftungen. Unter den zulässigen gewinnt die höchste Füllung, bei
 // Gleichstand der frühere. Die Prüfungen laufen billig zuerst und nur so weit, wie
 // sie das Ergebnis noch ändern können; es ist dasselbe wie bei voller Prüfung aller.
-export function erzeugeParcours(zufall) {
+export function erzeugeParcours(zufall, mitGates = false) {
   let bester = null;
   let ersatz = null;
   for (let kandidat = 1; kandidat <= KANDIDATEN; kandidat++) {
-    const elemente = erzeugeElemente(zufall);
+    const elemente = erzeugeElemente(zufall, mitGates);
     const roh = bahn(elemente);
     if (bester && fuellungObergrenze(roh.stuecke) <= bester.fuellung) continue;
     const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity));
