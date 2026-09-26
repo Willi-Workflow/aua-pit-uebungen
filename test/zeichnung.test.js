@@ -82,8 +82,9 @@ test('Gate-Blatt 3: je Gate ein weißer Kasten nach den Linien und vor Marken un
     const rect = `<rect class="gate" x="${zahl(Math.min(...xs))}" y="${zahl(Math.min(...ys))}" width="${zahl(Math.max(...xs) - Math.min(...xs))}" height="${zahl(Math.max(...ys) - Math.min(...ys))}"/>`;
     assert.ok(gateSvg.includes(rect), `Kasten fehlt: ${rect}`);
   }
-  // Reihenfolge: alle Linien, dann Kästen, dann Marken und Texte
-  assert.ok(gateSvg.lastIndexOf('<path ') < gateSvg.indexOf('<rect '), 'Kasten vor einer Linie');
+  // Reihenfolge: alle Linien, dann Kästen, dann Marken, Flugzeug und Texte
+  const letzteLinie = Math.max(...['horizontal', 'rand', 'sinken', 'steigen'].map((k) => gateSvg.lastIndexOf(`<path class="${k}"`)));
+  assert.ok(letzteLinie < gateSvg.indexOf('<rect '), 'Kasten vor einer Linie');
   assert.ok(gateSvg.lastIndexOf('<rect ') < gateSvg.indexOf('class="marke"'), 'Kasten nach einer Marke');
   assert.ok(gateSvg.lastIndexOf('<rect ') < gateSvg.indexOf('<text '), 'Kasten nach einem Text');
   // Kasten weiß mit schwarzem Rand 1,5, Gate-Text linksbündig
@@ -100,4 +101,20 @@ test('Gate-Blatt 3: je Gate ein weißer Kasten nach den Linien und vor Marken un
     const oben = b.y - ((b.zeilen.length - 1) * 9) / 2;
     assert.ok(gateSvg.includes(`<text class="gate" transform="translate(${zahl(links + 5)} ${zahl(oben)})">`), `Gate-Text an falscher Stelle: ${b.zeilen[0]}`);
   }
+});
+
+test('Flugzeugsymbol am Anfang des Parcours, in Richtung des ersten Segments gedreht', () => {
+  const start = parcours.geometrie.marken[0];
+  const m = svg.match(/<path class="flugzeug" transform="translate\(([-\d.]+) ([-\d.]+)\) rotate\(([-\d.]+)\) scale\([\d.]+\)"/);
+  assert.ok(m, 'Flugzeugsymbol fehlt');
+  const [x, y, winkel] = m.slice(1).map(Number);
+  assert.equal(winkel, start.kurs);
+  const r = (start.kurs * Math.PI) / 180;
+  const abstand = Math.hypot(x - start.punkt.x, y - start.punkt.y);
+  assert.ok(abstand > 10 && abstand < 25, `Abstand ${abstand}`);
+  // Das Symbol liegt hinter dem Startpunkt, entgegen der Flugrichtung
+  assert.ok((x - start.punkt.x) * Math.sin(r) + (y - start.punkt.y) * -Math.cos(r) < 0, 'Symbol liegt vor dem Start');
+  assert.ok(svg.includes('.parcours .flugzeug { fill: #000;'), 'Stil für das Symbol fehlt');
+  const vb = svg.match(/viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"/).slice(1).map(Number);
+  assert.ok(x - 14 >= vb[0] && y - 14 >= vb[1] && x + 14 <= vb[0] + vb[2] && y + 14 <= vb[1] + vb[3], 'Symbol ragt aus der viewBox');
 });

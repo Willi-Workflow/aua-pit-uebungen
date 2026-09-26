@@ -59,16 +59,41 @@ function beschriftung(b) {
   return `<text transform="translate(${zahl(b.x)} ${zahl(b.y)}) rotate(${zahl(b.winkel)})">${tspans(b.zeilen)}</text>`;
 }
 
+// Flugzeugsymbol am Anfang des Parcours, Nase in Richtung des ersten Segments.
+// Es sitzt kurz vor dem Startpunkt, damit es die Linie und den Querstrich nicht
+// überdeckt. Reine Zeichnung, ohne Einfluss auf Umriss und Kandidatenwahl.
+const FLUGZEUG_PFAD = 'M 0 -25 C 2 -25 3 -22 3 -18 V -8 L 27 -4 V 0 L 3 -1 V 12 L 10 15 V 18 H -10 V 15 L -3 12 V -1 L -27 0 V -4 L -3 -8 V -18 C -3 -22 -2 -25 0 -25 Z';
+const FLUGZEUG_MASSSTAB = 0.5;
+const FLUGZEUG_ABSTAND = 19;
+export const FLUGZEUG_RADIUS = 14;
+
+function flugzeugMitte(start) {
+  const r = (start.kurs * Math.PI) / 180;
+  return { x: start.punkt.x - Math.sin(r) * FLUGZEUG_ABSTAND, y: start.punkt.y + Math.cos(r) * FLUGZEUG_ABSTAND };
+}
+
+function flugzeug(start) {
+  const mitte = flugzeugMitte(start);
+  return `<path class="flugzeug" transform="translate(${zahl(mitte.x)} ${zahl(mitte.y)}) rotate(${zahl(start.kurs)}) scale(${FLUGZEUG_MASSSTAB})" d="${FLUGZEUG_PFAD}"/>`;
+}
+
 export function zeichneParcours(parcours) {
   const { stuecke, marken, beschriftungen, umriss } = parcours.geometrie;
-  const x = umriss.minX - RAND;
-  const y = umriss.minY - RAND;
-  const breite = umriss.maxX - umriss.minX + 2 * RAND;
-  const hoehe = umriss.maxY - umriss.minY + 2 * RAND;
+  const start = marken[0];
+  const mitte = flugzeugMitte(start);
+  const minX = Math.min(umriss.minX, mitte.x - FLUGZEUG_RADIUS);
+  const minY = Math.min(umriss.minY, mitte.y - FLUGZEUG_RADIUS);
+  const maxX = Math.max(umriss.maxX, mitte.x + FLUGZEUG_RADIUS);
+  const maxY = Math.max(umriss.maxY, mitte.y + FLUGZEUG_RADIUS);
+  const x = minX - RAND;
+  const y = minY - RAND;
+  const breite = maxX - minX + 2 * RAND;
+  const hoehe = maxY - minY + 2 * RAND;
   const teile = [
     ...stuecke.filter((s) => s.art !== 'gate').map(stueck),
     ...stuecke.filter((s) => s.art === 'gate').map(gateKasten),
     ...marken.map(marke),
+    flugzeug(start),
     ...beschriftungen.map(beschriftung),
   ];
   return `<svg xmlns="http://www.w3.org/2000/svg" class="parcours" viewBox="${zahl(x)} ${zahl(y)} ${zahl(breite)} ${zahl(hoehe)}" role="img" aria-label="Parcours">
@@ -79,6 +104,7 @@ export function zeichneParcours(parcours) {
 .parcours .marke { stroke: #000; stroke-width: 1.2; }
 .parcours text { font: 9px system-ui, -apple-system, sans-serif; text-anchor: middle; dominant-baseline: middle; }
 .parcours rect.gate { fill: #fff; stroke: #000; stroke-width: 1.5; }
+.parcours .flugzeug { fill: #000; stroke: none; }
 .parcours text.gate { text-anchor: start; }
 </style>
 ${teile.join('\n')}
