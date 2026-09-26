@@ -5,8 +5,12 @@
 // weißer Linie darüber; steigen = dasselbe, die weiße Linie gestrichelt, so dass
 // die Lücken als Sprossen erscheinen. Gates sind weiße Kästen mit dünnem Rand,
 // gezeichnet über den Linien, damit sie die ankommende Linie sauber abschneiden.
+//
+// Das Blatt ist so gedreht, dass der Start oben liegt; jede Richtung ist in der
+// Geometrie schon als Kurs minus Drehung gezeichnet. Ein Nordpfeil oben rechts
+// zeigt, wo Norden liegt, wie in der Handzeichnung.
 
-import { ZEILENABSTAND, MARKENLAENGE, FLUGZEUG_RADIUS } from './parcours.js';
+import { ZEILENABSTAND, MARKENLAENGE, FLUGZEUG_RADIUS, vektor } from './parcours.js';
 
 // Rand um den Umriss: Querstriche ragen höchstens 9,6 Einheiten über die Mittellinie
 export const RAND = 15;
@@ -23,9 +27,9 @@ function stueck(s) {
   return `<path class="rand" d="${s.pfad}"/><path class="${s.profil}" d="${s.pfad}"/>`;
 }
 
-// Kurzer Strich quer zum Kurs am Übergang zwischen zwei Elementen
+// Kurzer Strich quer zur gezeichneten Richtung am Übergang zwischen zwei Elementen
 function marke(m) {
-  const r = (m.kurs * Math.PI) / 180;
+  const r = (m.gezeichnet * Math.PI) / 180;
   const nx = Math.cos(r) * MARKENLAENGE;
   const ny = Math.sin(r) * MARKENLAENGE;
   return `<line class="marke" x1="${zahl(m.punkt.x - nx)}" y1="${zahl(m.punkt.y - ny)}" x2="${zahl(m.punkt.x + nx)}" y2="${zahl(m.punkt.y + ny)}"/>`;
@@ -59,7 +63,7 @@ function beschriftung(b) {
   return `<text transform="translate(${zahl(b.x)} ${zahl(b.y)}) rotate(${zahl(b.winkel)})">${tspans(b.zeilen)}</text>`;
 }
 
-// Flugzeugsymbol am Anfang des Parcours, Nase in Richtung des ersten Segments.
+// Flugzeugsymbol am Anfang des Parcours, Nase in gezeichneter Richtung des ersten Segments.
 // Es sitzt kurz vor dem Startpunkt, damit es die Linie und den Querstrich nicht
 // überdeckt. Die Lage kommt aus der Geometrie, dort hält die Kandidatensuche
 // Linien und Beschriftungen vom Symbol fern; zum Umriss zählt es nicht.
@@ -67,17 +71,68 @@ const FLUGZEUG_PFAD = 'M 0 -25 C 2 -25 3 -22 3 -18 V -8 L 27 -4 V 0 L 3 -1 V 12 
 const FLUGZEUG_MASSSTAB = 0.5;
 
 function flugzeug(mitte, start) {
-  return `<path class="flugzeug" transform="translate(${zahl(mitte.x)} ${zahl(mitte.y)}) rotate(${zahl(start.kurs)}) scale(${FLUGZEUG_MASSSTAB})" d="${FLUGZEUG_PFAD}"/>`;
+  return `<path class="flugzeug" transform="translate(${zahl(mitte.x)} ${zahl(mitte.y)}) rotate(${zahl(start.gezeichnet)}) scale(${FLUGZEUG_MASSSTAB})" d="${FLUGZEUG_PFAD}"/>`;
 }
 
+// Pfeil der Länge "laenge" mit Mitte "mitte" nach Norden der Zeichnung, also in
+// Richtung minus Drehung: Schaft vom Ende bis zur Basis der Spitze, Spitze als
+// Dreieck mit halber Breite "breite". "pfad(zahl)" schreibt ihn als einen Pfad.
+function pfeil(mitte, drehung, laenge, spitze, breite) {
+  const v = vektor(-drehung);
+  const quer = { x: -v.y, y: v.x };
+  const punkt = (laengs, seitlich = 0) => ({ x: mitte.x + v.x * laengs + quer.x * seitlich, y: mitte.y + v.y * laengs + quer.y * seitlich });
+  const ende = punkt(-laenge / 2);
+  const kopf = punkt(laenge / 2);
+  const basis = punkt(laenge / 2 - spitze);
+  const links = punkt(laenge / 2 - spitze, breite);
+  const rechts = punkt(laenge / 2 - spitze, -breite);
+  const pfad = (z) => `M ${z(ende.x)} ${z(ende.y)} L ${z(basis.x)} ${z(basis.y)} M ${z(kopf.x)} ${z(kopf.y)} L ${z(links.x)} ${z(links.y)} L ${z(rechts.x)} ${z(rechts.y)} Z`;
+  return { v, ende, kopf, links, rechts, pfad };
+}
+
+// Nordpfeil: Mitte 30 Einheiten rechts und unterhalb der oberen rechten Ecke
+// des Umrisses samt Flugzeugsymbol, Länge 44, davor ein fettes "N" 8 Einheiten
+// hinter der Spitze. Zeigt Norden nach links, reichte das "N" dort bis an den
+// Umriss (Blatt 50 mit Drehung 90: "N" auf dem Vollkreis); dann rückt der Pfeil
+// nach rechts, bis Pfeil und "N" wie ein nach rechts zeigender Pfeil 8 Einheiten
+// Luft haben. Reine Zeichnung, ohne Einfluss auf die Auswahl.
+const NORDPFEIL_VERSATZ = 30;
+const NORDPFEIL_LUFT = 8;
+const NORDPFEIL_LAENGE = 44;
+const NORDPFEIL_SPITZE = 10;
+const NORDPFEIL_BREITE = 4.5;
+const NORD_ABSTAND = 8;
+// Platz, den das "N" um seinen Mittelpunkt braucht (Schrift 9, fett)
+const NORD_RADIUS = 6;
+
 export function zeichneParcours(parcours) {
-  const { stuecke, marken, beschriftungen, umriss } = parcours.geometrie;
+  const { stuecke, marken, beschriftungen, umriss, drehung } = parcours.geometrie;
   const start = marken[0];
   const { mitte } = parcours.geometrie.flugzeug;
-  const minX = Math.min(umriss.minX, mitte.x - FLUGZEUG_RADIUS);
-  const minY = Math.min(umriss.minY, mitte.y - FLUGZEUG_RADIUS);
-  const maxX = Math.max(umriss.maxX, mitte.x + FLUGZEUG_RADIUS);
-  const maxY = Math.max(umriss.maxY, mitte.y + FLUGZEUG_RADIUS);
+  let minX = Math.min(umriss.minX, mitte.x - FLUGZEUG_RADIUS);
+  let minY = Math.min(umriss.minY, mitte.y - FLUGZEUG_RADIUS);
+  let maxX = Math.max(umriss.maxX, mitte.x + FLUGZEUG_RADIUS);
+  let maxY = Math.max(umriss.maxY, mitte.y + FLUGZEUG_RADIUS);
+  const nordpfeil = (mitte) => {
+    const p = pfeil(mitte, drehung, NORDPFEIL_LAENGE, NORDPFEIL_SPITZE, NORDPFEIL_BREITE);
+    return { ...p, n: { x: p.kopf.x + p.v.x * NORD_ABSTAND, y: p.kopf.y + p.v.y * NORD_ABSTAND } };
+  };
+  // Wie weit Pfeil und "N" links von ihrer Mitte reichen
+  const probe = nordpfeil({ x: 0, y: 0 });
+  const links = Math.min(probe.ende.x, probe.kopf.x, probe.links.x, probe.rechts.x, probe.n.x - NORD_RADIUS);
+  const nord = nordpfeil({ x: maxX + Math.max(NORDPFEIL_VERSATZ, NORDPFEIL_LUFT - links), y: minY + NORDPFEIL_VERSATZ });
+  const { n } = nord;
+  // Die viewBox wächst um Pfeil und "N", wie um das Flugzeugsymbol
+  for (const p of [nord.ende, nord.kopf, nord.links, nord.rechts]) {
+    minX = Math.min(minX, p.x - 1);
+    minY = Math.min(minY, p.y - 1);
+    maxX = Math.max(maxX, p.x + 1);
+    maxY = Math.max(maxY, p.y + 1);
+  }
+  minX = Math.min(minX, n.x - NORD_RADIUS);
+  minY = Math.min(minY, n.y - NORD_RADIUS);
+  maxX = Math.max(maxX, n.x + NORD_RADIUS);
+  maxY = Math.max(maxY, n.y + NORD_RADIUS);
   const x = minX - RAND;
   const y = minY - RAND;
   const breite = maxX - minX + 2 * RAND;
@@ -88,6 +143,8 @@ export function zeichneParcours(parcours) {
     ...marken.map(marke),
     flugzeug(mitte, start),
     ...beschriftungen.map(beschriftung),
+    `<path class="nordpfeil" d="${nord.pfad(zahl)}"/>`,
+    `<text class="nord" transform="translate(${zahl(n.x)} ${zahl(n.y)})">N</text>`,
   ];
   return `<svg xmlns="http://www.w3.org/2000/svg" class="parcours" viewBox="${zahl(x)} ${zahl(y)} ${zahl(breite)} ${zahl(hoehe)}" role="img" aria-label="Parcours">
 <style>
@@ -99,16 +156,23 @@ export function zeichneParcours(parcours) {
 .parcours rect.gate { fill: #fff; stroke: #000; stroke-width: 1.5; }
 .parcours .flugzeug { fill: #000; stroke: none; }
 .parcours text.gate { text-anchor: start; }
+.parcours .nordpfeil { fill: #000; stroke: #000; stroke-width: 1.5; stroke-linejoin: round; }
+.parcours text.nord { font-weight: 700; }
 </style>
 ${teile.join('\n')}
 </svg>`;
 }
 
 // Vorschau für die Blattliste: nur der Weg, ohne Profile, Marken und
-// Beschriftungen. Stile stehen als Attribute im Bild, damit die Datei allein in
-// <img> taugt. Eine Nachkommastelle reicht bei Vorschaugröße und hält die
-// Dateien klein.
+// Beschriftungen, dazu ein kleiner Nordpfeil ohne Buchstaben. Stile stehen als
+// Attribute im Bild, damit die Datei allein in <img> taugt. Eine Nachkommastelle
+// reicht bei Vorschaugröße und hält die Dateien klein.
 const VORSCHAU_RAND = 20;
+// Nordpfeil der Vorschau, Länge 16, Strich 3: Mitte 10 Einheiten außerhalb der
+// oberen rechten Ecke des Umrisses, so dass er ganz im Rand liegt
+const VORSCHAU_PFEIL_LAENGE = 16;
+const VORSCHAU_PFEIL_SPITZE = 6;
+const VORSCHAU_PFEIL_BREITE = 3.5;
 
 function zahlKurz(wert) {
   return Number(wert.toFixed(1)).toString();
@@ -128,19 +192,21 @@ function vorschauKasten(s) {
 }
 
 export function zeichneVorschau(parcours) {
-  const { stuecke, umriss } = parcours.geometrie;
+  const { stuecke, umriss, drehung } = parcours.geometrie;
   const x = umriss.minX - VORSCHAU_RAND;
   const y = umriss.minY - VORSCHAU_RAND;
   const breite = umriss.maxX - umriss.minX + 2 * VORSCHAU_RAND;
   const hoehe = umriss.maxY - umriss.minY + 2 * VORSCHAU_RAND;
   const linien = stuecke.filter((s) => s.art !== 'gate').map((s) => `<path d="${pfadKurz(s.pfad)}"/>`);
   const kaesten = stuecke.filter((s) => s.art === 'gate').map(vorschauKasten);
+  const nord = pfeil({ x: umriss.maxX + VORSCHAU_RAND / 2, y: umriss.minY + VORSCHAU_RAND / 2 }, drehung, VORSCHAU_PFEIL_LAENGE, VORSCHAU_PFEIL_SPITZE, VORSCHAU_PFEIL_BREITE);
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${zahlKurz(x)} ${zahlKurz(y)} ${zahlKurz(breite)} ${zahlKurz(hoehe)}" preserveAspectRatio="xMidYMid meet">`,
     '<g fill="none" stroke="#000" stroke-width="11" stroke-linecap="round">',
     ...linien,
     '</g>',
     ...kaesten,
+    `<path class="nordpfeil" d="${nord.pfad(zahlKurz)}" fill="#000" stroke="#000" stroke-width="3" stroke-linejoin="round"/>`,
     '</svg>',
     '',
   ].join('\n');

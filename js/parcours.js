@@ -243,7 +243,7 @@ export function erzeugeElemente(zufall, mitGates = false, start = null) {
 }
 
 // Richtungsvektor eines Kurses im Bildschirmkoordinatensystem (Norden ist -y)
-function vektor(kurs) {
+export function vektor(kurs) {
   const r = (kurs * Math.PI) / 180;
   return { x: Math.sin(r), y: -Math.cos(r) };
 }
