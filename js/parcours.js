@@ -57,10 +57,10 @@ export function erzeugeElemente(zufall) {
   const kreisNach = [zufall.ganzzahl(1, anzahl - 4)];
   kreisNach.push(zufall.ganzzahl(kreisNach[0] + 2, anzahl - 2));
 
-  const relativeIndizen = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(3, 4), bereich(1, anzahl - 1)));
-  const mitKurs = bereich(0, anzahl - 1).filter((i) => !relativeIndizen.has(i));
-  const himmelsIndizen = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(3, 4), mitKurs));
-  const rechenIndizen = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(4, 5), mitKurs));
+  const relativeIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(3, 4), bereich(1, anzahl - 1)));
+  const mitKurs = bereich(0, anzahl - 1).filter((i) => !relativeIndizes.has(i));
+  const himmelsIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(3, 4), mitKurs));
+  const rechenIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(4, 5), mitKurs));
 
   const verlauf = [];
   const bilanz = { horizontal: 0, steigen: 0, sinken: 0 };
@@ -69,13 +69,13 @@ export function erzeugeElemente(zufall) {
 
   for (let i = 0; i < anzahl; i++) {
     const segment = { art: 'segment', kurs: null, anzeige: 'grad', himmelsrichtung: null, relativ: null, rechenaufgabe: null };
-    if (relativeIndizen.has(i)) {
+    if (relativeIndizes.has(i)) {
       let winkel;
       do { winkel = zufall.ganzzahl(20, 340); } while (winkel === 180);
       segment.anzeige = 'keine';
       segment.relativ = zufall.auswahl([1, -1]) * winkel;
       segment.kurs = normieren(kurs + segment.relativ);
-    } else if (himmelsIndizen.has(i)) {
+    } else if (himmelsIndizes.has(i)) {
       let index;
       do { index = zufall.ganzzahl(0, 15); } while (kurs !== null && !imBereich(abstand(kurs, himmelsrichtungGrad(index))));
       segment.anzeige = 'himmelsrichtung';
@@ -86,7 +86,7 @@ export function erzeugeElemente(zufall) {
       do { grad = zufall.ganzzahl(0, 359); } while (kurs !== null && !imBereich(abstand(kurs, grad)));
       segment.kurs = grad;
     }
-    if (rechenIndizen.has(i)) segment.rechenaufgabe = zufall.auswahl([1, -1]) * zufall.ganzzahl(100, 350);
+    if (rechenIndizes.has(i)) segment.rechenaufgabe = zufall.auswahl([1, -1]) * zufall.ganzzahl(100, 350);
     segment.dauer = dauerWaehlen(zufall);
     segment.profil = profilWaehlen(zufall, verlauf, bilanz);
     elemente.push(segment);
