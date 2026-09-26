@@ -33,3 +33,26 @@ test('Gate-Blätter tragen in der Blattansicht den Hinweis auf die Gates', () =>
   assert.ok(ansichtFuer('#/stufe2/blatt/3').includes('Mit Gates:'));
   assert.ok(!ansichtFuer('#/stufe2/blatt/7').includes('Mit Gates:'));
 });
+
+test('Startseite zeigt die Kursrose, die Kopfleiste ihr Zeichen', () => {
+  const html = ansichtFuer('#/');
+  assert.equal((html.match(/<svg[^>]*class="kursrose"/g) || []).length, 1);
+  assert.equal((html.match(/<text class="rose-ziffer/g) || []).length, 12, 'zwölf Ziffern 0 bis 33');
+  assert.ok(/<text class="rose-ziffer ausgang"[^>]*>9<\/text>/.test(html), 'Ausgangskurs 090 hervorgehoben');
+  assert.ok(ansichtFuer('#/stufe2/blatt/7').includes('<svg class="zeichen"'));
+});
+
+test('Blattliste enthält 100 Vorschaubilder', () => {
+  const html = ansichtFuer('#/stufe2');
+  assert.equal((html.match(/<img [^>]*src="vorschau\/stufe2\//g) || []).length, 100);
+});
+
+test('Kopfleiste nennt den Ort ohne Mittelpunkte und Pfeile', () => {
+  const html = ansichtFuer('#/stufe2/blatt/7');
+  assert.ok(html.includes('<span class="ort">Stufe 2, Blatt 7</span>'));
+  for (const hash of ['#/', '#/stufe2', '#/stufe2/blatt/7', '#/stufe3', '#/stufe2/endlos']) {
+    const ansicht = ansichtFuer(hash);
+    assert.ok(!ansicht.includes('·'), `Mittelpunkt in ${hash}`);
+    assert.ok(!ansicht.includes('←'), `Pfeil in ${hash}`);
+  }
+});
