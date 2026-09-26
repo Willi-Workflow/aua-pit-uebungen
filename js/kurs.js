@@ -34,7 +34,7 @@ export function istGanzzahl(grad) {
 
 // Dreistellig mit führenden Nullen, wie in der Luftfahrt üblich
 export function kursText(grad) {
-  return String(Math.round(normieren(grad))).padStart(3, '0');
+  return String(normieren(Math.round(grad))).padStart(3, '0');
 }
 
 export function himmelsrichtungGrad(index) {

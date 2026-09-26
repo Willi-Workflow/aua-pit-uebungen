@@ -40,6 +40,8 @@ test('kursText ist dreistellig', () => {
   assert.equal(kursText(5), '005');
   assert.equal(kursText(90), '090');
   assert.equal(kursText(360), '000');
+  assert.equal(kursText(359.5), '000');
+  assert.equal(kursText(-0.3), '000');
 });
 
 test('Himmelsrichtungen in beiden Schreibweisen', () => {
