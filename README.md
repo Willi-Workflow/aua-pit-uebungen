@@ -48,3 +48,11 @@ Braucht Node 20 oder neuer, keine Abhängigkeiten.
 | `js/app.js` | Adressen und Ansichten |
 
 Entwurf und Plan liegen unter `docs/superpowers/`.
+
+## Vorschaubilder
+
+Die Blattliste zeigt zu jedem Blatt ein kleines Bild des Parcours. Die Bilder liegen fertig unter `vorschau/stufe2/<nummer>.svg`, weil 100 Blätter im Browser zu lange zum Berechnen bräuchten. Erzeugt werden sie von `werkzeuge/vorschauen.js` über `zeichneVorschau` in `js/zeichnung.js`:
+
+    npm run vorschauen
+
+Nach jeder Änderung an der Erzeugung der Blätter (Textteil, Parcours, Zufall, Zeichnung der Vorschau) muss dieser Befehl laufen und die neuen Bilder gehören mit in den Commit. Die Prüfung `test/vorschau.test.js` erzwingt das: Sie vergleicht eine Stichprobe der Dateien mit dem aktuellen Erzeuger und schlägt mit dem Hinweis auf `npm run vorschauen` fehl, wenn die Bilder veraltet sind.
