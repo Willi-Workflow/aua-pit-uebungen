@@ -63,20 +63,29 @@ function dauerWaehlen(zufall) {
   ]);
 }
 
-// Stellen der Gates: Ecken nach Segment i, nicht nach dem ersten und nicht vor
-// dem letzten Segment, nicht am Vollkreis und nicht vor einer relativen Ecke, weil
-// die Ecke im Gate verschwindet. Zwischen zwei Gates liegen mindestens zwei
-// Segmente. Es bleiben immer mindestens neun Stellen, und jede Wahl sperrt
-// höchstens drei, also finden sich stets mindestens drei Gates.
-function gateStellenWaehlen(zufall, anzahl, kreisNach, relativeIndizes) {
-  const moeglich = bereich(1, anzahl - 3).filter((i) => !kreisNach.includes(i) && !relativeIndizes.has(i + 1));
-  const ziel = zufall.ganzzahl(3, 4);
+// Nimmt Stellen in der gegebenen Reihenfolge, solange sie zu allen gewählten
+// mindestens 2 Abstand haben, bis "ziel" erreicht ist
+function stellenMitAbstand(reihenfolge, ziel) {
   const stellen = [];
-  for (const i of zufall.mischen(moeglich)) {
+  for (const i of reihenfolge) {
     if (stellen.length === ziel) break;
     if (stellen.every((j) => Math.abs(i - j) >= 2)) stellen.push(i);
   }
-  return new Set(stellen);
+  return stellen;
+}
+
+// Stellen der Gates: Ecken nach Segment i, nicht nach dem ersten und nicht vor
+// dem letzten Segment, nicht am Vollkreis und nicht vor einer relativen Ecke, weil
+// die Ecke im Gate verschwindet. Zwischen zwei Gates liegen mindestens zwei
+// Segmente. Bei 15 Segmenten bleiben von zwölf Stellen mindestens sechs, und
+// sechs Stellen erlauben immer drei Gates. Die zufällige Reihenfolge kann darunter
+// bleiben (1, 2, 3, 5, 6, 7 mit 2 und 6 zuerst); dann wird von links gewählt,
+// das ergibt die größte Auswahl.
+export function gateStellenWaehlen(zufall, anzahl, kreisNach, relativeIndizes) {
+  const moeglich = bereich(1, anzahl - 3).filter((i) => !kreisNach.includes(i) && !relativeIndizes.has(i + 1));
+  const ziel = zufall.ganzzahl(3, 4);
+  const stellen = stellenMitAbstand(zufall.mischen(moeglich), ziel);
+  return new Set(stellen.length >= 3 ? stellen : stellenMitAbstand(moeglich, ziel));
 }
 
 // Eine Gate-Zeile ab "kursDavor". Relativ: Betrag 20 bis 490, der neue Kurs
@@ -127,9 +136,11 @@ function gateErzeugen(zufall, kursDavor, verlauf, bilanz) {
 }
 
 // Ohne "mitGates" zieht die Erzeugung genau dieselben Zahlen wie vor den Gates,
-// die Blätter ohne Gates bleiben also unverändert.
+// die Blätter ohne Gates bleiben also unverändert. Blätter mit Gates haben 15 bis
+// 19 statt 18 bis 22 Segmente, wie die Handzeichnung mit vier Kästen; sonst
+// würde die Zeichnung so groß, dass die Schrift im Druck oft unter 6 pt fiele.
 export function erzeugeElemente(zufall, mitGates = false) {
-  const anzahl = zufall.ganzzahl(18, 22);
+  const anzahl = mitGates ? zufall.ganzzahl(15, 19) : zufall.ganzzahl(18, 22);
 
   // Vollkreise folgen auf Segment a und b, mit mindestens zwei Segmenten davor,
   // einem dazwischen und einem danach

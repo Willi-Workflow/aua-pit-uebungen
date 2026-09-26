@@ -157,7 +157,8 @@ Ein Gate ist ein eigenes Element der Kette:
 
 `kurs` ist `{ typ: 'relativ', wert }`, `{ typ: 'himmelsrichtung', index }` oder `{ typ: 'grad', grad }`, `kursDanach` der Kurs nach der Zeile.
 
-- **3 bis 4 Gates** je Gate-Blatt, an Ecken zwischen zwei Segmenten; mindestens zwei Segmente zwischen zwei Gates, keins direkt vor oder nach einem Vollkreis, keins am ersten oder letzten Segment.
+- **15 bis 19 gezeichnete Segmente** auf Gate-Blättern statt 18 bis 22, wie in der Handzeichnung mit vier Kästen; mit 18 bis 22 wurde die Zeichnung so groß, dass die Schrift im Druck bei 11 von 33 Gate-Blättern unter 6 pt lag.
+- **3 bis 4 Gates** je Gate-Blatt, an Ecken zwischen zwei Segmenten; mindestens zwei Segmente zwischen zwei Gates, keins direkt vor oder nach einem Vollkreis, keins am ersten oder letzten Segment. Auch bei 15 Segmenten bleiben dafür mindestens sechs Stellen, und die reichen immer für drei Gates.
 - **3 bis 4 Zeilen** je Gate, etwa zur Hälfte relativ, zu je einem Viertel Himmelsrichtung und Gradkurs, mindestens eine relative Zeile.
 - **Relativwerte** mit Betrag 20 bis 490 und beiden Vorzeichen; der Kurs danach liegt mindestens 20° vom Kurs davor. Himmelsrichtung und Gradkurs liegen wie bei Segmenten 20° bis 160° vom Kurs davor.
 - **Profil** über dieselbe Wahl wie bei Segmenten; die Gate-Zeilen zählen für die Bilanz und für "nie viermal hintereinander" mit. **Dauer** 10, 15 oder 20 s.

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Zufall } from '../js/zufall.js';
 import {
-  erzeugeElemente, geometrie, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, erzeugeParcours,
+  erzeugeElemente, gateStellenWaehlen, geometrie, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, erzeugeParcours,
   seitenverhaeltnisPasst, SEKUNDE_LAENGE, KANDIDATEN, ZEILENABSTAND, LINIENBREITE_ABSTAND, MARKENLAENGE,
 } from '../js/parcours.js';
 import { erzeugeBlatt, BLAETTER_JE_STUFE, hatGates } from '../js/blatt.js';
@@ -28,10 +28,13 @@ function profilFolge(elemente) {
   });
 }
 
-test('Mengen je Blatt, mit und ohne Gates', () => {
+test('Mengen je Blatt, ohne Gates 18 bis 22 Segmente, mit Gates 15 bis 19', () => {
+  for (const s of listen.map(segmente)) assert.ok(s.length >= 18 && s.length <= 22, `${s.length} Segmente ohne Gates`);
+  const gateLaengen = new Set(gateListen.map((e) => segmente(e).length));
+  for (const zahl of gateLaengen) assert.ok(zahl >= 15 && zahl <= 19, `${zahl} Segmente mit Gates`);
+  assert.ok(gateLaengen.has(15) && gateLaengen.has(19), 'Randwerte 15 und 19 kommen nicht vor');
   for (const elemente of [...listen, ...gateListen]) {
     const s = segmente(elemente);
-    assert.ok(s.length >= 18 && s.length <= 22, `${s.length} Segmente`);
     assert.equal(elemente.filter((e) => e.art === 'vollkreis').length, 2);
     const relative = s.filter((e) => e.relativ !== null).length;
     assert.ok(relative >= 3 && relative <= 4, `${relative} relative Ecken`);
@@ -141,6 +144,20 @@ test('Gates: mit Gates 3 bis 4 Gates zu je 3 bis 4 Zeilen, ohne Gates keins', ()
     for (const gate of g) assert.ok(gate.zeilen.length >= 3 && gate.zeilen.length <= 4, `${gate.zeilen.length} Zeilen`);
   }
   for (const elemente of listen) assert.equal(gates(elemente).length, 0);
+});
+
+test('Gate-Stellen: auch im ungünstigsten Fall mit 15 Segmenten mindestens drei, mit Abstand', () => {
+  // 15 Segmente: Stellen 1 bis 12; Vollkreise nach 4 und 8, relative Ecken an 10 bis 13
+  // lassen nur 1, 2, 3, 5, 6, 7 übrig. Wer zuerst 2 und 6 nimmt, bliebe bei zwei.
+  const erlaubt = [1, 2, 3, 5, 6, 7];
+  for (let i = 0; i < 300; i++) {
+    const stellen = [...gateStellenWaehlen(new Zufall(`stellen-${i}`), 15, [4, 8], new Set([10, 11, 12, 13]))];
+    assert.ok(stellen.length >= 3 && stellen.length <= 4, `${stellen.length} Gates: ${stellen}`);
+    for (const a of stellen) {
+      assert.ok(erlaubt.includes(a), `Stelle ${a}`);
+      for (const b of stellen) if (a !== b) assert.ok(Math.abs(a - b) >= 2, `${a} und ${b} zu nah`);
+    }
+  }
 });
 
 test('Gate-Zeilen: Kurs danach stimmt, mindestens 20° Kurswechsel, Relativbeträge 20 bis 490, mindestens eine relative Zeile', () => {
