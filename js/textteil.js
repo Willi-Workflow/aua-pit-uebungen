@@ -91,7 +91,8 @@ const SCHABLONEN = {
   absolut: {
     anwendbar: () => true,
     erzeugen(k) {
-      const kurs = zielGrad(k, 20, 180);
+      // Höchstens 160°, sonst wäre die Drehrichtung offen
+      const kurs = zielGrad(k, 20, 160);
       const sekunden = k.zufall.auswahl(ZEITEN);
       const profil = profilAnwenden(k, sekunden);
       k.zustand.kurs = kurs;
@@ -170,7 +171,8 @@ const SCHABLONEN = {
     erzeugen(k) {
       const richtung = k.zufall.auswahl(RICHTUNGEN);
       const erste = profilAnwenden(k, KREISHAELFTE);
-      const zweite = profilAnwenden(k, KREISHAELFTE);
+      // Die zweite Hälfte wechselt das Profil, sonst wäre die Marke bei 180° ohne Aufgabe
+      const zweite = profilAnwenden(k, KREISHAELFTE, PROFILE.filter((p) => p !== erste));
       return `Vollkreis nach ${richtung}, erste 180° ${KREISWORT[erste]}, zweite 180° ${KREISWORT[zweite]}.`;
     },
   },
@@ -179,11 +181,14 @@ const SCHABLONEN = {
     erzeugen(k) {
       const richtung = k.zufall.auswahl(RICHTUNGEN);
       const erste = profilAnwenden(k, KREISHAELFTE / 2);
-      // Das Geradeausstück danach ist horizontal. Damit daraus nicht vier gleiche
-      // Profile werden, darf die zweite Hälfte nach zwei horizontalen nicht horizontal sein.
+      // Die zweite Hälfte wechselt das Profil. Außerdem ist das Geradeausstück danach
+      // horizontal; damit daraus nicht vier gleiche Profile werden, darf die zweite
+      // Hälfte nach zwei horizontalen nicht horizontal sein.
+      const andere = PROFILE.filter((p) => p !== erste);
       const letzteZwei = k.profile.slice(-2);
-      const erlaubt = letzteZwei.length === 2 && letzteZwei.every((p) => p === 'horizontal') ? ['steigen', 'sinken'] : PROFILE;
-      const zweite = profilAnwenden(k, KREISHAELFTE / 2, erlaubt);
+      const ohneVierHorizontale = letzteZwei.length === 2 && letzteZwei.every((p) => p === 'horizontal') ? ['steigen', 'sinken'] : PROFILE;
+      const beides = andere.filter((p) => ohneVierHorizontale.includes(p));
+      const zweite = profilAnwenden(k, KREISHAELFTE / 2, beides.length > 0 ? beides : andere);
       const sekunden = k.zufall.auswahl(ZEITEN);
       horizontalAnwenden(k);
       k.zustand.kurs = gegenkurs(k.zustand.kurs);

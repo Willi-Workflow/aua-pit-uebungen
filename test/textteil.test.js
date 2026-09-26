@@ -96,6 +96,32 @@ test('kein trivialer Kurswechsel', () => {
   }
 });
 
+test('Auf Kurs drehen: Zielkurs 20 bis 160 Grad entfernt, damit die Drehrichtung eindeutig ist', () => {
+  let gesehen = 0;
+  for (const blatt of blaetter) {
+    for (const z of blatt.zeilen) {
+      if (z.schablone !== 'absolut') continue;
+      gesehen += 1;
+      const a = Math.abs(differenz(z.kursVorher, z.kursDanach));
+      assert.ok(a >= 20 && a <= 160, z.satz);
+    }
+  }
+  assert.ok(gesehen > 0);
+});
+
+test('Vollkreis und Halbkreis: die zweite Hälfte hat ein anderes Profil als die erste', () => {
+  let gesehen = 0;
+  for (const blatt of blaetter) {
+    for (const z of blatt.zeilen) {
+      if (z.schablone !== 'vollkreis' && z.schablone !== 'halbkreis') continue;
+      gesehen += 1;
+      const m = z.satz.match(MUSTER[z.schablone]);
+      assert.notEqual(m[2], m[3], z.satz);
+    }
+  }
+  assert.ok(gesehen > 0);
+});
+
 test('relative Kurve nur bei ganzzahligem Kurs, Winkel 20 bis 160', () => {
   for (const blatt of blaetter) {
     for (const z of blatt.zeilen) {
