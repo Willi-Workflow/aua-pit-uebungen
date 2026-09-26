@@ -1,0 +1,165 @@
+/* Nüchtern: Systemschrift, Schwarz auf Weiß, ein Grau für die Kopfleiste.
+   Das Blatt ist der Inhalt, alles andere tritt zurück. */
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #000;
+  background: #f3f3f3;
+}
+
+.kopf {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #e4e4e4;
+  border-bottom: 1px solid #ccc;
+}
+
+.kopf h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.kopf a,
+.kopf button {
+  font: inherit;
+  color: #000;
+  background: #fff;
+  border: 1px solid #000;
+  border-radius: 0;
+  padding: 0.4rem 0.8rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.inhalt {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.inhalt h2 {
+  font-size: 1rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.stufen {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.stufen a {
+  display: block;
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 1.3rem;
+  color: #000;
+  background: #fff;
+  border: 1px solid #000;
+  text-decoration: none;
+}
+
+.raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.2rem, 1fr));
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.raster a {
+  display: block;
+  padding: 0.6rem 0;
+  text-align: center;
+  color: #000;
+  background: #fff;
+  border: 1px solid #000;
+  text-decoration: none;
+}
+
+.blatt {
+  background: #fff;
+  padding: 1.5rem;
+  border: 1px solid #ccc;
+}
+
+.blatt h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.2rem;
+}
+
+.ausgang {
+  margin: 0 0 1rem;
+}
+
+.textteil {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.parcours {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.legende svg {
+  width: 2.2rem;
+  height: 0.8rem;
+  vertical-align: middle;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .kopf {
+    display: none;
+  }
+
+  .inhalt {
+    max-width: none;
+    padding: 0;
+  }
+
+  .blatt {
+    border: none;
+    padding: 0;
+  }
+
+  .textteil {
+    font-size: 10.5pt;
+    line-height: 1.35;
+  }
+
+  .parcours {
+    max-height: 150mm;
+  }
+}
