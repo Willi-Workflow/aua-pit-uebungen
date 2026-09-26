@@ -151,7 +151,11 @@ button:focus-visible {
 }
 
 .zurueck {
+  flex: none;
+  padding-right: 16px;
+  border-right: 1px solid var(--linie);
   font-size: 1rem;
+  line-height: 1.5rem;
   text-decoration: none;
   text-underline-offset: 3px;
   transition: color var(--uebergang);

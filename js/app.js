@@ -63,15 +63,15 @@ function kursrose(groesse, detailliert) {
     + '</svg>';
 }
 
-// Kopfleiste: links Zeichen und Name, bei Unterseiten hinter einem Trenner der
-// Ort, rechts Zurück als Textlink und die Knöpfe
+// Kopfleiste: ganz links Zurück als Textlink, dann Zeichen und Name, bei
+// Unterseiten hinter einem Trenner der Ort, rechts die Knöpfe
 function kopf(ort, zurueck, aktionen = '') {
   const aktuell = ort ? '' : ' aria-current="page"';
+  const zurueckLink = zurueck ? `<a class="zurueck" href="${zurueck}">Zurück</a>` : '';
   const marke = `<a class="marke" href="#/"${aktuell}>${kursrose(22, false)}<span class="name">${NAME}</span></a>`;
   const ortTeil = ort ? `<span class="ort">${ort}</span>` : '';
-  const zurueckLink = zurueck ? `<a class="zurueck" href="${zurueck}">Zurück</a>` : '';
-  const rechts = zurueckLink || aktionen ? `<div class="aktionen">${zurueckLink}${aktionen}</div>` : '';
-  return `<header class="kopf"><div class="kopf-innen rahmen">${marke}${ortTeil}${rechts}</div></header>`;
+  const rechts = aktionen ? `<div class="aktionen">${aktionen}</div>` : '';
+  return `<header class="kopf"><div class="kopf-innen rahmen">${zurueckLink}${marke}${ortTeil}${rechts}</div></header>`;
 }
 
 function startseite() {
