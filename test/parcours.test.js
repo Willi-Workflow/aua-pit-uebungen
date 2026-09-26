@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Zufall } from '../js/zufall.js';
-import { erzeugeElemente } from '../js/parcours.js';
+import { erzeugeElemente, geometrie, zaehleKreuzungen, erzeugeParcours, seitenverhaeltnisPasst, SEKUNDE_LAENGE, KANDIDATEN } from '../js/parcours.js';
 import { normieren, differenz } from '../js/kurs.js';
 
 const listen = Array.from({ length: 200 }, (_, i) => erzeugeElemente(new Zufall(`elemente-${i}`)));
@@ -102,4 +102,140 @@ test('kein Profil öfter als dreimal hintereinander, Vollkreishälften zählen m
 
 test('gleicher Schlüssel, gleiche Elemente', () => {
   assert.deepEqual(erzeugeElemente(new Zufall('x')), erzeugeElemente(new Zufall('x')));
+});
+
+function naheBei(a, b, toleranz = 0.01) {
+  return Math.abs(a - b) <= toleranz;
+}
+
+test('Strecke: Kurs 090 läuft nach rechts, Länge nach Dauer', () => {
+  const geo = geometrie([{ art: 'segment', kurs: 90, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 20, profil: 'horizontal', rechenaufgabe: null }]);
+  assert.equal(geo.stuecke.length, 1);
+  assert.equal(geo.stuecke[0].art, 'strecke');
+  const [start, ende] = geo.stuecke[0].punkte;
+  assert.ok(naheBei(ende.x - start.x, 20 * SEKUNDE_LAENGE));
+  assert.ok(naheBei(ende.y, start.y));
+  assert.equal(geo.marken.length, 2);
+  assert.deepEqual(geo.beschriftungen[0].zeilen, ['090°/20"']);
+});
+
+test('Strecke: Kurs 180 läuft nach unten', () => {
+  const geo = geometrie([{ art: 'segment', kurs: 180, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'sinken', rechenaufgabe: null }]);
+  const [start, ende] = geo.stuecke[0].punkte;
+  assert.ok(naheBei(ende.y - start.y, 10 * SEKUNDE_LAENGE));
+  assert.ok(naheBei(ende.x, start.x));
+});
+
+test('Ecke: Rechtskurve von 000 auf 090 endet rechts oben vom Startpunkt', () => {
+  const geo = geometrie([
+    { art: 'segment', kurs: 0, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'horizontal', rechenaufgabe: null },
+    { art: 'segment', kurs: 90, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'horizontal', rechenaufgabe: null },
+  ]);
+  assert.equal(geo.stuecke.length, 3);
+  assert.equal(geo.stuecke[1].art, 'bogen');
+  const bogen = geo.stuecke[1].punkte;
+  const anfang = bogen[0];
+  const ende = bogen[bogen.length - 1];
+  assert.ok(ende.x > anfang.x && ende.y < anfang.y, `Bogen endet bei ${ende.x}, ${ende.y}`);
+  assert.ok(geo.stuecke[1].pfad.includes(' 0 1 '), 'Rechtskurve hat sweep-flag 1');
+  assert.equal(geo.beschriftungen.length, 2);
+});
+
+test('relative Ecke wird beschriftet und ergibt den Kurs des nächsten Segments', () => {
+  const geo = geometrie([
+    { art: 'segment', kurs: 90, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'horizontal', rechenaufgabe: null },
+    { art: 'segment', kurs: 30, anzeige: 'keine', himmelsrichtung: null, relativ: -60, dauer: 15, profil: 'steigen', rechenaufgabe: null },
+  ]);
+  const texte = geo.beschriftungen.map((b) => b.zeilen.join(' '));
+  assert.ok(texte.includes('-60°'), texte.join(' | '));
+  assert.ok(texte.includes('/15"'), texte.join(' | '));
+  assert.ok(geo.stuecke[1].pfad.includes(' 0 0 '), 'Linkskurve hat sweep-flag 0');
+  const letzte = geo.stuecke[2].punkte;
+  const dx = letzte[1].x - letzte[0].x;
+  const dy = letzte[1].y - letzte[0].y;
+  assert.ok(naheBei(Math.atan2(dx, -dy) * 180 / Math.PI, 30, 0.1), 'letzte Strecke läuft auf Kurs 030');
+});
+
+test('Vollkreis: zwei Halbbögen, Rückkehr zum Ausgangspunkt, Marke bei 180°', () => {
+  const geo = geometrie([
+    { art: 'segment', kurs: 90, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'horizontal', rechenaufgabe: null },
+    { art: 'vollkreis', richtung: 'rechts', profile: ['steigen', 'horizontal'] },
+    { art: 'segment', kurs: 30, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'sinken', rechenaufgabe: null },
+  ]);
+  assert.equal(geo.stuecke.length, 5);
+  assert.equal(geo.stuecke[1].profil, 'steigen');
+  assert.equal(geo.stuecke[2].profil, 'horizontal');
+  const streckenEnde = geo.stuecke[0].punkte[1];
+  const kreisEnde = geo.stuecke[2].punkte[geo.stuecke[2].punkte.length - 1];
+  assert.deepEqual(kreisEnde, streckenEnde);
+  assert.equal(geo.marken.length, 4);
+});
+
+test('Beschriftungen: Himmelsrichtung englisch, Rechenaufgabe als zweite Zeile', () => {
+  const geo = geometrie([
+    { art: 'segment', kurs: 157.5, anzeige: 'himmelsrichtung', himmelsrichtung: 7, relativ: null, dauer: 10, profil: 'horizontal', rechenaufgabe: 340 },
+    { art: 'segment', kurs: 50, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 15, profil: 'steigen', rechenaufgabe: -230 },
+  ]);
+  assert.deepEqual(geo.beschriftungen[0].zeilen, ['SSE/10"', '+340']);
+  assert.deepEqual(geo.beschriftungen[1].zeilen, ['050°/15"', '-230']);
+  for (const b of geo.beschriftungen) assert.ok(b.winkel >= -90 && b.winkel <= 90, `Winkel ${b.winkel}`);
+});
+
+test('zaehleKreuzungen erkennt eine echte Kreuzung und ignoriert Berührungen an Enden', () => {
+  const strecke = (a, b) => ({ art: 'strecke', profil: 'horizontal', pfad: '', punkte: [a, b] });
+  const kreuz = [
+    strecke({ x: 0, y: 0 }, { x: 10, y: 0 }),
+    strecke({ x: 10, y: 0 }, { x: 10, y: 10 }),
+    strecke({ x: 10, y: 10 }, { x: 5, y: -5 }),
+  ];
+  assert.equal(zaehleKreuzungen(kreuz), 1);
+  const beruehrung = [
+    strecke({ x: 0, y: 0 }, { x: 10, y: 0 }),
+    strecke({ x: 10, y: 0 }, { x: 10, y: 10 }),
+    strecke({ x: 10, y: 10 }, { x: 0, y: 0 }),
+  ];
+  assert.equal(zaehleKreuzungen(beruehrung), 0);
+  assert.equal(zaehleKreuzungen(kreuz, 0), 1);
+});
+
+test('seitenverhaeltnisPasst', () => {
+  assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 100, maxY: 100 }), true);
+  assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 300, maxY: 100 }), false);
+  assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 50, maxY: 100 }), false);
+});
+
+test('erzeugeParcours ist bestimmt und liefert Kandidat, Kreuzungen und Umriss', () => {
+  const a = erzeugeParcours(new Zufall('stufe-2/blatt-1'));
+  const b = erzeugeParcours(new Zufall('stufe-2/blatt-1'));
+  assert.deepEqual(a, b);
+  assert.ok(a.kandidat >= 1 && a.kandidat <= KANDIDATEN);
+  assert.ok(a.kreuzungen >= 0);
+  assert.ok(a.geometrie.umriss.maxX > a.geometrie.umriss.minX);
+  assert.equal(a.geometrie.beschriftungen.length >= a.elemente.filter((e) => e.art === 'segment').length, true);
+});
+
+test('erzeugeParcours findet meist einen kreuzungsfreien Kandidaten', () => {
+  let frei = 0;
+  for (let i = 0; i < 30; i++) {
+    const p = erzeugeParcours(new Zufall(`suche-${i}`));
+    if (p.kreuzungen === 0 && seitenverhaeltnisPasst(p.geometrie.umriss)) frei += 1;
+  }
+  assert.ok(frei >= 27, `nur ${frei} von 30 kreuzungsfrei und passend`);
+});
+
+test('Schleife: relative Ecke über 180° kreuzt Einfahrt und Ausfahrt, das zählt nicht', () => {
+  const elemente = [
+    { art: 'segment', kurs: 0, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 20, profil: 'horizontal', rechenaufgabe: null },
+    { art: 'segment', kurs: 270, anzeige: 'keine', himmelsrichtung: null, relativ: 270, dauer: 20, profil: 'horizontal', rechenaufgabe: null },
+  ];
+  const geo = geometrie(elemente);
+  assert.equal(geo.stuecke[1].schleife, true);
+  assert.equal(zaehleKreuzungen(geo.stuecke), 0);
+
+  const elementeGegenprobe = [
+    { art: 'segment', kurs: 0, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 20, profil: 'horizontal', rechenaufgabe: null },
+    { art: 'segment', kurs: 90, anzeige: 'keine', himmelsrichtung: null, relativ: 90, dauer: 20, profil: 'horizontal', rechenaufgabe: null },
+  ];
+  const geoGegenprobe = geometrie(elementeGegenprobe);
+  assert.equal(geoGegenprobe.stuecke[1].schleife, false);
 });
