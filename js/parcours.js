@@ -11,7 +11,7 @@ export const SEKUNDE_LAENGE = 5;
 export const ECKENRADIUS = 12;
 export const SCHLEIFENRADIUS = 28;
 export const KREISRADIUS = 35;
-export const KANDIDATEN = 1500;
+export const KANDIDATEN = 3000;
 export const SEITENVERHAELTNIS = { min: 0.7, max: 1.25 };
 // Kleinster Abstand der Mittellinien zweier Stücke: Bei Strichbreite 9 berühren
 // sich die Striche dann höchstens, sie liegen nie übereinander.
