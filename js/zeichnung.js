@@ -84,3 +84,45 @@ export function zeichneParcours(parcours) {
 ${teile.join('\n')}
 </svg>`;
 }
+
+// Vorschau für die Blattliste: nur der Weg, ohne Profile, Marken und
+// Beschriftungen. Stile stehen als Attribute im Bild, damit die Datei allein in
+// <img> taugt. Eine Nachkommastelle reicht bei Vorschaugröße und hält die
+// Dateien klein.
+const VORSCHAU_RAND = 20;
+
+function zahlKurz(wert) {
+  return Number(wert.toFixed(1)).toString();
+}
+
+function pfadKurz(pfad) {
+  return pfad.replace(/-?\d+(?:\.\d+)?/g, (z) => zahlKurz(Number(z)));
+}
+
+// Gate-Kasten achsenparallel aus seinen Ecken, weiß mit schwarzem Rand
+function vorschauKasten(s) {
+  const xs = s.punkte.map((p) => p.x);
+  const ys = s.punkte.map((p) => p.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return `<rect x="${zahlKurz(x)}" y="${zahlKurz(y)}" width="${zahlKurz(Math.max(...xs) - x)}" height="${zahlKurz(Math.max(...ys) - y)}" fill="#fff" stroke="#000" stroke-width="3"/>`;
+}
+
+export function zeichneVorschau(parcours) {
+  const { stuecke, umriss } = parcours.geometrie;
+  const x = umriss.minX - VORSCHAU_RAND;
+  const y = umriss.minY - VORSCHAU_RAND;
+  const breite = umriss.maxX - umriss.minX + 2 * VORSCHAU_RAND;
+  const hoehe = umriss.maxY - umriss.minY + 2 * VORSCHAU_RAND;
+  const linien = stuecke.filter((s) => s.art !== 'gate').map((s) => `<path d="${pfadKurz(s.pfad)}"/>`);
+  const kaesten = stuecke.filter((s) => s.art === 'gate').map(vorschauKasten);
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${zahlKurz(x)} ${zahlKurz(y)} ${zahlKurz(breite)} ${zahlKurz(hoehe)}" preserveAspectRatio="xMidYMid meet">`,
+    '<g fill="none" stroke="#000" stroke-width="8" stroke-linecap="round">',
+    ...linien,
+    '</g>',
+    ...kaesten,
+    '</svg>',
+    '',
+  ].join('\n');
+}
