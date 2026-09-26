@@ -13,7 +13,7 @@ const svg = zeichneVorschau(blatt.parcours);
 test('Vorschau: nur Linien als Attribute, kein Stilblock, keine Beschriftung', () => {
   assert.ok(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"'));
   assert.ok(svg.includes('preserveAspectRatio="xMidYMid meet"'));
-  assert.ok(svg.includes('<g fill="none" stroke="#000" stroke-width="8" stroke-linecap="round">'));
+  assert.ok(svg.includes('<g fill="none" stroke="#000" stroke-width="11" stroke-linecap="round">'));
   assert.ok(!svg.includes('<style'), 'Stilblock gehört nicht in die Vorschau');
   assert.ok(!svg.includes('<text'), 'Beschriftungen gehören nicht in die Vorschau');
   assert.ok(!svg.includes('<line'), 'Marken gehören nicht in die Vorschau');
@@ -47,7 +47,7 @@ test('Vorschau: Gate als weißes Rechteck mit schwarzem Rand über den Linien', 
   };
   const bild = zeichneVorschau(parcours);
   assert.equal((bild.match(/<path /g) || []).length, 2, 'der Kasten ist kein Linienstück');
-  assert.ok(bild.includes('<rect x="40.3" y="-10" width="40.3" height="20.1" fill="#fff" stroke="#000" stroke-width="3"/>'));
+  assert.ok(bild.includes('<rect x="40.3" y="-10" width="40.3" height="20.1" fill="#fff" stroke="#000" stroke-width="4"/>'));
   assert.ok(bild.indexOf('<rect') > bild.indexOf('</g>'), 'der Kasten liegt über den Linien');
 });
 

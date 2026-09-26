@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-349.1 -468.9 562.8 503.6" preserveAspectRatio="xMidYMid meet">
-<g fill="none" stroke="#000" stroke-width="8" stroke-linecap="round">
+<g fill="none" stroke="#000" stroke-width="11" stroke-linecap="round">
 <path d="M 0 0 L -38.3 -92.4"/>
 <path d="M -38.3 -92.4 A 12 12 0 0 1 -35.7 -105.4"/>
 <path d="M -35.7 -105.4 L -0.7 -141.1"/>
@@ -31,7 +31,7 @@
 <path d="M 114 -86.5 A 12 12 0 0 0 110.4 -80.9"/>
 <path d="M 110.4 -80.9 L 81.2 14.7"/>
 </g>
-<rect x="-157" y="-158" width="72" height="44" fill="#fff" stroke="#000" stroke-width="3"/>
-<rect x="-189.7" y="-263.7" width="72" height="44" fill="#fff" stroke="#000" stroke-width="3"/>
-<rect x="-261.6" y="-399" width="72" height="35" fill="#fff" stroke="#000" stroke-width="3"/>
+<rect x="-157" y="-158" width="72" height="44" fill="#fff" stroke="#000" stroke-width="4"/>
+<rect x="-189.7" y="-263.7" width="72" height="44" fill="#fff" stroke="#000" stroke-width="4"/>
+<rect x="-261.6" y="-399" width="72" height="35" fill="#fff" stroke="#000" stroke-width="4"/>
 </svg>

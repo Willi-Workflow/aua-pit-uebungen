@@ -105,7 +105,7 @@ function vorschauKasten(s) {
   const ys = s.punkte.map((p) => p.y);
   const x = Math.min(...xs);
   const y = Math.min(...ys);
-  return `<rect x="${zahlKurz(x)}" y="${zahlKurz(y)}" width="${zahlKurz(Math.max(...xs) - x)}" height="${zahlKurz(Math.max(...ys) - y)}" fill="#fff" stroke="#000" stroke-width="3"/>`;
+  return `<rect x="${zahlKurz(x)}" y="${zahlKurz(y)}" width="${zahlKurz(Math.max(...xs) - x)}" height="${zahlKurz(Math.max(...ys) - y)}" fill="#fff" stroke="#000" stroke-width="4"/>`;
 }
 
 export function zeichneVorschau(parcours) {
@@ -118,7 +118,7 @@ export function zeichneVorschau(parcours) {
   const kaesten = stuecke.filter((s) => s.art === 'gate').map(vorschauKasten);
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${zahlKurz(x)} ${zahlKurz(y)} ${zahlKurz(breite)} ${zahlKurz(hoehe)}" preserveAspectRatio="xMidYMid meet">`,
-    '<g fill="none" stroke="#000" stroke-width="8" stroke-linecap="round">',
+    '<g fill="none" stroke="#000" stroke-width="11" stroke-linecap="round">',
     ...linien,
     '</g>',
     ...kaesten,
