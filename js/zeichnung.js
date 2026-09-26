@@ -7,7 +7,8 @@
 
 import { ZEILENABSTAND } from './parcours.js';
 
-export const RAND = 30;
+// Rand um den Umriss: Querstriche ragen höchstens 9,6 Einheiten über die Mittellinie
+export const RAND = 15;
 
 const LINIENBREITE = 9;
 const WEISSBREITE = 6;
