@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Zufall } from '../js/zufall.js';
-import { erzeugeElemente, geometrie, zaehleKreuzungen, erzeugeParcours, seitenverhaeltnisPasst, SEKUNDE_LAENGE, KANDIDATEN } from '../js/parcours.js';
+import {
+  erzeugeElemente, geometrie, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, erzeugeParcours,
+  seitenverhaeltnisPasst, SEKUNDE_LAENGE, KANDIDATEN, ZEILENABSTAND, LINIENBREITE_ABSTAND,
+} from '../js/parcours.js';
+import { erzeugeBlatt, BLAETTER_JE_STUFE } from '../js/blatt.js';
 import { normieren, differenz } from '../js/kurs.js';
 
 const listen = Array.from({ length: 200 }, (_, i) => erzeugeElemente(new Zufall(`elemente-${i}`)));
@@ -24,14 +28,16 @@ test('Mengen je Blatt', () => {
   }
 });
 
-test('Rechenaufgaben nur an Segmenten mit Kurs, Betrag 100 bis 350', () => {
+test('Rechenaufgaben mit Betrag 100 bis 350, auch an Segmenten ohne Kurs', () => {
+  let ohneKurs = 0;
   for (const elemente of listen) {
     for (const s of segmente(elemente)) {
       if (s.rechenaufgabe === null) continue;
-      assert.notEqual(s.anzeige, 'keine');
+      if (s.anzeige === 'keine') ohneKurs += 1;
       assert.ok(Math.abs(s.rechenaufgabe) >= 100 && Math.abs(s.rechenaufgabe) <= 350);
     }
   }
+  assert.ok(ohneKurs > 0, 'keine Rechenaufgabe an einem Segment ohne Kurs, wie in der Vorlage (/30" mit +115)');
 });
 
 test('relative Ecken haben keine Kursanzeige, Winkel 20 bis 340 ohne 180, Kurs stimmt', () => {
@@ -156,7 +162,7 @@ test('relative Ecke wird beschriftet und ergibt den Kurs des nächsten Segments'
   assert.ok(naheBei(Math.atan2(dx, -dy) * 180 / Math.PI, 30, 0.1), 'letzte Strecke läuft auf Kurs 030');
 });
 
-test('Vollkreis: zwei Halbbögen, Rückkehr zum Ausgangspunkt, Marke bei 180°', () => {
+test('Vollkreis: zwei Halbbögen, Rückkehr zum Ausgangspunkt, Marken am Berührpunkt und bei 180°', () => {
   const geo = geometrie([
     { art: 'segment', kurs: 90, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'horizontal', rechenaufgabe: null },
     { art: 'vollkreis', richtung: 'rechts', profile: ['steigen', 'horizontal'] },
@@ -168,7 +174,41 @@ test('Vollkreis: zwei Halbbögen, Rückkehr zum Ausgangspunkt, Marke bei 180°',
   const streckenEnde = geo.stuecke[0].punkte[1];
   const kreisEnde = geo.stuecke[2].punkte[geo.stuecke[2].punkte.length - 1];
   assert.deepEqual(kreisEnde, streckenEnde);
-  assert.equal(geo.marken.length, 4);
+  // Anfang, Berührpunkt, 180°, Ende der Ecke nach dem Kreis, Ende
+  assert.equal(geo.marken.length, 5);
+  assert.ok(geo.marken.some((m) => naheBei(m.punkt.x, streckenEnde.x) && naheBei(m.punkt.y, streckenEnde.y)), 'Querstrich am Berührpunkt fehlt');
+  // Die Ecke nach dem Kreis gehört noch zur zweiten Kreishälfte
+  assert.equal(geo.stuecke[3].profil, 'horizontal');
+  assert.equal(kleinsterAbstand(geo.stuecke), Infinity, 'Berührpunkt und Ecke gehören zur Figur und zählen nicht als Überlagerung');
+});
+
+test('Ecke wird im Profil des vorherigen Segments gezeichnet, das neue Profil beginnt am Querstrich', () => {
+  const geo = geometrie([
+    { art: 'segment', kurs: 0, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'steigen', rechenaufgabe: null },
+    { art: 'segment', kurs: 90, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'sinken', rechenaufgabe: null },
+  ]);
+  assert.equal(geo.stuecke[1].art, 'bogen');
+  assert.equal(geo.stuecke[1].profil, 'steigen');
+  assert.equal(geo.stuecke[2].profil, 'sinken');
+  const bogenEnde = geo.stuecke[1].punkte[geo.stuecke[1].punkte.length - 1];
+  assert.ok(geo.marken.some((m) => naheBei(m.punkt.x, bogenEnde.x) && naheBei(m.punkt.y, bogenEnde.y) && m.kurs === 90), 'Querstrich am Bogenende fehlt');
+});
+
+test('Beschriftungen kennen Segmentmitte, Kurs und ihre eigenen Stücke', () => {
+  const geo = geometrie([
+    { art: 'segment', kurs: 90, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'horizontal', rechenaufgabe: null },
+    { art: 'segment', kurs: 30, anzeige: 'keine', himmelsrichtung: null, relativ: -60, dauer: 15, profil: 'steigen', rechenaufgabe: null },
+    { art: 'segment', kurs: 120, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'sinken', rechenaufgabe: null },
+  ]);
+  const [erste, ecke, zweite, dritte] = geo.beschriftungen;
+  assert.deepEqual(erste.eigeneStuecke, [0, 1]);
+  assert.equal(erste.kurs, 90);
+  assert.ok(naheBei(erste.mitte.x, 5 * SEKUNDE_LAENGE) && naheBei(erste.mitte.y, 0));
+  assert.deepEqual(ecke.zeilen, ['-60°']);
+  assert.equal(ecke.mitte, null);
+  assert.deepEqual([...ecke.eigeneStuecke].sort(), [0, 1, 2]);
+  assert.deepEqual(zweite.eigeneStuecke, [1, 2, 3]);
+  assert.deepEqual(dritte.eigeneStuecke, [3, 4]);
 });
 
 test('Beschriftungen: Himmelsrichtung englisch, Rechenaufgabe als zweite Zeile', () => {
@@ -198,10 +238,80 @@ test('zaehleKreuzungen erkennt eine echte Kreuzung und ignoriert Berührungen an
   assert.equal(zaehleKreuzungen(kreuz, 0), 1);
 });
 
+test('zaehleKreuzungen: Schleifenausnahme nur zwischen zwei Strecken', () => {
+  const strecke = (a, b) => ({ art: 'strecke', profil: 'horizontal', pfad: '', punkte: [a, b], schleife: false });
+  const bogen = (a, b, schleife) => ({ art: 'bogen', profil: 'horizontal', pfad: '', punkte: [a, b], schleife });
+  const kreuzUeberSchleife = (art) => [
+    art === 'strecke' ? strecke({ x: 0, y: 10 }, { x: 0, y: 0 }) : bogen({ x: 0, y: 10 }, { x: 0, y: 0 }, false),
+    bogen({ x: 0, y: 0 }, { x: -5, y: 5 }, true),
+    strecke({ x: -5, y: 5 }, { x: 5, y: 5 }),
+  ];
+  assert.equal(zaehleKreuzungen(kreuzUeberSchleife('strecke')), 0);
+  assert.equal(zaehleKreuzungen(kreuzUeberSchleife('bogen')), 1);
+});
+
+test('kleinsterAbstand misst nur zwischen Stücken, die eine Strecke trennt, und bricht früh ab', () => {
+  const strecke = (a, b) => ({ art: 'strecke', profil: 'horizontal', pfad: '', punkte: [a, b], schleife: false });
+  const bogen = (a, b) => ({ art: 'bogen', profil: 'horizontal', pfad: '', punkte: [a, b], schleife: false });
+  // Haarnadel: hin, kurzes Querstück, zurück im Abstand 6
+  const haarnadel = [
+    strecke({ x: 0, y: 0 }, { x: 100, y: 0 }),
+    strecke({ x: 100, y: 0 }, { x: 100, y: 6 }),
+    strecke({ x: 100, y: 6 }, { x: 0, y: 6 }),
+  ];
+  assert.ok(naheBei(kleinsterAbstand(haarnadel), 6));
+  assert.ok(kleinsterAbstand(haarnadel, LINIENBREITE_ABSTAND) < LINIENBREITE_ABSTAND);
+  // Zwei Strecken, die nur ein Eckbogen verbindet, liegen an der Ecke dicht beieinander, das gehört zur Figur
+  const ecke = [
+    strecke({ x: 0, y: 0 }, { x: 100, y: 0 }),
+    bogen({ x: 100, y: 0 }, { x: 104, y: 1 }),
+    strecke({ x: 104, y: 1 }, { x: 200, y: 30 }),
+  ];
+  assert.equal(kleinsterAbstand(ecke), Infinity);
+  // Eine Ecke mit 20° Kurswechsel aus geometrie(): Sehne rund 4 Einheiten, trotzdem kein Befund
+  const flach = geometrie([
+    { art: 'segment', kurs: 90, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'horizontal', rechenaufgabe: null },
+    { art: 'segment', kurs: 110, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'horizontal', rechenaufgabe: null },
+  ]);
+  assert.equal(kleinsterAbstand(flach.stuecke), Infinity);
+});
+
+test('beschriftungFrei erkennt fremde Strecken und andere Beschriftungen im Text', () => {
+  const strecke = (a, b) => ({ art: 'strecke', profil: 'horizontal', pfad: '', punkte: [a, b], schleife: false });
+  const beschriftung = { zeilen: ['090°/20"'], x: 50, y: -11, winkel: 0, mitte: { x: 50, y: 0 }, kurs: 90, eigeneStuecke: [0] };
+  const eigene = strecke({ x: 0, y: 0 }, { x: 100, y: 0 });
+  const quer = strecke({ x: 60, y: -40 }, { x: 60, y: -20 });
+  assert.equal(beschriftungFrei({ stuecke: [eigene, quer], beschriftungen: [beschriftung] }), false, 'fremde Strecke kurz vor dem Text');
+  const querDurch = strecke({ x: 45, y: -40 }, { x: 45, y: 40 });
+  assert.equal(beschriftungFrei({ stuecke: [eigene, querDurch], beschriftungen: [beschriftung] }), false, 'fremde Strecke durch den Text');
+  const fern = strecke({ x: 300, y: -40 }, { x: 300, y: 40 });
+  assert.equal(beschriftungFrei({ stuecke: [eigene, fern], beschriftungen: [beschriftung] }), true);
+  // Die eigene Strecke liegt 11 Einheiten neben dem Text und stört nicht
+  assert.equal(beschriftungFrei({ stuecke: [eigene], beschriftungen: [beschriftung] }), true);
+  const zweite = { ...beschriftung, x: 70, y: -13 };
+  assert.equal(beschriftungFrei({ stuecke: [eigene], beschriftungen: [beschriftung, zweite] }), false, 'zwei Beschriftungen übereinander');
+});
+
+test('beschriftungFrei: keine Beschriftung innerhalb eines Vollkreises, auch wenn sie keinen Strich berührt', () => {
+  const kreisGeo = geometrie([
+    { art: 'segment', kurs: 90, anzeige: 'grad', himmelsrichtung: null, relativ: null, dauer: 10, profil: 'horizontal', rechenaufgabe: null },
+    { art: 'vollkreis', richtung: 'rechts', profile: ['steigen', 'horizontal'] },
+  ]);
+  assert.ok(kreisGeo.stuecke[1].kreis && kreisGeo.stuecke[2].kreis, 'Kreishälften kennen ihren Kreis');
+  const { mitte } = kreisGeo.stuecke[1].kreis;
+  const innen = { zeilen: ['+78°'], x: mitte.x, y: mitte.y, winkel: 0, mitte: null, kurs: null, eigeneStuecke: [] };
+  assert.equal(beschriftungFrei({ stuecke: kreisGeo.stuecke, beschriftungen: [innen] }), false);
+  const aussen = { ...innen, x: mitte.x + 200 };
+  assert.equal(beschriftungFrei({ stuecke: kreisGeo.stuecke, beschriftungen: [aussen] }), true);
+});
+
 test('seitenverhaeltnisPasst', () => {
   assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 100, maxY: 100 }), true);
+  assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 70, maxY: 100 }), true);
+  assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 125, maxY: 100 }), true);
+  assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 65, maxY: 100 }), false);
+  assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 130, maxY: 100 }), false);
   assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 300, maxY: 100 }), false);
-  assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 50, maxY: 100 }), false);
 });
 
 test('erzeugeParcours ist bestimmt und liefert Kandidat, Kreuzungen und Umriss', () => {
@@ -210,17 +320,50 @@ test('erzeugeParcours ist bestimmt und liefert Kandidat, Kreuzungen und Umriss',
   assert.deepEqual(a, b);
   assert.ok(a.kandidat >= 1 && a.kandidat <= KANDIDATEN);
   assert.ok(a.kreuzungen >= 0);
+  assert.ok(a.fuellung > 0);
+  assert.equal(typeof a.zulaessig, 'boolean');
   assert.ok(a.geometrie.umriss.maxX > a.geometrie.umriss.minX);
   assert.equal(a.geometrie.beschriftungen.length >= a.elemente.filter((e) => e.art === 'segment').length, true);
 });
 
-test('erzeugeParcours findet meist einen kreuzungsfreien Kandidaten', () => {
-  let frei = 0;
+test('erzeugeParcours findet fast immer einen zulässigen Kandidaten, und zulässig heißt alle Filter bestanden', () => {
+  let zulaessig = 0;
   for (let i = 0; i < 30; i++) {
     const p = erzeugeParcours(new Zufall(`suche-${i}`));
-    if (p.kreuzungen === 0 && seitenverhaeltnisPasst(p.geometrie.umriss)) frei += 1;
+    if (!p.zulaessig) continue;
+    zulaessig += 1;
+    assert.equal(p.kreuzungen, 0);
+    assert.equal(zaehleKreuzungen(p.geometrie.stuecke), 0);
+    assert.ok(kleinsterAbstand(p.geometrie.stuecke) >= LINIENBREITE_ABSTAND);
+    assert.ok(seitenverhaeltnisPasst(p.geometrie.umriss));
+    assert.equal(beschriftungFrei(p.geometrie), true);
   }
-  assert.ok(frei >= 27, `nur ${frei} von 30 kreuzungsfrei und passend`);
+  assert.ok(zulaessig >= 27, `nur ${zulaessig} von 30 zulässig`);
+});
+
+const blaetter = Array.from({ length: BLAETTER_JE_STUFE }, (_, i) => erzeugeBlatt(2, i + 1));
+
+test('keine Zeile einer Segmentbeschriftung liegt auf ihrer eigenen Linie, Blätter 1 bis 100', () => {
+  for (const blatt of blaetter) {
+    for (const b of blatt.parcours.geometrie.beschriftungen) {
+      if (b.mitte === null) continue;
+      const w = (b.winkel * Math.PI) / 180;
+      const k = (b.kurs * Math.PI) / 180;
+      const d = { x: Math.sin(k), y: -Math.cos(k) };
+      for (let i = 0; i < b.zeilen.length; i++) {
+        const c = { x: b.x - i * ZEILENABSTAND * Math.sin(w), y: b.y + i * ZEILENABSTAND * Math.cos(w) };
+        const abstand = Math.abs(d.x * (c.y - b.mitte.y) - d.y * (c.x - b.mitte.x));
+        assert.ok(abstand >= 8.5, `Blatt ${blatt.nummer}, "${b.zeilen[i]}" nur ${abstand.toFixed(1)} von der Linie`);
+      }
+    }
+  }
+});
+
+test('zulässige Blätter 1 bis 100 haben freie Beschriftungen', () => {
+  for (const blatt of blaetter) {
+    if (!blatt.parcours.zulaessig) continue;
+    assert.equal(beschriftungFrei(blatt.parcours.geometrie), true, `Blatt ${blatt.nummer}`);
+  }
 });
 
 test('Schleife: relative Ecke über 180° kreuzt Einfahrt und Ausfahrt, das zählt nicht', () => {

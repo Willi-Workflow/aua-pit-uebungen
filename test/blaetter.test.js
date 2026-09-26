@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { erzeugeBlatt, BLAETTER_JE_STUFE, STUFEN } from '../js/blatt.js';
-import { seitenverhaeltnisPasst } from '../js/parcours.js';
 
 test('Konstanten', () => {
   assert.equal(BLAETTER_JE_STUFE, 100);
@@ -20,8 +19,8 @@ test('gleiche Nummer, gleiches Blatt; verschiedene Nummern, verschiedene Blätte
   assert.notDeepEqual(erzeugeBlatt(2, 7).textteil, erzeugeBlatt(2, 8).textteil);
 });
 
-test('alle 100 Blätter der Stufe 2 entstehen, mindestens 90 kreuzungsfrei und passend', () => {
-  let frei = 0;
+test('alle 100 Blätter der Stufe 2 entstehen, mindestens 90 zulässig', () => {
+  let zulaessig = 0;
   let kandidatenSumme = 0;
   const start = Date.now();
   for (let nummer = 1; nummer <= BLAETTER_JE_STUFE; nummer++) {
@@ -31,8 +30,9 @@ test('alle 100 Blätter der Stufe 2 entstehen, mindestens 90 kreuzungsfrei und p
     assert.equal(blatt.textteil.zeilen.length, 12);
     assert.ok(blatt.parcours.elemente.length >= 20);
     kandidatenSumme += blatt.parcours.kandidat;
-    if (blatt.parcours.kreuzungen === 0 && seitenverhaeltnisPasst(blatt.parcours.geometrie.umriss)) frei += 1;
+    if (blatt.parcours.zulaessig) zulaessig += 1;
   }
-  console.log(`Stufe 2: ${frei} von ${BLAETTER_JE_STUFE} Blättern kreuzungsfrei und passend, ${kandidatenSumme / BLAETTER_JE_STUFE} Kandidaten im Mittel, ${Date.now() - start} ms`);
-  assert.ok(frei >= 90, `nur ${frei} kreuzungsfrei und passend`);
+  const dauer = Date.now() - start;
+  console.log(`Stufe 2: ${zulaessig} von ${BLAETTER_JE_STUFE} Blättern zulässig, Siegerkandidat im Mittel Nummer ${kandidatenSumme / BLAETTER_JE_STUFE}, ${dauer} ms, ${dauer / BLAETTER_JE_STUFE} ms je Blatt`);
+  assert.ok(zulaessig >= 90, `nur ${zulaessig} von ${BLAETTER_JE_STUFE} zulässig`);
 });

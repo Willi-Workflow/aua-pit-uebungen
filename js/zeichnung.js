@@ -5,12 +5,13 @@
 // weißer Linie darüber; steigen = dasselbe, die weiße Linie gestrichelt, so dass
 // die Lücken als Sprossen erscheinen.
 
+import { ZEILENABSTAND } from './parcours.js';
+
 export const RAND = 30;
 
 const LINIENBREITE = 9;
 const WEISSBREITE = 6;
 const MARKENLAENGE = 9;
-const ZEILENABSTAND = 9;
 
 function zahl(wert) {
   return Number(wert.toFixed(2)).toString();
@@ -53,7 +54,7 @@ export function zeichneParcours(parcours) {
 .sinken, .steigen { fill: none; stroke: #fff; stroke-width: ${WEISSBREITE}; }
 .steigen { stroke-dasharray: 5 2.5; }
 .marke { stroke: #000; stroke-width: 1.2; }
-text { font: 8px system-ui, -apple-system, sans-serif; text-anchor: middle; dominant-baseline: middle; }
+text { font: 9px system-ui, -apple-system, sans-serif; text-anchor: middle; dominant-baseline: middle; }
 </style>
 ${teile.join('\n')}
 </svg>`;
