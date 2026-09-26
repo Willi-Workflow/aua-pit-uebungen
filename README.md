@@ -23,6 +23,8 @@ Die App speichert nichts. Blatt 7 der Stufe 2 ist immer dasselbe Blatt, weil die
 
 Ein Kasten an der Strecke ist ein Gate: Seine drei bis vier Zeilen werden ohne gezeichnete Linie der Reihe nach aus dem Gedächtnis geflogen, je Zeile ein Kurs (`+72` oder `-400` zum aktuellen Kurs gerechnet, `SSW` oder `123°` direkt), ein Pfeil für Horizontal-, Steig- oder Sinkflug (`→`, `↗`, `↘`) und die Sekunden. Gates stehen auf jedem Blatt mit einer Nummer teilbar durch 3, danach geht es vom Kurs der letzten Zeile auf kürzestem Weg zum Kurs des nächsten Segments.
 
+Das Blatt ist so gedreht, dass der Start oben liegt; der Pfeil zeigt nach Norden. Das Flugzeug steht am Start und zeigt in die erste Flugrichtung. Der Parcours beginnt 20° bis 160° vom Endkurs des Textteils und hält wie der Textteil die Höhe zwischen 1000 und 3000 ft.
+
 ## Örtlich starten
 
 Die App besteht aus ES-Modulen, deshalb braucht sie einen kleinen Server:
@@ -53,7 +55,7 @@ Entwurf und Plan liegen unter `docs/superpowers/`.
 
 ## Vorschaubilder
 
-Die Blattliste zeigt zu jedem Blatt ein kleines Bild des Parcours. Die Bilder liegen fertig unter `vorschau/stufe2/<nummer>.svg`, weil 100 Blätter im Browser zu lange zum Berechnen bräuchten. Erzeugt werden sie von `werkzeuge/vorschauen.js` über `zeichneVorschau` in `js/zeichnung.js`:
+Die Blattliste zeigt zu jedem Blatt ein kleines Bild des Parcours, gedreht wie das Blatt und mit kleinem Nordpfeil. Die Bilder liegen fertig unter `vorschau/stufe2/<nummer>.svg`, weil 100 Blätter im Browser zu lange zum Berechnen bräuchten. Erzeugt werden sie von `werkzeuge/vorschauen.js` über `zeichneVorschau` in `js/zeichnung.js`:
 
     npm run vorschauen
 

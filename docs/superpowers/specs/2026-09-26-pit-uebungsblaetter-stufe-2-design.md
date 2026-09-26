@@ -23,7 +23,7 @@ Nicht in diesem Abschnitt, aber in der Adressstruktur schon vorgesehen:
 
 ### Ablauf einer Übung der Stufe 2
 
-Ausgangskurs und Ausgangshöhe sind immer gleich: **090°, 2000 ft**. Die Übung beginnt mit dem Textteil, der von dort aus geflogen wird. Direkt anschließend, ohne Unterbrechung, folgt der gezeichnete Parcours. Sein erstes Segment trägt einen eigenen Kurs, deshalb braucht die Zeichnung keine Kenntnis davon, wo der Textteil endet.
+Ausgangskurs und Ausgangshöhe sind immer gleich: **090°, 2000 ft**. Die Übung beginnt mit dem Textteil, der von dort aus geflogen wird. Direkt anschließend, ohne Unterbrechung, folgt der gezeichnete Parcours. Er übernimmt Kurs und Höhe nach der letzten Zeile des Textteils: Sein erstes Segment trägt einen eigenen Kurs, 20° bis 160° vom Endkurs des Textteils, damit die Drehrichtung auf kürzestem Weg eindeutig ist, und die Höhe bleibt wie im Textteil zwischen 1000 und 3000 ft.
 
 ### Zeichensprache des Parcours
 
@@ -112,15 +112,19 @@ Bei Schablonen mit ausdrücklicher Drehrichtung (Links auf, Rechts auf, Linkskur
 - 4 bis 5 Rechenaufgaben
 - 3 bis 4 Kurse als Himmelsrichtung, alle übrigen in Grad
 - Profile etwa gleich verteilt, kein Profil öfter als dreimal hintereinander (Vollkreishälften zählen mit)
+- Höhe ab der Endhöhe des Textteils zwischen 1000 und 3000 ft, gerechnet mit 8 ft/s: Segmente mit ihrer Dauer, Vollkreishälften 60 s, Gate-Zeilen mit ihren Sekunden, Ecken ohne Höhenänderung. Die Profilwahl schließt Steig- oder Sinkflug aus, der den Rahmen verließe; bei Gate-Zeilen steht die Dauer dafür vor dem Profil fest.
 
 ### Passform
 
-Die Zeichnung ist geografisch echt, deshalb ergeben zufällige Kurse oft Knäuel. Die Erzeugung zieht aus dem Zufallsstrom des Blatts bis zu **200 Kandidaten** und nimmt den ersten, der beide Bedingungen erfüllt:
+Die Zeichnung ist geografisch echt, deshalb ergeben zufällige Kurse oft Knäuel. Die Erzeugung zieht aus dem Zufallsstrom des Blatts **3000 Kandidaten**. Jeder wird zuerst so gedreht, dass sein Start oben liegt (siehe Zeichnung); alle Prüfungen laufen auf der gedrehten Geometrie, billige zuerst. Zulässig ist ein Kandidat, der alle Bedingungen erfüllt:
 
-1. Der Weg kreuzt sich nicht selbst (Kreisbögen werden dafür als Polygonzüge genähert, benachbarte Elemente werden nicht gegeneinander geprüft).
-2. Das Verhältnis Breite zu Höhe des Umrisses liegt zwischen 0,6 und 1,2, damit der Parcours die untere Hälfte einer A4-Seite füllt.
+1. Der Weg kreuzt sich nicht selbst (Kreisbögen als Polygonzüge, benachbarte Stücke zählen nicht; die Kreuzung von Ein- und Ausfahrt einer Schleife über 180° ist gewollt).
+2. Die Striche berühren sich höchstens: Mittellinien mindestens 9 Einheiten auseinander, sobald eine Strecke dazwischen liegt. Das Flugzeugsymbol am Start (Kreis mit Radius 14) ist dabei ein Hindernis für alle Stücke außer der ersten Strecke.
+3. Das Verhältnis Breite zu Höhe des Umrisses liegt zwischen 0,7 und 1,25.
+4. Der Start liegt im oberen Drittel des Umrisses, höchstens 34 % der Höhe von oben.
+5. Jede Beschriftung steht frei: Kein fremder Strich, keine andere Beschriftung und nicht das Flugzeugsymbol berühren sie. Angrenzende Schleifen und Vollkreishälften zählen dabei als fremd, nur die eigene Strecke und gewöhnliche Eckbögen nicht.
 
-Erfüllt kein Kandidat beide Bedingungen, wird der mit den wenigsten Kreuzungen genommen. Die Kandidatensuche ist Teil des bestimmten Zufallsstroms, gleiche Blattnummer ergibt also immer denselben Kandidaten.
+Unter den zulässigen gewinnt der mit der höchsten Füllung (Weglänge je Umrisskante), bei Gleichstand der frühere. Ist keiner zulässig, gewinnt der mit den wenigsten Kreuzungen, dann dem größten Strichabstand, den wenigsten verdeckten Beschriftungen, dem Start oben und dem Seitenverhältnis am nächsten an 1. Die Kandidatensuche ist Teil des bestimmten Zufallsstroms, gleiche Blattnummer ergibt also immer denselben Kandidaten.
 
 ## Gates
 
@@ -173,7 +177,11 @@ Ein Gate ist ein eigenes Element der Kette:
 
 ## Zeichnung
 
-SVG, Norden oben, Segmentrichtung gleich Kurs, Segmentlänge proportional zur Dauer. Startwerte für die Geometrie (in Einheiten des SVG-Koordinatensystems, im Bau anpassbar):
+SVG, Segmentlänge proportional zur Dauer. Das Blatt ist so gedreht, dass der Start oben liegt; das Papier der Handzeichnung darf ebenso beliebig gedreht sein. Jede Richtung wird als Kurs minus Drehung gezeichnet. Die Drehung ist der Kurs vom Mittelpunkt des ungedrehten Wegs zum Start, auf ganze Grad gerundet, so dass der Start über der Mitte liegt. Der Mittelpunkt ist der des Wegs ohne Beschriftungen: Mit Beschriftungen wiche die Drehung im Median um 1°, höchstens um 10° ab, die Suche bräuchte aber fast viermal so lange (458 statt 122 ms je Blatt). Kurse, Drehrichtungen und Beschriftungstexte bleiben unverändert; Gate-Kästen und Beschriftungen an Ecken bleiben waagerecht.
+
+Ein Nordpfeil oben rechts neben dem Umriss zeigt, wo Norden liegt, wie in der Handzeichnung: Länge 44, Spitze als Dreieck, ein fettes N 8 Einheiten vor der Spitze, Mitte 30 Einheiten rechts und unterhalb der oberen rechten Ecke. Zeigt Norden nach links, rückt der Pfeil so weit nach rechts, dass Pfeil und N 8 Einheiten Abstand zum Umriss halten. Ein Flugzeugsymbol 19 Einheiten hinter dem Start zeigt in Richtung des ersten Segments. Beide zählen nicht zum Umriss, die `viewBox` wächst um sie.
+
+Startwerte für die Geometrie (in Einheiten des SVG-Koordinatensystems, im Bau anpassbar):
 
 - 1 s Dauer = 3 Einheiten Länge
 - Eckenradius 12, Vollkreisradius 35
@@ -181,7 +189,7 @@ SVG, Norden oben, Segmentrichtung gleich Kurs, Segmentlänge proportional zur Da
 
 Der Vollkreis ist eine Schleife, die den Weg am Übergangspunkt berührt und ihn dort in derselben Richtung wieder verlässt. Querstriche an jedem Übergang und bei 180° im Vollkreis, senkrecht zum Weg, etwa doppelt so lang wie die Linienbreite.
 
-Beschriftungen laufen parallel zum Segment, um wenige Einheiten zur Seite versetzt, und werden um 180° gedreht, wenn sie sonst auf dem Kopf stünden. Rechenaufgaben stehen in einer zweiten Zeile unter der Kursangabe. Relative Kursänderungen stehen an der Ecke, außen am Bogen. Überschneidungen von Beschriftungen werden hingenommen.
+Beschriftungen laufen parallel zum Segment, um wenige Einheiten zur Seite versetzt, und werden um 180° gedreht, wenn sie sonst auf dem Kopf stünden. Rechenaufgaben stehen in einer zweiten Zeile unter der Kursangabe. Relative Kursänderungen stehen an der Ecke, außen am Bogen. Beschriftungen stehen frei (siehe Passform).
 
 Nach der Erzeugung wird der Umriss samt Beschriftungsrand über die `viewBox` auf die Zeichenfläche skaliert.
 
