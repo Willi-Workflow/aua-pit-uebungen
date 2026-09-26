@@ -22,7 +22,7 @@ test('vollständiges SVG mit viewBox, das den Umriss samt Rand umschließt', () 
   assert.ok(x + b >= u.maxX + RAND - 0.01 && y + h >= u.maxY + RAND - 0.01);
 });
 
-test('je Stück ein Pfad, Sinken und Steigen mit weißer Linie über schwarzem Rand', () => {
+test('jedes Stück wird gezeichnet, Sinken und Steigen mit weißer Linie über schwarzem Rand', () => {
   const { stuecke } = parcours.geometrie;
   const horizontal = stuecke.filter((s) => s.profil === 'horizontal').length;
   const sinken = stuecke.filter((s) => s.profil === 'sinken').length;
@@ -31,7 +31,14 @@ test('je Stück ein Pfad, Sinken und Steigen mit weißer Linie über schwarzem R
   assert.equal(anzahl(svg, /class="rand"/g), sinken + steigen);
   assert.equal(anzahl(svg, /class="sinken"/g), sinken);
   assert.equal(anzahl(svg, /class="steigen"/g), steigen);
-  assert.ok(svg.includes('stroke-dasharray'), 'Sprossen fehlen');
+  for (const s of stuecke) {
+    if (s.profil === 'horizontal') {
+      assert.ok(svg.includes(`<path class="horizontal" d="${s.pfad}"/>`), `Pfad fehlt: ${s.pfad}`);
+    } else {
+      assert.ok(svg.includes(`<path class="rand" d="${s.pfad}"/><path class="${s.profil}" d="${s.pfad}"/>`), `Rand und ${s.profil} fehlen: ${s.pfad}`);
+    }
+  }
+  assert.ok(/\.steigen \{[^}]*stroke-dasharray/.test(svg), 'Sprossenregel für steigen fehlt');
 });
 
 test('Marken und Beschriftungen sind vollständig', () => {
@@ -42,7 +49,13 @@ test('Marken und Beschriftungen sind vollständig', () => {
   }
 });
 
-test('Zahlen ohne überflüssige Nullen, keine wissenschaftliche Schreibweise', () => {
-  assert.ok(!/\d\.\d*0"/.test(svg), 'nachlaufende Nullen');
+test('alle Zahlen mit höchstens zwei Nachkommastellen, ohne nachlaufende Nullen, ohne wissenschaftliche Schreibweise', () => {
   assert.ok(!/e[-+]\d/.test(svg), 'wissenschaftliche Schreibweise');
+  const dezimalzahlen = svg.match(/-?\d+\.\d+/g) || [];
+  assert.ok(dezimalzahlen.length > 0, 'keine Dezimalzahl gefunden, Prüfung wäre leer');
+  for (const zahl of dezimalzahlen) {
+    const nachkomma = zahl.split('.')[1];
+    assert.ok(nachkomma.length <= 2, `mehr als zwei Nachkommastellen: ${zahl}`);
+    assert.ok(!nachkomma.endsWith('0'), `nachlaufende Null: ${zahl}`);
+  }
 });
