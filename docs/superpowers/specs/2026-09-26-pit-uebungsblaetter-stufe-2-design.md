@@ -122,6 +122,54 @@ Die Zeichnung ist geografisch echt, deshalb ergeben zufällige Kurse oft Knäuel
 
 Erfüllt kein Kandidat beide Bedingungen, wird der mit den wenigsten Kreuzungen genommen. Die Kandidatensuche ist Teil des bestimmten Zufallsstroms, gleiche Blattnummer ergibt also immer denselben Kandidaten.
 
+## Gates
+
+Vorbild sind die Kästen in der Handzeichnung zur Stufe 2 (Fotos vom 29.07.2026 im Vorlagenordner `Stufe 2/`).
+
+### Fachliche Regel
+
+Ein Gate ist eine Folge von drei bis vier Anweisungen, die aus dem Gedächtnis geflogen werden; die zugehörigen Segmente werden nicht gezeichnet. Man kommt mit dem Kurs des vorherigen Segments am Gate an. Je Zeile gilt:
+
+- **Erster Wert:** Eine Zahl mit Vorzeichen (`+72`, `-400`) wird mit dem aktuellen Kurs verrechnet (`090 + 72 = 162`, `123 - 400 = -277 = 083`). Eine Himmelsrichtung (`SSW`) oder ein Gradkurs (`123°`) gilt direkt.
+- **Pfeil:** `→` Horizontalflug, `↗` Steigflug, `↘` Sinkflug.
+- **Zahl dahinter:** Dauer in Sekunden.
+
+```
++72 → 10"
+SSW ↗ 15"
+123° → 15"
+-400 ↘ 10"
+```
+
+Nach dem Gate gilt der Kurs der letzten Zeile. Das nächste gezeichnete Segment trägt immer einen eigenen Kurs und wird von dort auf kürzestem Weg angesteuert.
+
+### Verteilung
+
+Blätter mit einer Nummer teilbar durch 3 (3, 6, …, 99) haben Gates, alle anderen keine. Das entscheidet `hatGates(stufe, nummer)` in `js/blatt.js`; die Blattliste kann Gate-Blätter damit später kennzeichnen. Ohne Gates zieht die Erzeugung genau dieselben Zufallszahlen wie vorher, die übrigen Blätter bleiben also unverändert.
+
+### Datenmodell
+
+Ein Gate ist ein eigenes Element der Kette:
+
+```js
+{ art: 'gate', zeilen: [{ kurs, kursDanach, profil, dauer }, …] }
+```
+
+`kurs` ist `{ typ: 'relativ', wert }`, `{ typ: 'himmelsrichtung', index }` oder `{ typ: 'grad', grad }`, `kursDanach` der Kurs nach der Zeile.
+
+- **3 bis 4 Gates** je Gate-Blatt, an Ecken zwischen zwei Segmenten; mindestens zwei Segmente zwischen zwei Gates, keins direkt vor oder nach einem Vollkreis, keins am ersten oder letzten Segment.
+- **3 bis 4 Zeilen** je Gate, etwa zur Hälfte relativ, zu je einem Viertel Himmelsrichtung und Gradkurs, mindestens eine relative Zeile.
+- **Relativwerte** mit Betrag 20 bis 490 und beiden Vorzeichen; der Kurs danach liegt mindestens 20° vom Kurs davor. Himmelsrichtung und Gradkurs liegen wie bei Segmenten 20° bis 160° vom Kurs davor.
+- **Profil** über dieselbe Wahl wie bei Segmenten; die Gate-Zeilen zählen für die Bilanz und für "nie viermal hintereinander" mit. **Dauer** 10, 15 oder 20 s.
+- Das **Segment nach einem Gate** hat immer eine Kursangabe (Grad oder Himmelsrichtung), keine relative Ecke, weil die Ecke im Gate verschwindet. Sein Kurs liegt 20° bis 160° vom letzten Gate-Kurs.
+
+### Zeichnung und Passform
+
+- Der Kasten ist achsenparallel, 6,2 Einheiten je Zeichen der längsten Zeile plus 10 breit und 9 je Zeile plus 8 hoch. Die ankommende Linie endet ohne Bogen am Kastenrand, der Mittelpunkt liegt in Richtung ihres Kurses dahinter. Die nächste Linie beginnt dort, wo ihr Kurs vom Mittelpunkt aus den Rand verlässt, mit einem Querstrich.
+- Verlässt die Linie den Kasten schräg, rückt der Querstrich auf ihr so weit nach außen, dass er höchstens 2 Einheiten in den Kasten ragt und den Text nicht berührt.
+- Der Kasten ist weiß mit schwarzem Rand und liegt über den Linien, darüber Querstriche und Texte. Die Zeilen stehen linksbündig und senkrecht mittig im Kasten.
+- In der Kandidatensuche ist der Kasten ein Stück wie eine Strecke: Fremde Stücke dürfen ihn nicht kreuzen und bleiben mindestens eine Strichbreite entfernt. Die Strecken davor und danach werden gegeneinander geprüft, damit der Austritt nicht auf der Ankunft liegt. Andere Beschriftungen halten Abstand zum Kasten und stehen nicht darin.
+
 ## Zeichnung
 
 SVG, Norden oben, Segmentrichtung gleich Kurs, Segmentlänge proportional zur Dauer. Startwerte für die Geometrie (in Einheiten des SVG-Koordinatensystems, im Bau anpassbar):
