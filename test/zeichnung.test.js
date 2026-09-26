@@ -109,6 +109,9 @@ test('Flugzeugsymbol am Anfang des Parcours, in Richtung des ersten Segments ged
   assert.ok(m, 'Flugzeugsymbol fehlt');
   const [x, y, winkel] = m.slice(1).map(Number);
   assert.equal(winkel, start.kurs);
+  // Die Lage stammt aus der Geometrie, dort prüft die Kandidatensuche sie
+  const { mitte } = parcours.geometrie.flugzeug;
+  assert.ok(Math.abs(x - mitte.x) < 0.01 && Math.abs(y - mitte.y) < 0.01, `Symbol bei ${x}, ${y}, Geometrie ${mitte.x}, ${mitte.y}`);
   const r = (start.kurs * Math.PI) / 180;
   const abstand = Math.hypot(x - start.punkt.x, y - start.punkt.y);
   assert.ok(abstand > 10 && abstand < 25, `Abstand ${abstand}`);

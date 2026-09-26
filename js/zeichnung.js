@@ -6,7 +6,7 @@
 // die Lücken als Sprossen erscheinen. Gates sind weiße Kästen mit dünnem Rand,
 // gezeichnet über den Linien, damit sie die ankommende Linie sauber abschneiden.
 
-import { ZEILENABSTAND, MARKENLAENGE } from './parcours.js';
+import { ZEILENABSTAND, MARKENLAENGE, FLUGZEUG_RADIUS } from './parcours.js';
 
 // Rand um den Umriss: Querstriche ragen höchstens 9,6 Einheiten über die Mittellinie
 export const RAND = 15;
@@ -61,26 +61,19 @@ function beschriftung(b) {
 
 // Flugzeugsymbol am Anfang des Parcours, Nase in Richtung des ersten Segments.
 // Es sitzt kurz vor dem Startpunkt, damit es die Linie und den Querstrich nicht
-// überdeckt. Reine Zeichnung, ohne Einfluss auf Umriss und Kandidatenwahl.
+// überdeckt. Die Lage kommt aus der Geometrie, dort hält die Kandidatensuche
+// Linien und Beschriftungen vom Symbol fern; zum Umriss zählt es nicht.
 const FLUGZEUG_PFAD = 'M 0 -25 C 2 -25 3 -22 3 -18 V -8 L 27 -4 V 0 L 3 -1 V 12 L 10 15 V 18 H -10 V 15 L -3 12 V -1 L -27 0 V -4 L -3 -8 V -18 C -3 -22 -2 -25 0 -25 Z';
 const FLUGZEUG_MASSSTAB = 0.5;
-const FLUGZEUG_ABSTAND = 19;
-export const FLUGZEUG_RADIUS = 14;
 
-function flugzeugMitte(start) {
-  const r = (start.kurs * Math.PI) / 180;
-  return { x: start.punkt.x - Math.sin(r) * FLUGZEUG_ABSTAND, y: start.punkt.y + Math.cos(r) * FLUGZEUG_ABSTAND };
-}
-
-function flugzeug(start) {
-  const mitte = flugzeugMitte(start);
+function flugzeug(mitte, start) {
   return `<path class="flugzeug" transform="translate(${zahl(mitte.x)} ${zahl(mitte.y)}) rotate(${zahl(start.kurs)}) scale(${FLUGZEUG_MASSSTAB})" d="${FLUGZEUG_PFAD}"/>`;
 }
 
 export function zeichneParcours(parcours) {
   const { stuecke, marken, beschriftungen, umriss } = parcours.geometrie;
   const start = marken[0];
-  const mitte = flugzeugMitte(start);
+  const { mitte } = parcours.geometrie.flugzeug;
   const minX = Math.min(umriss.minX, mitte.x - FLUGZEUG_RADIUS);
   const minY = Math.min(umriss.minY, mitte.y - FLUGZEUG_RADIUS);
   const maxX = Math.max(umriss.maxX, mitte.x + FLUGZEUG_RADIUS);
@@ -93,7 +86,7 @@ export function zeichneParcours(parcours) {
     ...stuecke.filter((s) => s.art !== 'gate').map(stueck),
     ...stuecke.filter((s) => s.art === 'gate').map(gateKasten),
     ...marken.map(marke),
-    flugzeug(start),
+    flugzeug(mitte, start),
     ...beschriftungen.map(beschriftung),
   ];
   return `<svg xmlns="http://www.w3.org/2000/svg" class="parcours" viewBox="${zahl(x)} ${zahl(y)} ${zahl(breite)} ${zahl(hoehe)}" role="img" aria-label="Parcours">

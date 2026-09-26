@@ -20,6 +20,8 @@ export function erzeugeBlatt(stufe, nummer) {
   }
   const zufall = new Zufall(blattSchluessel(stufe, nummer));
   const textteil = erzeugeTextteil(zufall);
-  const parcours = erzeugeParcours(zufall, hatGates(stufe, nummer));
+  // Der Parcours schließt an Kurs und Höhe nach der letzten Zeile an
+  const ende = textteil.zeilen[textteil.zeilen.length - 1];
+  const parcours = erzeugeParcours(zufall, hatGates(stufe, nummer), { kurs: ende.kursDanach, hoehe: ende.hoeheDanach });
   return { stufe, nummer, textteil, parcours };
 }

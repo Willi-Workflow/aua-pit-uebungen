@@ -4,6 +4,7 @@ import { Zufall } from '../js/zufall.js';
 import {
   erzeugeElemente, gateStellenWaehlen, geometrie, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, erzeugeParcours,
   seitenverhaeltnisPasst, SEKUNDE_LAENGE, KANDIDATEN, ZEILENABSTAND, LINIENBREITE_ABSTAND, MARKENLAENGE,
+  FLUGZEUG_ABSTAND, FLUGZEUG_RADIUS,
 } from '../js/parcours.js';
 import { erzeugeBlatt, BLAETTER_JE_STUFE, hatGates } from '../js/blatt.js';
 import { normieren, differenz } from '../js/kurs.js';
@@ -128,6 +129,47 @@ test('kein Profil öfter als dreimal hintereinander, Vollkreishälften und Gate-
     for (const profil of ['horizontal', 'steigen', 'sinken']) {
       assert.ok(p.includes(profil), `${profil} fehlt`);
     }
+  }
+});
+
+// Höhen im Parcours ab "hoehe", unabhängig vom Erzeuger nachgerechnet: 8 ft/s,
+// Segmente mit ihrer Dauer, Vollkreishälften 60 s, Gate-Zeilen mit ihren
+// Sekunden; Ecken ändern die Höhe nicht
+function hoehenVerlauf(elemente, hoehe) {
+  const rate = { horizontal: 0, steigen: 8, sinken: -8 };
+  const verlauf = [hoehe];
+  for (const e of elemente) {
+    let teile;
+    if (e.art === 'segment') teile = [[e.profil, e.dauer]];
+    else if (e.art === 'vollkreis') teile = e.profile.map((p) => [p, 60]);
+    else teile = e.zeilen.map((z) => [z.profil, z.dauer]);
+    for (const [profil, sekunden] of teile) {
+      hoehe += rate[profil] * sekunden;
+      verlauf.push(hoehe);
+    }
+  }
+  return verlauf;
+}
+
+test('mit Anfangszustand bleibt die Höhe im Parcours zwischen 1000 und 3000 ft, auch am Rand', () => {
+  for (const hoehe of [1000, 1040, 1500, 2000, 2480, 2960, 3000]) {
+    for (let k = 0; k < 40; k++) {
+      for (const mitGates of [false, true]) {
+        const elemente = erzeugeElemente(new Zufall(`hoehe-${hoehe}-${k}`), mitGates, { kurs: 90, hoehe });
+        for (const h of hoehenVerlauf(elemente, hoehe)) {
+          assert.ok(h >= 1000 && h <= 3000, `ab ${hoehe} ft, Versuch ${k}${mitGates ? ' mit Gates' : ''}: ${h} ft`);
+        }
+      }
+    }
+  }
+});
+
+test('mit Anfangszustand liegt das erste Segment 20 bis 160 Grad vom Endkurs des Textteils', () => {
+  for (let k = 0; k < 200; k++) {
+    const kurs = normieren(k * 37.5);
+    const elemente = erzeugeElemente(new Zufall(`anfang-${k}`), k % 2 === 0, { kurs, hoehe: 2000 });
+    const a = Math.abs(differenz(kurs, elemente[0].kurs));
+    assert.ok(a >= 20 && a <= 160, `${kurs} auf ${elemente[0].kurs}: ${a}°`);
   }
 });
 
@@ -427,6 +469,46 @@ test('beschriftungFrei: keine Beschriftung innerhalb eines Vollkreises, auch wen
   assert.equal(beschriftungFrei({ stuecke: kreisGeo.stuecke, beschriftungen: [aussen] }), true);
 });
 
+test('beschriftungFrei: eine angrenzende Schleife oder Vollkreishälfte zählt als fremd, ein gewöhnlicher Eckbogen nicht', () => {
+  const eigene = { art: 'strecke', profil: 'horizontal', pfad: '', punkte: [{ x: 0, y: 0 }, { x: 100, y: 0 }], schleife: false };
+  // Kreis um (90, -30) mit Radius 28: Er läuft durch das rechte Ende des Texts,
+  // die Achse der Beschriftung liegt aber außerhalb des Kreises
+  const mitte = { x: 90, y: -30 };
+  const punkte = Array.from({ length: 121 }, (_, i) => ({ x: mitte.x + 28 * Math.cos((i * 3 * Math.PI) / 180), y: mitte.y + 28 * Math.sin((i * 3 * Math.PI) / 180) }));
+  const beschriftung = { zeilen: ['090°/20"'], x: 50, y: -11, winkel: 0, mitte: { x: 50, y: 0 }, kurs: 90, eigeneStuecke: [0, 1] };
+  const schleife = { art: 'bogen', profil: 'horizontal', pfad: '', punkte, schleife: true, kreis: { mitte, radius: 28 } };
+  assert.equal(beschriftungFrei({ stuecke: [eigene, schleife], beschriftungen: [beschriftung] }), false, 'eigene Schleife durch den Text');
+  const kreishaelfte = { ...schleife, schleife: false };
+  assert.equal(beschriftungFrei({ stuecke: [eigene, kreishaelfte], beschriftungen: [beschriftung] }), false, 'eigene Vollkreishälfte durch den Text');
+  const eckbogen = { ...schleife, schleife: false, kreis: null };
+  assert.equal(beschriftungFrei({ stuecke: [eigene, eckbogen], beschriftungen: [beschriftung] }), true, 'gewöhnlicher Eckbogen gehört zur Beschriftung');
+});
+
+test('Flugzeugsymbol: Lage hinter dem Start, Hindernis für fremde Stücke und für alle Beschriftungen', () => {
+  const geo = geometrie([segment(90, 20)]);
+  assert.equal(geo.flugzeug.radius, FLUGZEUG_RADIUS);
+  assert.ok(naheBei(geo.flugzeug.mitte.x, -FLUGZEUG_ABSTAND) && naheBei(geo.flugzeug.mitte.y, 0), JSON.stringify(geo.flugzeug));
+  const erste = geo.stuecke[0];
+  const strecke = (a, b) => ({ art: 'strecke', profil: 'horizontal', pfad: '', punkte: [a, b], schleife: false });
+  // Eine fremde Strecke 6 Einheiten hinter dem Symbol berührt es, 41 Einheiten dahinter nicht
+  const nah = strecke({ x: -25, y: -40 }, { x: -25, y: 40 });
+  const fern = strecke({ x: -60, y: -40 }, { x: -60, y: 40 });
+  assert.equal(kleinsterAbstand([erste, nah]), Infinity, 'ohne Symbol kein Befund');
+  assert.ok(kleinsterAbstand([erste, nah], 0, geo.flugzeug) < LINIENBREITE_ABSTAND, 'Strecke über dem Symbol');
+  assert.ok(kleinsterAbstand([erste, fern], 0, geo.flugzeug) >= LINIENBREITE_ABSTAND);
+  assert.equal(kleinsterAbstand([erste], 0, geo.flugzeug), Infinity, 'die erste Strecke zählt nicht');
+  // Ein Kasten um das Symbol zählt auch, wenn sein Rand weit weg ist
+  const ecken = [{ x: -80, y: -60 }, { x: 40, y: -60 }, { x: 40, y: 60 }, { x: -80, y: 60 }, { x: -80, y: -60 }];
+  assert.ok(kleinsterAbstand([erste, { art: 'gate', profil: null, pfad: '', punkte: ecken, laenge: 0, schleife: false }], 0, geo.flugzeug) < LINIENBREITE_ABSTAND);
+  // Beschriftungen, auch Gate-Texte, halten Abstand
+  const auf = { zeilen: ['/15"'], x: -19, y: 8, winkel: 0, mitte: null, kurs: null, eigeneStuecke: [] };
+  assert.equal(beschriftungFrei({ stuecke: [erste], beschriftungen: [auf], flugzeug: geo.flugzeug }), false, 'Beschriftung am Symbol');
+  assert.equal(beschriftungFrei({ stuecke: [erste], beschriftungen: [{ ...auf, y: 40 }], flugzeug: geo.flugzeug }), true);
+  const gateText = { zeilen: ['+72 → 10"', 'SSW ↗ 15"', '123° → 15"'], x: -19, y: -30, winkel: 0, mitte: null, kurs: null, gate: true, halbeBreite: 36, halbeHoehe: 17.5, eigeneStuecke: [] };
+  assert.equal(beschriftungFrei({ stuecke: [erste], beschriftungen: [gateText], flugzeug: geo.flugzeug }), false, 'Gate-Text am Symbol');
+  assert.equal(beschriftungFrei({ stuecke: [erste], beschriftungen: [{ ...gateText, y: -60 }], flugzeug: geo.flugzeug }), true);
+});
+
 test('seitenverhaeltnisPasst', () => {
   assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 100, maxY: 100 }), true);
   assert.equal(seitenverhaeltnisPasst({ minX: 0, minY: 0, maxX: 70, maxY: 100 }), true);
@@ -459,6 +541,7 @@ test('erzeugeParcours findet fast immer einen zulässigen Kandidaten, und zuläs
     assert.ok(kleinsterAbstand(p.geometrie.stuecke) >= LINIENBREITE_ABSTAND);
     assert.ok(seitenverhaeltnisPasst(p.geometrie.umriss));
     assert.equal(beschriftungFrei(p.geometrie), true);
+    assert.ok(kleinsterAbstand(p.geometrie.stuecke, 0, p.geometrie.flugzeug) >= LINIENBREITE_ABSTAND);
   }
   assert.ok(zulaessig >= 27, `nur ${zulaessig} von 30 zulässig`);
 });
@@ -481,10 +564,20 @@ test('keine Zeile einer Segmentbeschriftung liegt auf ihrer eigenen Linie, Blät
   }
 });
 
-test('zulässige Blätter 1 bis 100 haben freie Beschriftungen', () => {
+test('zulässige Blätter 1 bis 100 haben freie Beschriftungen und ein freies Flugzeugsymbol', () => {
   for (const blatt of blaetter) {
     if (!blatt.parcours.zulaessig) continue;
-    assert.equal(beschriftungFrei(blatt.parcours.geometrie), true, `Blatt ${blatt.nummer}`);
+    const geo = blatt.parcours.geometrie;
+    assert.equal(beschriftungFrei(geo), true, `Blatt ${blatt.nummer}`);
+    assert.ok(kleinsterAbstand(geo.stuecke, 0, geo.flugzeug) >= LINIENBREITE_ABSTAND, `Blatt ${blatt.nummer}: Strich am Flugzeugsymbol`);
+  }
+});
+
+test('Blätter 1 bis 100: Höhe im Parcours ab dem Ende des Textteils zwischen 1000 und 3000 ft', () => {
+  for (const blatt of blaetter) {
+    const ende = blatt.textteil.zeilen[blatt.textteil.zeilen.length - 1].hoeheDanach;
+    const verlauf = hoehenVerlauf(blatt.parcours.elemente, ende);
+    assert.ok(verlauf.every((h) => h >= 1000 && h <= 3000), `Blatt ${blatt.nummer}: ${Math.min(...verlauf)} bis ${Math.max(...verlauf)} ft`);
   }
 });
 
@@ -627,11 +720,13 @@ test('Gate: Strecke davor und danach zählen gegeneinander, ein Austritt am Anku
 });
 
 test('Gate: der Kasten ist für andere Beschriftungen belegt, auch innen, und fremde Strecken kreuzen ihn', () => {
-  const geo = geometrie([segment(90), BEISPIEL_GATE, segment(180)]);
+  // 20 s vor dem Gate: Bei 10 s fände die Beschriftung zwischen Flugzeugsymbol und Kasten keinen Platz
+  const geo = geometrie([segment(90, 20), BEISPIEL_GATE, segment(180)]);
   assert.equal(beschriftungFrei(geo), true, 'Gate-Text mit Strecke davor und danach ist frei');
-  const fremd = { zeilen: ['120°/10"'], x: 86, y: 0, winkel: 0, mitte: null, kurs: null, eigeneStuecke: [] };
+  // Kasten von x 100 bis 172, Mitte bei 136
+  const fremd = { zeilen: ['120°/10"'], x: 136, y: 0, winkel: 0, mitte: null, kurs: null, eigeneStuecke: [] };
   assert.equal(beschriftungFrei({ ...geo, beschriftungen: [...geo.beschriftungen, fremd] }), false, 'Beschriftung im Kasten');
-  const quer = { art: 'strecke', profil: 'horizontal', pfad: '', punkte: [{ x: 86, y: -60 }, { x: 86, y: -10 }], schleife: false };
+  const quer = { art: 'strecke', profil: 'horizontal', pfad: '', punkte: [{ x: 136, y: -60 }, { x: 136, y: -10 }], schleife: false };
   assert.equal(zaehleKreuzungen([...geo.stuecke, quer]), 1, 'fremde Strecke in den Kasten');
 });
 

@@ -22,11 +22,21 @@ export const ZEILENABSTAND = 9;
 // Halbe Länge eines Querstrichs, er ragt so weit zu beiden Seiten der Mittellinie
 export const MARKENLAENGE = 9;
 
+// Flugzeugsymbol am Anfang: Mittelpunkt so weit hinter dem Start, entgegen der
+// Richtung des ersten Segments, Radius eines Kreises, der das Symbol umschließt
+export const FLUGZEUG_ABSTAND = 19;
+export const FLUGZEUG_RADIUS = 14;
+
 const BESCHRIFTUNGSABSTAND = 12;
 // Halbe Breite eines Zeichens bei Schriftgröße 9; im Browser gemessen 2,4 bis 3,1
 const HALBE_ZEICHENBREITE = 2.9;
 const HALBE_STRICHBREITE = 4.5;
 const PROFILE = ['horizontal', 'steigen', 'sinken'];
+// Höhenrahmen wie im Textteil, 8 ft je Sekunde Steig- oder Sinkflug
+const HOEHE_MIN = 1000;
+const HOEHE_MAX = 3000;
+const STEIGRATE = 8;
+const KREISHAELFTE = 60;
 
 function abstand(von, nach) {
   return Math.abs(differenz(von, nach));
@@ -44,13 +54,24 @@ function verschiedeneIndizes(zufall, anzahl, kandidaten) {
   return zufall.mischen(kandidaten).slice(0, anzahl);
 }
 
-// Profil, das nicht viermal hintereinander gleich ist, mit Ausgleich der Bilanz
-function profilWaehlen(zufall, verlauf, bilanz) {
+// Profil, das nicht viermal hintereinander gleich ist, mit Ausgleich der Bilanz.
+// Mit "hoehe" ({ wert } in ft) bleiben Steig- und Sinkflug über "sekunden" im
+// Rahmen 1000 bis 3000 ft, und die Höhe wird fortgeschrieben. Horizontal bleibt
+// immer möglich, außer nach drei horizontalen; dann bleibt mindestens eines der
+// beiden anderen, weil 60 s höchstens 480 ft ausmachen.
+function profilWaehlen(zufall, verlauf, bilanz, hoehe = null, sekunden = 0) {
   const letzte = verlauf.slice(-3);
-  const erlaubt = PROFILE.filter((p) => !(letzte.length === 3 && letzte.every((v) => v === p)));
+  const erlaubt = PROFILE.filter((p) => {
+    if (letzte.length === 3 && letzte.every((v) => v === p)) return false;
+    if (hoehe && p === 'steigen') return hoehe.wert + STEIGRATE * sekunden <= HOEHE_MAX;
+    if (hoehe && p === 'sinken') return hoehe.wert - STEIGRATE * sekunden >= HOEHE_MIN;
+    return true;
+  });
   const profil = zufall.gewichteteAuswahl(erlaubt.map((p) => ({ wert: p, gewicht: Math.max(1, 8 - bilanz[p]) })));
   verlauf.push(profil);
   bilanz[profil] += 1;
+  if (hoehe && profil === 'steigen') hoehe.wert += STEIGRATE * sekunden;
+  if (hoehe && profil === 'sinken') hoehe.wert -= STEIGRATE * sekunden;
   return profil;
 }
 
@@ -89,8 +110,9 @@ export function gateStellenWaehlen(zufall, anzahl, kreisNach, relativeIndizes) {
 }
 
 // Eine Gate-Zeile ab "kursDavor". Relativ: Betrag 20 bis 490, der neue Kurs
-// mindestens 20° vom alten. Himmelsrichtung und Gradkurs wie bei Segmenten.
-function gateZeileErzeugen(zufall, typ, kursDavor, verlauf, bilanz) {
+// mindestens 20° vom alten. Himmelsrichtung und Gradkurs wie bei Segmenten. Die
+// Dauer steht vor dem Profil fest, damit die Höhe mit ihr gerechnet werden kann.
+function gateZeileErzeugen(zufall, typ, kursDavor, verlauf, bilanz, hoehe) {
   let kurs;
   let kursDanach;
   if (typ === 'relativ') {
@@ -111,14 +133,14 @@ function gateZeileErzeugen(zufall, typ, kursDavor, verlauf, bilanz) {
     kurs = { typ, grad };
     kursDanach = grad;
   }
-  const profil = profilWaehlen(zufall, verlauf, bilanz);
   const dauer = zufall.auswahl([10, 15, 20]);
+  const profil = profilWaehlen(zufall, verlauf, bilanz, hoehe, dauer);
   return { kurs, kursDanach, profil, dauer };
 }
 
 // Gate mit drei bis vier Zeilen, je Zeile etwa zur Hälfte relativ, zu je einem
 // Viertel Himmelsrichtung und Gradkurs, mindestens eine Zeile relativ
-function gateErzeugen(zufall, kursDavor, verlauf, bilanz) {
+function gateErzeugen(zufall, kursDavor, verlauf, bilanz, hoehe) {
   const typen = Array.from({ length: zufall.ganzzahl(3, 4) }, () => zufall.gewichteteAuswahl([
     { wert: 'relativ', gewicht: 2 },
     { wert: 'himmelsrichtung', gewicht: 1 },
@@ -128,18 +150,20 @@ function gateErzeugen(zufall, kursDavor, verlauf, bilanz) {
   const zeilen = [];
   let kurs = kursDavor;
   for (const typ of typen) {
-    const zeile = gateZeileErzeugen(zufall, typ, kurs, verlauf, bilanz);
+    const zeile = gateZeileErzeugen(zufall, typ, kurs, verlauf, bilanz, hoehe);
     zeilen.push(zeile);
     kurs = zeile.kursDanach;
   }
   return { art: 'gate', zeilen };
 }
 
-// Ohne "mitGates" zieht die Erzeugung genau dieselben Zahlen wie vor den Gates,
-// die Blätter ohne Gates bleiben also unverändert. Blätter mit Gates haben 15 bis
-// 19 statt 18 bis 22 Segmente, wie die Handzeichnung mit vier Kästen; sonst
-// würde die Zeichnung so groß, dass die Schrift im Druck oft unter 6 pt fiele.
-export function erzeugeElemente(zufall, mitGates = false) {
+// Blätter mit Gates haben 15 bis 19 statt 18 bis 22 Segmente, wie die
+// Handzeichnung mit vier Kästen; sonst würde die Zeichnung so groß, dass die
+// Schrift im Druck oft unter 6 pt fiele.
+// "start" ist der Flugzustand am Ende des Textteils ({ kurs, hoehe }): Das erste
+// Segment liegt dann 20° bis 160° von diesem Kurs, und die Profile halten die
+// Höhe im Rahmen 1000 bis 3000 ft. Ohne "start" gilt beides nicht.
+export function erzeugeElemente(zufall, mitGates = false, start = null) {
   const anzahl = mitGates ? zufall.ganzzahl(15, 19) : zufall.ganzzahl(18, 22);
 
   // Vollkreise folgen auf Segment a und b, mit mindestens zwei Segmenten davor,
@@ -156,8 +180,9 @@ export function erzeugeElemente(zufall, mitGates = false) {
 
   const verlauf = [];
   const bilanz = { horizontal: 0, steigen: 0, sinken: 0 };
+  const hoehe = start ? { wert: start.hoehe } : null;
   const elemente = [];
-  let kurs = null;
+  let kurs = start ? start.kurs : null;
 
   for (let i = 0; i < anzahl; i++) {
     const segment = { art: 'segment', kurs: null, anzeige: 'grad', himmelsrichtung: null, relativ: null, rechenaufgabe: null };
@@ -180,20 +205,20 @@ export function erzeugeElemente(zufall, mitGates = false) {
     }
     if (rechenIndizes.has(i)) segment.rechenaufgabe = zufall.auswahl([1, -1]) * zufall.ganzzahl(100, 350);
     segment.dauer = dauerWaehlen(zufall);
-    segment.profil = profilWaehlen(zufall, verlauf, bilanz);
+    segment.profil = profilWaehlen(zufall, verlauf, bilanz, hoehe, segment.dauer);
     elemente.push(segment);
     kurs = segment.kurs;
 
     if (kreisNach.includes(i)) {
-      const erste = profilWaehlen(zufall, verlauf, bilanz);
-      const zweite = profilWaehlen(zufall, verlauf, bilanz);
+      const erste = profilWaehlen(zufall, verlauf, bilanz, hoehe, KREISHAELFTE);
+      const zweite = profilWaehlen(zufall, verlauf, bilanz, hoehe, KREISHAELFTE);
       elemente.push({ art: 'vollkreis', richtung: null, profile: [erste, zweite] });
     }
 
     // Nach dem Gate gilt der Kurs der letzten Zeile; das nächste Segment trägt
     // immer einen Kurs und wird gegen diesen gewählt
     if (gateNach.has(i)) {
-      const gate = gateErzeugen(zufall, kurs, verlauf, bilanz);
+      const gate = gateErzeugen(zufall, kurs, verlauf, bilanz, hoehe);
       elemente.push(gate);
       kurs = gate.zeilen[gate.zeilen.length - 1].kursDanach;
     }
@@ -494,13 +519,28 @@ function bahn(elemente) {
   }
 
   marken.push({ punkt, kurs });
-  return { stuecke, marken, entwuerfe: beschriftungen };
+  return { stuecke, marken, entwuerfe: beschriftungen, flugzeug: flugzeugLage(marken[0]) };
+}
+
+// Kreis um das Flugzeugsymbol, hinter dem Start entgegen der Richtung des ersten Segments
+function flugzeugLage(start) {
+  const v = vektor(start.kurs);
+  return {
+    mitte: { x: start.punkt.x - v.x * FLUGZEUG_ABSTAND, y: start.punkt.y - v.y * FLUGZEUG_ABSTAND },
+    radius: FLUGZEUG_RADIUS,
+  };
 }
 
 // Setzt die Beschriftungen und bestimmt den Umriss
 function vollenden(roh) {
-  const beschriftungen = beschriftungenSetzen(roh.stuecke, roh.entwuerfe);
-  return { stuecke: roh.stuecke, marken: roh.marken, beschriftungen, umriss: umrissBerechnen(roh.stuecke, beschriftungen) };
+  const beschriftungen = beschriftungenSetzen(roh.stuecke, roh.entwuerfe, roh.flugzeug);
+  return {
+    stuecke: roh.stuecke,
+    marken: roh.marken,
+    beschriftungen,
+    umriss: umrissBerechnen(roh.stuecke, beschriftungen),
+    flugzeug: roh.flugzeug,
+  };
 }
 
 export function geometrie(elemente) {
@@ -513,11 +553,13 @@ export function geometrie(elemente) {
 // Bogens. Frei heißt: kein fremdes Stück und keine schon gesetzte Beschriftung
 // stört. Ist keine Lage frei, bleibt die erste; das verwirft dann die Auswahl.
 // So hält es auch die Vorlage: die Beschriftung steht dort, wo Platz ist.
-// Gate-Texte stehen fest in ihrem Kasten; die übrigen weichen ihnen von Anfang an aus.
-function beschriftungenSetzen(stuecke, entwuerfe) {
+// Gate-Texte stehen fest in ihrem Kasten; die übrigen weichen ihnen und dem
+// Flugzeugsymbol von Anfang an aus.
+function beschriftungenSetzen(stuecke, entwuerfe, flugzeug) {
   const kaesten = stuecke.map((s) => kasten(s.punkte));
   const gesetzt = [];
   const kapseln = entwuerfe.filter((e) => e.varianten[0].gate).map((e) => beschriftungKapsel(e.varianten[0]));
+  if (flugzeug) kapseln.push(flugzeugKapsel(flugzeug));
   for (const entwurf of entwuerfe) {
     const varianten = entwurf.varianten.map((v) => ({ ...v, eigeneStuecke: entwurf.eigeneStuecke }));
     if (varianten[0].gate) {
@@ -633,11 +675,30 @@ export function zaehleKreuzungen(stuecke, grenze = Infinity) {
 // Figur: an einer Ecke die beiden Strecken (Sehne des Eckbogens, bei 20° nur gut
 // 4 Einheiten), am Vollkreis alles, was den Berührpunkt teilt, und die Schleife.
 // Die Strecken vor und nach einem Gate zählen dagegen: Liegt der Austritt nahe
-// der Ankunft, liefen sie übereinander. Bricht ab, sobald ein Abstand unter
-// "grenze" gefunden ist; sonst ist das Ergebnis genau.
-export function kleinsterAbstand(stuecke, grenze = 0) {
+// der Ankunft, liefen sie übereinander. Mit "flugzeug" zählt das Symbol als
+// Hindernis für alle Stücke außer der ersten Strecke, an der es sitzt. Sein
+// Abstand wird in einen Mittellinienabstand umgerechnet: Ein Strich, der den
+// Kreis um das Symbol gerade berührt, gilt wie zwei Striche, die sich gerade
+// berühren (LINIENBREITE_ABSTAND). Liegt das Symbol in einem Gate-Kasten, ist
+// der Abstand 0. Bricht ab, sobald ein Abstand unter "grenze" gefunden ist;
+// sonst ist das Ergebnis genau.
+export function kleinsterAbstand(stuecke, grenze = 0, flugzeug = null) {
   const kaesten = stuecke.map((s) => kasten(s.punkte));
   let kleinster = Infinity;
+  if (flugzeug) {
+    const { mitte, radius } = flugzeug;
+    const zuschlag = LINIENBREITE_ABSTAND - radius - HALBE_STRICHBREITE;
+    const ort = { minX: mitte.x, minY: mitte.y, maxX: mitte.x, maxY: mitte.y };
+    for (let j = 1; j < stuecke.length; j++) {
+      if (kastenAbstand(ort, kaesten[j]) + zuschlag >= kleinster) continue;
+      const innen = stuecke[j].art === 'gate' && kastenAbstand(ort, kaesten[j]) === 0;
+      const d = (innen ? 0 : zugAbstand([mitte, mitte], stuecke[j].punkte)) + zuschlag;
+      if (d < kleinster) {
+        kleinster = d;
+        if (kleinster < grenze) return kleinster;
+      }
+    }
+  }
   for (let i = 0; i < stuecke.length; i++) {
     let getrennt = false;
     for (let j = i + 2; j < stuecke.length; j++) {
@@ -680,17 +741,26 @@ function beschriftungKapsel(b) {
   return { a, e, radius, umfang };
 }
 
+// Das Flugzeugsymbol als Kapsel ohne Länge, damit Beschriftungen ihm ausweichen
+// wie einer anderen Beschriftung
+function flugzeugKapsel(flugzeug) {
+  const { mitte, radius } = flugzeug;
+  return { a: mitte, e: mitte, radius, umfang: { minX: mitte.x - radius, minY: mitte.y - radius, maxX: mitte.x + radius, maxY: mitte.y + radius } };
+}
+
 // Stört ein fremdes Stück oder eine der "andere" Kapseln die Beschriftung? Fremd
-// ist jedes Stück außer den eigenen. Ein Strich muss mindestens seine halbe
-// Breite vom Text entfernt bleiben, zwei Beschriftungen dürfen sich nicht berühren.
-// Innerhalb eines Vollkreises oder einer Schleife steht keine Beschriftung, sonst
-// läse man sie als Teil der Figur.
+// ist jedes Stück außer den eigenen, und eigene Schleifen und Vollkreishälften
+// (alles mit "kreis") zählen trotzdem als fremd: Sie schwingen seitlich aus und
+// laufen sonst durch die Beschriftung des Segments daneben. Ein Strich muss
+// mindestens seine halbe Breite vom Text entfernt bleiben, zwei Beschriftungen
+// dürfen sich nicht berühren. Innerhalb eines Vollkreises oder einer Schleife
+// steht keine Beschriftung, sonst läse man sie als Teil der Figur.
 function beschriftungStoert(b, k, stuecke, kaesten, andere) {
   const noetig = k.radius + HALBE_STRICHBREITE;
   for (let s = 0; s < stuecke.length; s++) {
     const { kreis } = stuecke[s];
     if (kreis && punktStreckeAbstand(kreis.mitte, k.a, k.e) < kreis.radius) return true;
-    if (b.eigeneStuecke.includes(s)) continue;
+    if (b.eigeneStuecke.includes(s) && !kreis) continue;
     if (kastenAbstand(k.umfang, kaesten[s]) >= noetig) continue;
     if (zugAbstand([k.a, k.e], stuecke[s].punkte) < noetig) return true;
   }
@@ -701,15 +771,16 @@ function beschriftungStoert(b, k, stuecke, kaesten, andere) {
   return false;
 }
 
-// Zählt Beschriftungen, die ein fremdes Stück oder eine andere Beschriftung
-// berühren. Bricht ab, sobald die Zahl über "grenze" liegt.
+// Zählt Beschriftungen, die ein fremdes Stück, eine andere Beschriftung oder das
+// Flugzeugsymbol berühren. Bricht ab, sobald die Zahl über "grenze" liegt.
 export function verdeckteBeschriftungen(geo, grenze = Infinity) {
-  const { stuecke, beschriftungen } = geo;
+  const { stuecke, beschriftungen, flugzeug } = geo;
   const kaesten = stuecke.map((s) => kasten(s.punkte));
   const kapseln = beschriftungen.map(beschriftungKapsel);
+  const symbol = flugzeug ? [flugzeugKapsel(flugzeug)] : [];
   let anzahl = 0;
   for (let i = 0; i < beschriftungen.length; i++) {
-    const andere = kapseln.filter((_, j) => j !== i);
+    const andere = [...kapseln.filter((_, j) => j !== i), ...symbol];
     if (beschriftungStoert(beschriftungen[i], kapseln[i], stuecke, kaesten, andere)) {
       anzahl += 1;
       if (anzahl > grenze) return anzahl;
@@ -757,7 +828,7 @@ function fuellungObergrenze(stuecke) {
 function besserErsatz(roh, geoHolen, kreuzungen, ersatz) {
   if (ersatz && kreuzungen > ersatz.kreuzungen) return null;
   const gleicheKreuzungen = ersatz !== null && kreuzungen === ersatz.kreuzungen;
-  const abstand = Math.min(LINIENBREITE_ABSTAND, kleinsterAbstand(roh.stuecke, gleicheKreuzungen ? ersatz.abstand : 0));
+  const abstand = Math.min(LINIENBREITE_ABSTAND, kleinsterAbstand(roh.stuecke, gleicheKreuzungen ? ersatz.abstand : 0, roh.flugzeug));
   if (gleicheKreuzungen && abstand < ersatz.abstand) return null;
   const gleicherAbstand = gleicheKreuzungen && abstand === ersatz.abstand;
   const geo = geoHolen();
@@ -769,20 +840,22 @@ function besserErsatz(roh, geoHolen, kreuzungen, ersatz) {
 }
 
 // Zieht KANDIDATEN Parcours aus dem Zufallsstrom. Zulässig ist ein Kandidat ohne
-// Kreuzung, mit Strichen, die sich höchstens berühren, im Seitenverhältnis und mit
-// freien Beschriftungen. Unter den zulässigen gewinnt die höchste Füllung, bei
-// Gleichstand der frühere. Die Prüfungen laufen billig zuerst und nur so weit, wie
-// sie das Ergebnis noch ändern können; es ist dasselbe wie bei voller Prüfung aller.
-export function erzeugeParcours(zufall, mitGates = false) {
+// Kreuzung, mit Strichen, die sich höchstens berühren und das Flugzeugsymbol
+// frei lassen, im Seitenverhältnis und mit freien Beschriftungen. Unter den
+// zulässigen gewinnt die höchste Füllung, bei Gleichstand der frühere. Die
+// Prüfungen laufen billig zuerst und nur so weit, wie sie das Ergebnis noch
+// ändern können; es ist dasselbe wie bei voller Prüfung aller. "start" ist der
+// Flugzustand am Ende des Textteils, siehe erzeugeElemente.
+export function erzeugeParcours(zufall, mitGates = false, start = null) {
   let bester = null;
   let ersatz = null;
   for (let kandidat = 1; kandidat <= KANDIDATEN; kandidat++) {
-    const elemente = erzeugeElemente(zufall, mitGates);
+    const elemente = erzeugeElemente(zufall, mitGates, start);
     const roh = bahn(elemente);
     if (bester && fuellungObergrenze(roh.stuecke) <= bester.fuellung) continue;
     const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity));
     let geo = null;
-    if (kreuzungen === 0 && kleinsterAbstand(roh.stuecke, LINIENBREITE_ABSTAND) >= LINIENBREITE_ABSTAND) {
+    if (kreuzungen === 0 && kleinsterAbstand(roh.stuecke, LINIENBREITE_ABSTAND, roh.flugzeug) >= LINIENBREITE_ABSTAND) {
       geo = vollenden(roh);
       const fuellung = fuellungBerechnen(geo);
       if (seitenverhaeltnisPasst(geo.umriss) && (!bester || fuellung > bester.fuellung) && beschriftungFrei(geo)) {
