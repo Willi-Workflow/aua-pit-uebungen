@@ -1,113 +1,255 @@
-/* Nüchtern: Systemschrift, Schwarz auf Weiß, ein Grau für die Kopfleiste.
-   Das Blatt ist der Inhalt, alles andere tritt zurück. */
+/* Schlicht wie eine Lernsoftware: Systemschrift, Weiß mit feinen Rändern, eine
+   Akzentfarbe für alles, was sich anklicken lässt. Keine Verläufe, keine
+   Schatten. Das Blatt ist der Inhalt, alles andere tritt zurück. */
 
 :root {
   color-scheme: light;
+  --text: #111;
+  --rand: #d6d6d6;
+  --flaeche: #fff;
+  /* nur für Vorschaukästen */
+  --flaeche-leicht: #f6f7f9;
+  --akzent: #2457a6;
+  --akzent-dunkel: #1b427f;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
-  color: #000;
-  background: #fff;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--flaeche);
 }
+
+a {
+  color: var(--akzent);
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--akzent);
+  outline-offset: 2px;
+}
+
+/* Kopfleiste */
 
 .kopf {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.75rem 1rem;
-  background: #e4e4e4;
-  border-bottom: 1px solid #ccc;
+  min-height: 3.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--flaeche);
+  border-bottom: 1px solid var(--rand);
+}
+
+.zurueck {
+  flex: none;
+  padding-right: 1rem;
+  border-right: 1px solid var(--rand);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.zurueck:hover {
+  color: var(--akzent-dunkel);
+  text-decoration: underline;
 }
 
 .kopf h1 {
   flex: 1;
+  min-width: 0;
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.125rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.kopf a,
-.kopf button {
+.aktionen {
+  flex: none;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.knopf {
   font: inherit;
-  color: #000;
-  background: #fff;
-  border: 1px solid #000;
-  border-radius: 0;
-  padding: 0.4rem 0.8rem;
-  text-decoration: none;
+  line-height: 1.25;
+  color: var(--akzent);
+  background: var(--flaeche);
+  border: 1px solid var(--akzent);
+  border-radius: 6px;
+  padding: 0.45rem 0.9rem;
   cursor: pointer;
 }
 
-.inhalt {
-  max-width: 46rem;
-  margin: 0 auto;
-  padding: 1rem;
+.knopf:hover {
+  color: var(--flaeche);
+  background: var(--akzent);
 }
 
-.inhalt h2 {
-  font-size: 1rem;
-  margin: 1.5rem 0 0.75rem;
+.knopf:active {
+  color: var(--flaeche);
+  background: var(--akzent-dunkel);
+  border-color: var(--akzent-dunkel);
 }
+
+/* Inhalt */
+
+.inhalt {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.inhalt.breit {
+  max-width: 64rem;
+}
+
+.einleitung {
+  margin: 0 0 1.25rem;
+}
+
+/* Startseite: zwei Karten für die Stufen */
 
 .stufen {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  margin-top: 1rem;
 }
 
-.stufen a {
-  display: block;
-  padding: 2rem 1rem;
-  text-align: center;
-  font-size: 1.3rem;
-  color: #000;
-  background: #fff;
-  border: 1px solid #000;
+.karte {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 8.5rem;
+  padding: 1.5rem;
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  border-radius: 8px;
   text-decoration: none;
 }
+
+.karte:hover {
+  border-color: var(--akzent);
+}
+
+.karte-titel {
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--akzent);
+}
+
+/* Noch nicht umgesetzt: ausgegraut, führt aber auf den Platzhalter */
+.karte.spaeter {
+  opacity: 0.55;
+}
+
+.karte.spaeter .karte-titel {
+  color: var(--text);
+}
+
+/* Blattliste: Raster aus Karten mit Vorschaubild und Nummer */
 
 .raster {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(3.2rem, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
   list-style: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
 }
 
-.raster a {
+.blattkarte {
   display: block;
-  padding: 0.6rem 0;
-  text-align: center;
-  color: #000;
-  background: #fff;
-  border: 1px solid #000;
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  border-radius: 8px;
+  overflow: hidden;
   text-decoration: none;
 }
 
+.blattkarte:hover {
+  border-color: var(--akzent);
+}
+
+.vorschau {
+  display: block;
+  aspect-ratio: 4 / 3;
+  padding: 8px;
+  background: var(--flaeche-leicht);
+  border-bottom: 1px solid var(--rand);
+}
+
+.vorschau img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.blattkarte-fuss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.blattnummer {
+  font-weight: 700;
+}
+
+.gatemarke {
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.25rem 0.4rem;
+  color: var(--akzent);
+  border: 1px solid var(--akzent);
+  border-radius: 4px;
+}
+
+/* Blattansicht */
+
 .blatt {
-  background: #fff;
+  max-width: 46rem;
+  margin: 0 auto;
   padding: 1.5rem;
-  border: 1px solid #ccc;
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
 }
 
 .blatt h2 {
   margin: 0 0 0.25rem;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
+  line-height: 1.3;
 }
 
-.ausgang {
-  margin: 0 0 1rem;
+.ausgang,
+.gatehinweis {
+  margin: 0;
 }
 
 .textteil {
   list-style: none;
   padding: 0;
-  margin: 0 0 1.5rem;
-  line-height: 1.5;
+  margin: 1rem 0 1.5rem;
 }
 
 .parcours {
@@ -119,7 +261,7 @@ body {
 .legende {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 0.5rem 1.5rem;
   margin-top: 0.75rem;
   font-size: 0.85rem;
 }
@@ -128,6 +270,44 @@ body {
   width: 2.2rem;
   height: 0.8rem;
   vertical-align: middle;
+}
+
+/* Handy: Karten in zwei Spalten, Stufen untereinander, 16 px Seitenrand */
+
+@media (max-width: 599px) {
+  .kopf {
+    gap: 0.75rem;
+  }
+
+  .zurueck {
+    padding-right: 0.75rem;
+  }
+
+  .inhalt {
+    padding: 1.25rem 1rem 2rem;
+  }
+
+  .stufen {
+    grid-template-columns: 1fr;
+  }
+
+  .karte {
+    min-height: 0;
+  }
+
+  .raster {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .blatt {
+    padding: 1rem;
+  }
+
+  /* Umbrochene Anweisungen hängend einrücken, damit jede Zeile als eine erkennbar bleibt */
+  .textteil li {
+    padding-left: 1rem;
+    text-indent: -1rem;
+  }
 }
 
 @media print {
@@ -154,9 +334,16 @@ body {
   .blatt {
     display: flex;
     flex-direction: column;
+    max-width: none;
     height: 272mm;
     border: none;
     padding: 0;
+  }
+
+  /* Zeilenhöhen wie vor der Überarbeitung, damit die Zeichnung ihre Höhe behält */
+  .blatt,
+  .blatt h2 {
+    line-height: normal;
   }
 
   .textteil {

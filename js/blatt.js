@@ -8,6 +8,8 @@ import { erzeugeParcours } from './parcours.js';
 export const BLAETTER_JE_STUFE = 100;
 export const STUFEN = [2, 3];
 
+export function hatGates(stufe, nummer) { return nummer % 3 === 0; }
+
 export function erzeugeBlatt(stufe, nummer) {
   if (stufe !== 2) throw new Error(`Stufe ${stufe} ist noch nicht umgesetzt`);
   if (!Number.isInteger(nummer) || nummer < 1 || nummer > BLAETTER_JE_STUFE) {
