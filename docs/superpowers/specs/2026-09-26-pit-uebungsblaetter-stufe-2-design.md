@@ -90,7 +90,7 @@ Bei Schablonen mit ausdrücklicher Drehrichtung (Links auf, Rechts auf, Linkskur
 - Kurs: Grad (ganzzahlig, 000 bis 359), Himmelsrichtung, oder keine Angabe (dann relative Kursänderung an der Ecke davor)
 - Dauer: 10, 15, 20 oder 30 s, 30 s selten
 - Profil: horizontal, steigen, sinken
-- Rechenaufgabe: keine oder eine ganze Zahl von ±100 bis ±350, nur bei Segmenten mit Kurs
+- Rechenaufgabe: keine oder eine ganze Zahl von ±100 bis ±350, auch an Segmenten ohne Kurs (Vorlage: `+115` unter `/30"`)
 
 **Vollkreis**
 
@@ -183,7 +183,7 @@ Ein Nordpfeil oben rechts neben dem Umriss zeigt, wo Norden liegt, wie in der Ha
 
 Startwerte für die Geometrie (in Einheiten des SVG-Koordinatensystems, im Bau anpassbar):
 
-- 1 s Dauer = 3 Einheiten Länge
+- 1 s Dauer = 5 Einheiten Länge
 - Eckenradius 12, Vollkreisradius 35
 - Linienbreite 9 für Horizontalflug; Sinken und Steigen als schwarze Linie der Breite 9 mit darüberliegender weißer Linie der Breite 6, beim Steigen die weiße Linie gestrichelt, so dass die Lücken als Sprossen erscheinen
 

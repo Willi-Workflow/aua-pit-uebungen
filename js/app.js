@@ -13,7 +13,7 @@ const LEGENDE = `<div class="legende">
 <span><svg viewBox="0 0 40 12"><line x1="0" y1="6" x2="40" y2="6" stroke="#000" stroke-width="9"/><line x1="0" y1="6" x2="40" y2="6" stroke="#fff" stroke-width="6"/></svg> sinken</span>
 </div>`;
 
-const GATEHINWEIS = '<p class="gatehinweis"><strong>Mit Gates:</strong> Kästchen am Parcours aus dem Gedächtnis fliegen.</p>';
+const GATEHINWEIS = '<p class="gatehinweis"><strong>Mit Gates:</strong> Kästchen am Parcours aus dem Gedächtnis fliegen. Relative Werte mit dem aktuellen Kurs verrechnen, gedreht wird auf kürzestem Weg.</p>';
 
 // Kursrose wie auf der Kursanzeige im Flug auf dem Ausgangskurs aller Blätter:
 // Die Skala ist so gedreht, dass 090 oben unter dem festen Zeiger steht, die

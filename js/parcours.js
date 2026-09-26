@@ -23,7 +23,7 @@ export const START_OBEN = 0.34;
 export const LINIENBREITE_ABSTAND = 9;
 export const ZEILENABSTAND = 9;
 // Halbe Länge eines Querstrichs, er ragt so weit zu beiden Seiten der Mittellinie
-export const MARKENLAENGE = 9;
+export const MARKENLAENGE = 7;
 
 // Flugzeugsymbol am Anfang: Mittelpunkt so weit hinter dem Start, entgegen der
 // Richtung des ersten Segments, Radius eines Kreises, der das Symbol umschließt
