@@ -2068,7 +2068,7 @@ anzeigen();
 Befehl (im Hintergrund, Ausgabe verwerfen):
 
 ```bash
-python3 -m http.server 8765 --bind 127.0.0.1 --directory "/Users/o_o/Desktop/Claude/AUA Simulator Hannah"
+python3 -m http.server 8765 --bind 127.0.0.1 --directory "$PWD"
 ```
 
 Dann prüfen: `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8765/index.html`

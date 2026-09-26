@@ -51,11 +51,11 @@ export function zeichneParcours(parcours) {
   ];
   return `<svg xmlns="http://www.w3.org/2000/svg" class="parcours" viewBox="${zahl(x)} ${zahl(y)} ${zahl(breite)} ${zahl(hoehe)}" role="img" aria-label="Parcours">
 <style>
-.horizontal, .rand { fill: none; stroke: #000; stroke-width: ${LINIENBREITE}; }
-.sinken, .steigen { fill: none; stroke: #fff; stroke-width: ${WEISSBREITE}; }
-.steigen { stroke-dasharray: 5 2.5; }
-.marke { stroke: #000; stroke-width: 1.2; }
-text { font: 9px system-ui, -apple-system, sans-serif; text-anchor: middle; dominant-baseline: middle; }
+.parcours .horizontal, .parcours .rand { fill: none; stroke: #000; stroke-width: ${LINIENBREITE}; }
+.parcours .sinken, .parcours .steigen { fill: none; stroke: #fff; stroke-width: ${WEISSBREITE}; }
+.parcours .steigen { stroke-dasharray: 5 2.5; }
+.parcours .marke { stroke: #000; stroke-width: 1.2; }
+.parcours text { font: 9px system-ui, -apple-system, sans-serif; text-anchor: middle; dominant-baseline: middle; }
 </style>
 ${teile.join('\n')}
 </svg>`;

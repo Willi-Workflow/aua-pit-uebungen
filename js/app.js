@@ -66,15 +66,18 @@ export function ansichtFuer(hash) {
   return platzhalter('Nicht gefunden', `#/stufe${stufe}`, 'Dieses Blatt gibt es nicht.');
 }
 
-const wurzel = document.querySelector('#app');
+// Nur im Browser: In Node gibt es kein document, dort wird ansichtFuer allein geprüft
+if (typeof document !== 'undefined') {
+  const wurzel = document.querySelector('#app');
 
-function anzeigen() {
-  wurzel.innerHTML = ansichtFuer(location.hash);
-  window.scrollTo(0, 0);
+  const anzeigen = () => {
+    wurzel.innerHTML = ansichtFuer(location.hash);
+    window.scrollTo(0, 0);
+  };
+
+  window.addEventListener('hashchange', anzeigen);
+  wurzel.addEventListener('click', (ereignis) => {
+    if (ereignis.target.closest('[data-aktion="drucken"]')) window.print();
+  });
+  anzeigen();
 }
-
-window.addEventListener('hashchange', anzeigen);
-wurzel.addEventListener('click', (ereignis) => {
-  if (ereignis.target.closest('[data-aktion="drucken"]')) window.print();
-});
-anzeigen();
