@@ -1,7 +1,7 @@
 // Oberfläche: Adressanker auf Ansichten abbilden, Blatt anzeigen, drucken.
 // Adressen: #/  #/stufe2  #/stufe2/blatt/7  #/stufe3  #/stufe2/endlos
 
-import { erzeugeBlatt, BLAETTER_JE_STUFE } from './blatt.js';
+import { erzeugeBlatt, BLAETTER_JE_STUFE, STUFEN } from './blatt.js';
 import { zeichneParcours } from './zeichnung.js';
 import { kursText } from './kurs.js';
 
@@ -32,7 +32,13 @@ function platzhalter(titel, zurueck, text) {
 }
 
 function blattseite(stufe, nummer) {
-  const blatt = erzeugeBlatt(stufe, nummer);
+  let blatt;
+  try {
+    blatt = erzeugeBlatt(stufe, nummer);
+  } catch (fehler) {
+    // Sollte nach der Adressprüfung nicht vorkommen; wenn doch, lieber eine Meldung als eine leere Seite
+    return platzhalter('Fehler', `#/stufe${stufe}`, `Dieses Blatt konnte nicht erzeugt werden: ${fehler.message}`);
+  }
   const zeilen = blatt.textteil.zeilen.map((z) => `<li>${z.satz}</li>`).join('');
   const drucken = '<button type="button" data-aktion="drucken">Drucken</button>';
   return kopf(`Stufe ${stufe} · Blatt ${nummer}`, `#/stufe${stufe}`, drucken)
@@ -49,7 +55,7 @@ export function ansichtFuer(hash) {
   const teile = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   if (teile.length === 0) return startseite();
   const stufe = Number((teile[0].match(/^stufe(\d)$/) || [])[1]);
-  if (stufe !== 2 && stufe !== 3) return platzhalter('Nicht gefunden', '#/', 'Diese Seite gibt es nicht.');
+  if (!STUFEN.includes(stufe)) return platzhalter('Nicht gefunden', '#/', 'Diese Seite gibt es nicht.');
   if (stufe === 3) return platzhalter('Stufe 3', '#/', 'Stufe 3 kommt in einem späteren Abschnitt.');
   if (teile.length === 1) return stufenseite(stufe);
   if (teile[1] === 'endlos') return platzhalter(`Stufe ${stufe} · Endlos`, `#/stufe${stufe}`, 'Der Endlosmodus kommt in einem späteren Abschnitt.');
