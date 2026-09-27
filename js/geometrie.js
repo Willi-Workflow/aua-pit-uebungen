@@ -461,13 +461,20 @@ export function wegbauer(drehung = 0, startEnde = false) {
     const flugzeug = flugzeugLage(marken[0]);
     // "Start 2000 ft" hinter dem Flugzeugsymbol, "Ende" hinter dem Ende des letzten
     // Segments, jeweils gerade dahinter oder 45° daneben. Sie stehen vorn, damit
-    // sie ihren Platz vor den übrigen Beschriftungen bekommen.
+    // sie ihren Platz vor den übrigen Beschriftungen bekommen. "anker" ist ihr
+    // Punkt, "gegenanker" der andere (siehe ankerUnklar).
     if (startEnde) {
       const hinten = marken[0].gezeichnet + 180;
       const vorn = gezeichnet(kurs);
       beschriftungen.unshift(
-        { eigeneStuecke: [0], varianten: () => [0, 45, -45].map((w) => fettBeschriftung(START_TEXT, flugzeug.mitte, hinten + w, START_ABSTAND)) },
-        { eigeneStuecke: [stuecke.length - 1], varianten: () => [0, 45, -45].map((w) => fettBeschriftung('Ende', punkt, vorn + w, ENDE_ABSTAND)) },
+        {
+          eigeneStuecke: [0], anker: flugzeug.mitte, gegenanker: punkt,
+          varianten: () => [0, 45, -45].map((w) => fettBeschriftung(START_TEXT, flugzeug.mitte, hinten + w, START_ABSTAND)),
+        },
+        {
+          eigeneStuecke: [stuecke.length - 1], anker: punkt, gegenanker: flugzeug.mitte,
+          varianten: () => [0, 45, -45].map((w) => fettBeschriftung('Ende', punkt, vorn + w, ENDE_ABSTAND)),
+        },
       );
     }
     return { stuecke, marken, entwuerfe: beschriftungen, flugzeug, drehung };
@@ -498,7 +505,9 @@ function flugzeugLage(start) {
 // ihn nicht mehr, sobald sie einen zulässigen hat.
 export function vollenden(roh, abbrechen = false) {
   const stuecke = roh.stuecke.map((s) => ({ ...s, pfad: s.pfad() }));
-  const entwuerfe = roh.entwuerfe.map((e) => ({ eigeneStuecke: e.eigeneStuecke, zuordnung: e.zuordnung, varianten: e.varianten() }));
+  const entwuerfe = roh.entwuerfe.map((e) => ({
+    eigeneStuecke: e.eigeneStuecke, zuordnung: e.zuordnung, anker: e.anker, gegenanker: e.gegenanker, varianten: e.varianten(),
+  }));
   const beschriftungen = beschriftungenSetzen(stuecke, entwuerfe, roh.flugzeug, abbrechen);
   if (!beschriftungen) return null;
   return {
@@ -537,9 +546,11 @@ function beschriftungenSetzen(stuecke, entwuerfe, flugzeug, abbrechen = false) {
   const kapseln = entwuerfe.filter((e) => e.varianten[0].gate).map((e) => beschriftungKapsel(e.varianten[0]));
   if (flugzeug) kapseln.push(flugzeugKapsel(flugzeug));
   for (const entwurf of entwuerfe) {
-    // "zuordnung" nur, wo es sie gibt (Stufe 3), damit Stufe 2 kein neues Feld bekommt
+    // "zuordnung", "anker" und "gegenanker" nur, wo es sie gibt (Stufe 3), damit
+    // Stufe 2 kein neues Feld bekommt
     const zuordnung = entwurf.zuordnung === undefined ? {} : { zuordnung: entwurf.zuordnung };
-    const varianten = entwurf.varianten.map((v) => ({ ...v, eigeneStuecke: entwurf.eigeneStuecke, ...zuordnung }));
+    const anker = entwurf.anker === undefined ? {} : { anker: entwurf.anker, gegenanker: entwurf.gegenanker };
+    const varianten = entwurf.varianten.map((v) => ({ ...v, eigeneStuecke: entwurf.eigeneStuecke, ...zuordnung, ...anker }));
     if (varianten[0].gate) {
       gesetzt.push(varianten[0]);
       continue;
@@ -907,6 +918,15 @@ function zuordnungUnklar(b, k, stuecke, kaesten) {
   return false;
 }
 
+// Stufe 3: "Start 2000 ft" gehört zum Flugzeugsymbol, "Ende" zum Ende des Wegs.
+// Steht die Beschriftung ihrem Punkt "b.anker" nicht mindestens ZUORDNUNG_FAKTOR
+// mal näher als dem anderen, "b.gegenanker"? Gemessen von der Achse der Kapsel.
+// Sonst läse man "Start 2000 ft" direkt unter "Ende" als ein Paar am Ende des
+// Wegs (Blatt 92).
+function ankerUnklar(b, k) {
+  return punktStreckeAbstand(b.gegenanker, k.a, k.e) < ZUORDNUNG_FAKTOR * punktStreckeAbstand(b.anker, k.a, k.e);
+}
+
 // Stört ein fremdes Stück oder eine der "andere" Kapseln die Beschriftung? Fremd
 // ist jedes Stück außer den eigenen, und eigene Schleifen und Vollkreishälften
 // (alles mit "kreis") zählen trotzdem als fremd: Sie schwingen seitlich aus und
@@ -914,7 +934,8 @@ function zuordnungUnklar(b, k, stuecke, kaesten) {
 // mindestens seine halbe Breite vom Text entfernt bleiben, zwei Beschriftungen
 // dürfen sich nicht berühren. Innerhalb eines Vollkreises oder einer Schleife
 // steht keine Beschriftung, sonst läse man sie als Teil der Figur. In Stufe 3
-// steht sie zudem ihrem eigenen Stück deutlich näher als jedem fremden.
+// steht sie zudem ihrem eigenen Stück deutlich näher als jedem fremden, "Start
+// 2000 ft" und "Ende" ihrem eigenen Punkt deutlich näher als dem anderen.
 function beschriftungStoert(b, k, stuecke, kaesten, andere) {
   const noetig = k.radius + HALBE_STRICHBREITE;
   for (let s = 0; s < stuecke.length; s++) {
@@ -928,6 +949,7 @@ function beschriftungStoert(b, k, stuecke, kaesten, andere) {
     if (kastenAbstand(k.umfang, o.umfang) > 0) continue;
     if (streckenAbstand(k.a, k.e, o.a, o.e) < k.radius + o.radius) return true;
   }
+  if (b.anker && ankerUnklar(b, k)) return true;
   return b.zuordnung !== undefined && zuordnungUnklar(b, k, stuecke, kaesten);
 }
 

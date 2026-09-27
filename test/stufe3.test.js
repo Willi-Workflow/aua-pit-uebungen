@@ -439,6 +439,15 @@ test('Zuordnung: Bogenangabe näher an ihrem Bogen als an jedem fremden', () => 
   assert.equal(beschriftungFrei({ stuecke: [eigen, { ...kreishaelfte, kurve: true }], beschriftungen: [text] }), false, 'Kurve');
 });
 
+test('Zuordnung: "Start 2000 ft" steht dem Flugzeugsymbol deutlich näher als dem Ende des Wegs', () => {
+  // Beschriftung waagerecht bei y = 0 (Achse von x = -33,2 bis 33,2), Flugzeugsymbol 30 links der Achse;
+  // Ende des Wegs 40 oder 50 über der Achse
+  const start = { zeilen: ['Start 2000 ft'], x: 0, y: 0, winkel: 0, mitte: null, kurs: null, fett: true, eigeneStuecke: [0], anker: { x: -63.2, y: 0 } };
+  const weit = strecke({ x: 200, y: 200 }, { x: 300, y: 200 });
+  assert.equal(beschriftungFrei({ stuecke: [weit], beschriftungen: [{ ...start, gegenanker: { x: 0, y: -40 } }] }), false, 'Ende 40, Symbol 30');
+  assert.equal(beschriftungFrei({ stuecke: [weit], beschriftungen: [{ ...start, gegenanker: { x: 0, y: -50 } }] }), true, 'Ende 50, Symbol 30');
+});
+
 test('Zuordnung: Stufe 3 nennt das eigene Stück jeder Segment-, Eck- und Kurvenbeschriftung, Stufe 2 nicht', () => {
   const elemente = [
     segment(90, 20), segment(210, 20, { anzeige: 'keine', relativ: 120 }),

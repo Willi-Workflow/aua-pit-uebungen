@@ -630,6 +630,16 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
     lage(start[0], fz.t, norm(erstes.kurs + 180), 'Start', 75);
     const letzteStrecke = segmente[segmente.length - 1].stueck;
     lage(ende[0], letzteStrecke.ende, letzteStrecke.kurs, 'Ende', 45);
+    // "Start 2000 ft" gehört sichtbar zum Flugzeugsymbol, "Ende" zum Ende des Wegs:
+    // Die Tinte steht dem eigenen Punkt näher als dem anderen (Blatt 92 hatte
+    // "Start 2000 ft" direkt unter "Ende")
+    const naeher = (t, eigen, fremd, name, fremdName) => {
+      if (!t) return;
+      const d = (p) => Math.min(...t.tinte.map((poly) => zugPolygon([p], poly)));
+      if (d(fremd) <= d(eigen)) befund('Unschärfe', 'Parcours', 'Start und Ende näher an ihrem Punkt als am anderen', name, `${fremdName} ${d(fremd).toFixed(1)}, eigener Punkt ${d(eigen).toFixed(1)}`, 'eigener Punkt am nächsten');
+    };
+    naeher(start[0], fz.t, letzteStrecke.ende, 'Start', 'Ende des Wegs');
+    naeher(ende[0], letzteStrecke.ende, fz.t, 'Ende', 'Flugzeugsymbol');
   }
 
   // Start oben

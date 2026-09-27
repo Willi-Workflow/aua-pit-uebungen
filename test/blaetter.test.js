@@ -226,6 +226,23 @@ test('Stufe 3: Beschriftungen stehen ihrem Stück deutlich näher als jedem frem
   assert.ok(geprueft > 2500, `nur ${geprueft} Beschriftungen`);
 });
 
+// "Start 2000 ft" gehört sichtbar zum Flugzeugsymbol, "Ende" zum Ende des Wegs:
+// Der eigene Punkt ist mindestens 1,5-mal näher als der andere (Achse der
+// Beschriftung zum Punkt). Auf Blatt 92 stand "Start 2000 ft" direkt unter "Ende".
+test('Stufe 3: Start und Ende stehen deutlich näher an ihrem eigenen Punkt als am anderen', () => {
+  for (const blatt of blaetter3) {
+    const { beschriftungen, flugzeug, marken } = blatt.parcours.geometrie;
+    const ende = marken[marken.length - 1].punkt;
+    const punkt = (p) => [p, p];
+    for (const b of beschriftungen.filter((x) => x.fett)) {
+      const [eigen, fremd] = b.zeilen[0] === 'Ende' ? [ende, flugzeug.mitte] : [flugzeug.mitte, ende];
+      const de = beschriftungsAbstand(b, punkt(eigen));
+      const df = beschriftungsAbstand(b, punkt(fremd));
+      assert.ok(df >= 1.5 * de, `Blatt ${blatt.nummer}, ${b.zeilen[0]}: eigen ${de.toFixed(1)}, fremd ${df.toFixed(1)}`);
+    }
+  }
+});
+
 test('Stufe 3: Mengen je Blatt, Start und Ende beschriftet, alle Elemente der Vorlagen kommen vor', () => {
   const formen = { a: 0, b: 0, c: 0 };
   const zahlen = { kurve: 0, vollkreis: 0, hr: 0, hrKurs: 0, gk: 0, relativ: 0, anl: 0, anschluss: 0, rechen: 0, himmel: 0 };
