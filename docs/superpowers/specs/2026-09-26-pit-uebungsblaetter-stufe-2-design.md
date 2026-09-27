@@ -132,8 +132,12 @@ Die Zeichnung ist geografisch echt, deshalb ergeben zufällige Kurse oft Knäuel
 3. Das Verhältnis Breite zu Höhe des Umrisses liegt zwischen 0,7 und 1,25.
 4. Der Start liegt im oberen Teil des Umrisses, höchstens 34 % der Höhe von oben (`START_OBEN`).
 5. Jede Beschriftung steht frei: Kein fremder Strich, keine andere Beschriftung und nicht das Flugzeugsymbol berühren sie. Angrenzende Schleifen und Vollkreishälften zählen dabei als fremd, nur die eigene Strecke und gewöhnliche Eckbögen nicht. Seit den Gradzahl-Kurven steht jede Beschriftung wie in Stufe 3 ihrem eigenen Stück deutlich näher als jedem fremden (Zuordnung).
+6. Nur Stufe 2: Die Beschriftung erscheint im A4-Druck mit mindestens 6 pt (`DRUCKSCHRIFT_MIN`). Gerechnet wird mit der Fläche, die die Zeichnung im Druck bekommt, in Chrome gemessen: 703 × 688 Pixel, auf Gate-Blättern mit dem zweizeiligen Gate-Hinweis 703 × 652 (`DRUCKFLAECHE`, `druckschrift` in `zeichnung.js`); die Schrift 9 der Zeichnung erscheint mit 9 × 0,75 × Maßstab pt. Die Rechnung weicht von der Messung in Chrome um höchstens 0,01 pt ab.
+7. Nur Stufe 2: Kein Querstrich berührt die Tinte einer Beschriftung (`querstrichAnBeschriftung`, Tinte aus den in Chrome gemessenen Zeichenmaßen wie im Prüfwerkzeug).
 
-Gemessen nach den Gradzahl-Kurven: alle 100 Blätter zulässig, CPU-Zeit je Blatt im Median 181 ms, höchstens 323 ms; Druckschrift der Parcours-Beschriftungen im Median 7,9 pt, kleinste 5,1 pt (Blatt 39, einziges unter 6 pt), vorher 7,6 und 5,4 pt.
+Beide Regeln verwerfen nur ganze Kandidaten; so änderten sich nur die Blätter, deren Sieger sie verletzte: 39 (5,1 auf 6,1 pt), 7, 33, 41, 53 und 78 (Querstrich an einer Ziffer). Stufe 3 bleibt ohne sie, damit ihre Blätter gleich bleiben.
+
+Gemessen nach den Gradzahl-Kurven: alle 100 Blätter zulässig, CPU-Zeit je Blatt im Median 181 ms, höchstens 323 ms; Druckschrift der Parcours-Beschriftungen im Median 7,9 pt, kleinste 5,1 pt (Blatt 39, einziges unter 6 pt), vorher 7,6 und 5,4 pt. Mit den Regeln 6 und 7: Median 7,9 pt, kleinste 6,1 pt (Blatt 39), alle 100 auf einer Seite.
 
 Der Start liegt also nicht durch eine Drehung des Blatts oben, sondern weil die Auswahl unter den vielen probierten Verläufen nur einen mit dem Start im oberen Teil zulässt.
 
