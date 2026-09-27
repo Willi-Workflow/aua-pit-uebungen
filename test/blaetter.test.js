@@ -10,6 +10,7 @@ import {
 } from '../js/geometrie.js';
 import { druckschrift, DRUCKFLAECHE, zeichneParcours, zeichneVorschau } from '../js/zeichnung.js';
 import { DRUCKSCHRIFT_MIN } from '../js/parcours.js';
+import { blaetterAbgleichen } from '../werkzeuge/pruefen/loesungen.js';
 
 // Alle Blätter beider Stufen einmal erzeugen, die Prüfungen unten teilen sie sich
 // Rechenzeit je Blatt als CPU-Zeit, siehe Stufe 3 unten. Vorab ungemessen ein
@@ -471,3 +472,20 @@ test('Stufe 3: Gegenkurs mindestens dreimal je Blatt, meist vier- bis fünfmal',
   // "meist 4 bis 5"
   assert.ok((jeBlatt[4] || 0) + (jeBlatt[5] || 0) >= 60, JSON.stringify(jeBlatt));
 });
+
+// Übungsmodus: Jede Lösung aller 200 Blätter wie nachgerechnet. Das
+// Prüfwerkzeug rechnet jedes Blatt nur aus Sätzen und gedrucktem SVG nach;
+// Anzahl, Art, Wert und Reihenfolge der Rechenstellen müssen dazu passen, jede
+// Lösung steht dicht an ihrer Beschriftung, lässt die eigene frei und bleibt im
+// Zeichenfeld (werkzeuge/pruefen/loesungen.js). Hier, weil die Blätter schon
+// erzeugt sind: Eine zweite Erzeugung in einer eigenen Prüfdatei lief parallel
+// und hob die CPU-Zeit je Blatt oben über 500 ms.
+for (const [stufe, liste] of [[2, blaetter], [3, blaetter3]]) {
+  test(`Übungsmodus Stufe ${stufe}: Lösungen aller 100 Blätter wie nachgerechnet, in Parcours-Reihenfolge an ihrer Beschriftung`, () => {
+    const e = blaetterAbgleichen(liste);
+    console.log(`Übungsmodus Stufe ${stufe}: ${e.stellen} Rechenstellen, im Mittel ${(e.stellen / BLAETTER_JE_STUFE).toFixed(1)} je Blatt; ${e.links} links, ${e.aussen} als Zeile außen; ${e.fremd} berühren fremde Beschriftungen, Kästen oder Lösungen (auf ${e.blaetterFremd} Blättern)`);
+    assert.deepEqual(e.fehler.slice(0, 10), [], `${e.fehler.length} Abweichungen`);
+    // Fremdes zu berühren ist im Übungsmodus hinnehmbar, soll aber selten bleiben
+    assert.ok(e.fremd <= 0.03 * e.stellen, `${e.fremd} von ${e.stellen} Lösungen berühren Fremdes`);
+  });
+}

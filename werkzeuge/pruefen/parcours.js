@@ -379,11 +379,14 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
         kurs = gezeichnet;
         hoeheFliegen(s.profil, s.laenge / SEK_LAENGE, stelle);
       }
+      // Für den Abgleich der Lösungen im Übungsmodus (test/loesungen.test.js)
+      // die gelesene Beschriftung und die Anschlusszeile des Gates davor
+      const anschlussDavor = offenerAnschluss;
       offenerAnschluss = null;
       const naechstes = kette[n + 1];
       if (naechstes && naechstes.art === 'ecke' && naechstes.stueck.profil !== s.profil) befund('Hinweis', 'Parcours', 'Eckbogen in der Linienart des Segments davor', stelle, naechstes.stueck.profil, s.profil);
       e.kurs = kurs;
-      flugKurse.push({ art: 'segment', kurs });
+      flugKurse.push({ art: 'segment', kurs, lesung: t ? t.lesung : null, anschluss: anschlussDavor });
     } else if (e.art === 'vollkreis') {
       zahl.vollkreise += 1;
       const stelle = `Vollkreis nach Segment ${segNr}`;
