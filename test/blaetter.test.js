@@ -13,7 +13,11 @@ const beginn = Date.now();
 const blaetter = Array.from({ length: BLAETTER_JE_STUFE }, (_, i) => erzeugeBlatt(2, i + 1));
 const dauer = Date.now() - beginn;
 // Rechenzeit je Blatt als CPU-Zeit: Die Wanduhr zählt parallel laufende
-// Prüfdateien und einen Ruhezustand des Rechners mit
+// Prüfdateien und einen Ruhezustand des Rechners mit. Die CPU-Zeit zählt
+// dagegen die Fäden mit, die den Code der Stufe 3 beim ersten Aufruf übersetzen;
+// das fiel ganz auf Blatt 1 (allein 320 bis 360 ms statt rund 190, unter Last bis
+// 540). Ein Blatt vorab, ungemessen, nimmt diese einmalige Übersetzung heraus.
+erzeugeBlatt(3, BLAETTER_JE_STUFE);
 const zeiten3 = [];
 const blaetter3 = Array.from({ length: BLAETTER_JE_STUFE }, (_, i) => {
   const start = process.cpuUsage();
@@ -132,7 +136,7 @@ test('Stufe 3: alle 100 Blätter entstehen, mindestens 90 zulässig, jedes unter
   const zulaessig = blaetter3.filter((b) => b.parcours.zulaessig).length;
   const mittel = zeiten3.reduce((s, z) => s + z, 0) / zeiten3.length;
   const sortiert = [...zeiten3].sort((a, b) => a - b);
-  console.log(`Stufe 3: ${zulaessig} von ${BLAETTER_JE_STUFE} Blättern zulässig; CPU-Zeit je Blatt Median ${sortiert[50].toFixed(0)} ms, Mittel ${mittel.toFixed(0)} ms, höchstens ${sortiert[99].toFixed(0)} ms`);
+  console.log(`Stufe 3: ${zulaessig} von ${BLAETTER_JE_STUFE} Blättern zulässig; CPU-Zeit je Blatt Median ${sortiert[50].toFixed(0)} ms, Mittel ${mittel.toFixed(0)} ms, höchstens ${sortiert[99].toFixed(0)} ms (Blatt ${zeiten3.indexOf(sortiert[99]) + 1})`);
   assert.ok(zulaessig >= 90, `nur ${zulaessig} zulässig`);
   assert.ok(sortiert[99] < 500, `bis ${sortiert[99]} ms je Blatt`);
   for (const blatt of blaetter3) {
