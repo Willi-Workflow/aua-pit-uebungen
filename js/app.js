@@ -74,8 +74,8 @@ function kopf(ort, zurueck, aktionen = '') {
   return `<header class="kopf"><div class="kopf-innen rahmen">${zurueckLink}${marke}${ortTeil}${rechts}</div></header>`;
 }
 
-// Blitzsymbol vor "Blitzrechnen": gefüllter Blitz in Tinte, 22 Einheiten hoch
-const BLITZ = '<svg class="blitz-zeichen" viewBox="0 0 14 22" width="14" height="22" aria-hidden="true"><path d="M 8.5 0 L 0 12.5 H 5.5 L 4 22 L 14 8.5 H 8 Z"/></svg>';
+// Blitzsymbol vor "Blitzrechnen": gefüllter Blitz in Tinte, 32 Einheiten hoch
+const BLITZ = '<svg class="blitz-zeichen" viewBox="0 0 14 22" width="20" height="32" aria-hidden="true"><path d="M 8.5 0 L 0 12.5 H 5.5 L 4 22 L 14 8.5 H 8 Z"/></svg>';
 
 function startseite() {
   return kopf(null, null)
