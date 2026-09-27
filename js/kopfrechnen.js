@@ -1,16 +1,30 @@
-// Kopfrechnen mit Kursen: fünf Aufgabenarten, gemischt, jede mit Text, Lösung
-// und Tonfolge. Die Tonfolge nennt Schnipsel unter klaenge/ ohne Endung; Kurse
-// werden ziffernweise gesprochen, die Zahl einer Rechenaufgabe als ganze Zahl.
-// Kein DOM, damit die Aufgaben ohne Browser geprüft werden können.
+// Kopfrechnen mit Kursen: Aufgabenarten, gemischt nach Schwierigkeit, jede mit
+// Text, Lösung und Tonfolge. Die Tonfolge nennt Schnipsel unter klaenge/ ohne
+// Endung; Kurse werden ziffernweise gesprochen, die Zahl einer Rechenaufgabe als
+// ganze Zahl. Kein DOM, damit die Aufgaben ohne Browser geprüft werden können.
+//
+// Gefragt ist fast immer der neue Kurs aus einem Kurs und einer Gradzahl, wie im
+// Kurs: "247 + 230", "GK −19° ab 247", "NNE +102°"; bei schwer auch zweistufig
+// "GK von SSW −37°" und "anl. Kurs 247 +9×13". Die Wertebereiche stehen in
+// schwierigkeit.js.
 
 import { normieren, kursText, himmelsrichtungGrad, naechsteHimmelsrichtung } from './kurs.js';
 import { richtungName } from './antwort.js';
+import {
+  VORGABE_SCHWIERIGKEIT, gueltigeSchwierigkeit, zahlWaehlen, kursWaehlen, ungeraderKurs, rechenRichtungen, richtungPlusWaehlen, anlWaehlen,
+} from './schwierigkeit.js';
 
-export const KOPF_ARTEN = ['kursPlusZahl', 'gegenkurs', 'richtungInGrad', 'naechsteRichtung', 'gkPlus'];
+export const KOPF_ARTEN = ['kursPlusZahl', 'gegenkurs', 'richtungInGrad', 'naechsteRichtung', 'gkPlus', 'richtungPlus', 'gkRichtung', 'anlKurs'];
 
-// Zahlen der Rechenaufgaben wie in den Gates der Stufe 2, GK plus oder minus wie in Stufe 3
-export const ZAHL = { min: 20, max: 490 };
-export const GK_WERT = { min: 10, max: 60 };
+// Gewicht jeder Art beim Mischen, je Schwierigkeit; fehlt eine Art, kommt sie
+// nicht vor. Die Arten ohne Rechnung (Gegenkurs, Himmelsrichtung in Grad,
+// nächste Himmelsrichtung) sind bei leicht seltener; die zweistufigen gibt es
+// nur bei schwer.
+export const ARTEN_GEWICHTE = {
+  leicht: { kursPlusZahl: 4, gkPlus: 2, richtungPlus: 2, gegenkurs: 1, richtungInGrad: 1, naechsteRichtung: 1 },
+  normal: { kursPlusZahl: 1, gegenkurs: 1, richtungInGrad: 1, naechsteRichtung: 1, gkPlus: 1, richtungPlus: 1 },
+  schwer: { kursPlusZahl: 2, gegenkurs: 1, richtungInGrad: 1, naechsteRichtung: 1, gkPlus: 1, richtungPlus: 1, gkRichtung: 1, anlKurs: 1 },
+};
 
 // Minuszeichen der Schrift, nicht der Bindestrich
 const MINUS = '−';
@@ -29,7 +43,9 @@ function rechenzeichen(wert) {
 
 // Aufgabe aus festen Werten: kursPlusZahl { kurs, zahl } mit Vorzeichen an der
 // Zahl, gegenkurs { kurs }, richtungInGrad { index }, naechsteRichtung { kurs },
-// gkPlus { kurs, wert } mit Vorzeichen am Wert
+// gkPlus { kurs, wert } mit Vorzeichen am Wert, richtungPlus { index, wert },
+// gkRichtung { index, wert }, anlKurs { kurs, wert } für plus n oder
+// { kurs, a, b } für plus a×b
 export function baueKopfaufgabe(art, werte) {
   if (art === 'kursPlusZahl') {
     const { kurs, zahl } = werte;
@@ -72,22 +88,78 @@ export function baueKopfaufgabe(art, werte) {
       tonfolge: ['gegenkurs_von', ...ziffernFolge(kurs), z.klang, `n${Math.abs(wert)}`],
     };
   }
+  if (art === 'richtungPlus') {
+    // Wie die Gate-Zeile "NNE +102°" der Handzeichnung
+    const { index, wert } = werte;
+    const name = richtungName(index);
+    const z = rechenzeichen(wert);
+    return {
+      art,
+      text: `${name} ${z.text}${Math.abs(wert)}°`,
+      antwort: 'kurs',
+      loesung: normieren(himmelsrichtungGrad(index) + wert),
+      tonfolge: ['himmelsrichtung', `hr_${name}`, z.klang, `n${Math.abs(wert)}`],
+    };
+  }
+  if (art === 'gkRichtung') {
+    // Zweistufig: erst der Gegenkurs der Himmelsrichtung, dann plus oder minus
+    const { index, wert } = werte;
+    const name = richtungName(index);
+    const z = rechenzeichen(wert);
+    return {
+      art,
+      text: `GK von ${name} ${z.text}${Math.abs(wert)}°`,
+      antwort: 'kurs',
+      loesung: normieren(himmelsrichtungGrad(index) + 180 + wert),
+      tonfolge: ['gegenkurs_von', `hr_${name}`, z.klang, `n${Math.abs(wert)}`],
+    };
+  }
+  if (art === 'anlKurs') {
+    // Anliegender, also gerade geflogener Kurs plus n oder plus a×b
+    const { kurs } = werte;
+    const produkt = werte.a !== undefined;
+    const wert = produkt ? werte.a * werte.b : werte.wert;
+    return {
+      art,
+      text: produkt ? `anl. Kurs ${kursText(kurs)} +${werte.a}×${werte.b}` : `anl. Kurs ${kursText(kurs)} +${wert}°`,
+      antwort: 'kurs',
+      loesung: normieren(kurs + wert),
+      tonfolge: ['anliegender_kurs', ...ziffernFolge(kurs), 'op_plus', ...(produkt ? [`n${werte.a}`, 'op_mal', `n${werte.b}`] : [`n${wert}`])],
+    };
+  }
   throw new Error(`Aufgabenart ${art} gibt es nicht`);
 }
 
-function mitVorzeichen(zufall, { min, max }) {
-  return zufall.auswahl([1, -1]) * zufall.ganzzahl(min, max);
-}
-
-// Eine Aufgabe der Art "art", ohne Art eine gleichverteilt gewählte. Ein Kurs
-// ist ganzzahlig von 000 bis 359; bei der nächsten Himmelsrichtung ist er nie
-// genau zwischen zwei Richtungen, weil das bei ganzen Graden nicht vorkommt.
-export function erzeugeKopfaufgabe(zufall, art = null) {
-  const gewaehlt = art || zufall.auswahl(KOPF_ARTEN);
-  const kurs = zufall.ganzzahl(0, 359);
-  if (gewaehlt === 'kursPlusZahl') return baueKopfaufgabe(gewaehlt, { kurs, zahl: mitVorzeichen(zufall, ZAHL) });
-  if (gewaehlt === 'gegenkurs') return baueKopfaufgabe(gewaehlt, { kurs });
-  if (gewaehlt === 'richtungInGrad') return baueKopfaufgabe(gewaehlt, { index: zufall.ganzzahl(0, 15) });
-  if (gewaehlt === 'naechsteRichtung') return baueKopfaufgabe(gewaehlt, { kurs });
-  return baueKopfaufgabe(gewaehlt, { kurs, wert: mitVorzeichen(zufall, GK_WERT) });
+// Eine Aufgabe der Art "art" in der Schwierigkeit "schwierigkeit", ohne Art eine
+// nach ARTEN_GEWICHTE gemischte. Gerechnet wird ab einem Kurs, bei leicht in
+// Zehnerschritten; die Zahl kommt aus schwierigkeit.js und trifft dort den
+// Anteil mit Überlauf. Bei schwer sind die Kurse bei Gegenkurs und nächster
+// Himmelsrichtung ungerade und die Himmelsrichtungen solche mit halbem Grad. Bei
+// der nächsten Himmelsrichtung liegt ein ganzzahliger Kurs nie genau zwischen
+// zwei Richtungen.
+export function erzeugeKopfaufgabe(zufall, art = null, schwierigkeit = VORGABE_SCHWIERIGKEIT) {
+  const s = gueltigeSchwierigkeit(schwierigkeit);
+  const gewaehlt = art || zufall.gewichteteAuswahl(Object.entries(ARTEN_GEWICHTE[s]).map(([wert, gewicht]) => ({ wert, gewicht })));
+  if (gewaehlt === 'kursPlusZahl') {
+    const kurs = kursWaehlen(zufall, s);
+    return baueKopfaufgabe(gewaehlt, { kurs, zahl: zahlWaehlen(zufall, s, 'zahl', kurs) });
+  }
+  if (gewaehlt === 'gegenkurs' || gewaehlt === 'naechsteRichtung') {
+    return baueKopfaufgabe(gewaehlt, { kurs: s === 'schwer' ? ungeraderKurs(zufall) : zufall.ganzzahl(0, 359) });
+  }
+  if (gewaehlt === 'richtungInGrad') {
+    return baueKopfaufgabe(gewaehlt, { index: s === 'schwer' ? zufall.auswahl(rechenRichtungen(s)) : zufall.ganzzahl(0, 15) });
+  }
+  if (gewaehlt === 'gkPlus') {
+    const kurs = kursWaehlen(zufall, s);
+    return baueKopfaufgabe(gewaehlt, { kurs, wert: zahlWaehlen(zufall, s, 'gk', normieren(kurs + 180)) });
+  }
+  if (gewaehlt === 'richtungPlus') return baueKopfaufgabe(gewaehlt, richtungPlusWaehlen(zufall, s, 'hr'));
+  if (gewaehlt === 'gkRichtung') return baueKopfaufgabe(gewaehlt, richtungPlusWaehlen(zufall, s, 'gk', () => true, true));
+  if (gewaehlt === 'anlKurs') {
+    const kurs = kursWaehlen(zufall, s);
+    const anl = anlWaehlen(zufall, s, kurs);
+    return baueKopfaufgabe(gewaehlt, anl.typ === 'anlProdukt' ? { kurs, a: anl.a, b: anl.b } : { kurs, wert: anl.wert });
+  }
+  throw new Error(`Aufgabenart ${gewaehlt} gibt es nicht`);
 }

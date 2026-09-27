@@ -23,4 +23,4 @@ Mit `werkzeuge/klaenge_erzeuge.py` (liest den Schlüssel aus dem macOS-Schlüsse
 - `gegenkurs_von.mp3`, `himmelsrichtung.mp3`, `naechste_himmelsrichtung_zu.mp3`, `grad.mp3`, `anliegender_kurs.mp3`
 - `hr_N.mp3` bis `hr_NNW.mp3`: die 16 Himmelsrichtungen, im Dateinamen mit den englischen Kürzeln wie in der Zeichnung, gesprochen deutsch ("Süd-Süd-West")
 
-`op_mal.mp3` und `anliegender_kurs.mp3` braucht die App derzeit nicht; sie liegen für Aufgaben mit `anl. Kurs +7×8` bereit.
+`op_mal.mp3` und `anliegender_kurs.mp3` braucht seit der Schwierigkeit (27.09.2026) die Aufgabe `anl. Kurs 247 +9×13` ("anliegender Kurs zwei vier sieben plus neun mal dreizehn"). Für die übrigen neuen Aufgaben (`NNE +102°`, `GK von SSW −37°`) reichen die vorhandenen Schnipsel; neu erzeugt wurde nichts.

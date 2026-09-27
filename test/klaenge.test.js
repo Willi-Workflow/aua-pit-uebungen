@@ -8,13 +8,13 @@ const datei = (name) => new URL(`${name}.mp3`, ordner);
 const RICHTUNGEN = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 const bereich = (von, bis) => Array.from({ length: bis - von + 1 }, (_, i) => von + i);
 
-// Was der Ton-Baukasten des Kopfrechnens braucht: Ziffern für die Kurse, 10 bis
-// 60 für GK plus oder minus, 20 bis 490 für die Rechenaufgaben, Rechenzeichen,
-// Wörter und die 16 Himmelsrichtungen
+// Was der Ton-Baukasten des Kopfrechnens braucht: Ziffern für die Kurse und
+// Faktoren, 10 bis 60 für GK plus oder minus, 10 bis 490 für die Rechenaufgaben,
+// Rechenzeichen samt "mal" für anl. Kurs +9×13, Wörter und die 16 Himmelsrichtungen
 const NOETIG = [
   ...bereich(0, 490).map((n) => `n${n}`),
-  'op_plus', 'op_minus', 'name_kurs',
-  'gegenkurs_von', 'himmelsrichtung', 'naechste_himmelsrichtung_zu', 'grad',
+  'op_plus', 'op_minus', 'op_mal', 'name_kurs',
+  'gegenkurs_von', 'himmelsrichtung', 'naechste_himmelsrichtung_zu', 'grad', 'anliegender_kurs',
   ...RICHTUNGEN.map((r) => `hr_${r}`),
 ];
 
