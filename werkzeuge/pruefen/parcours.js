@@ -709,7 +709,10 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
     }
   }
   // Kreuzungen und Engstellen zwischen Stücken, die nicht zu einer Figur gehören;
-  // Ein- und Ausfahrt einer Schleife über 180° (Ecke oder Kurve) dürfen sich kreuzen
+  // Ein- und Ausfahrt einer Schleife über 180° (Ecke oder Kurve) dürfen sich
+  // kreuzen, aber nur sauber: der Kreuzungspunkt auf beiden mindestens 9 vor dem
+  // äußeren Ende (Anfang der Einfahrt, Ende der Ausfahrt). Sonst endet die
+  // Ausfahrt im oder dicht am Strich der Einfahrt wie ein T (Stufe 3, Blatt 80).
   for (let a = 0; a < stuecke.length; a++) {
     let getrennt = false;
     for (let c = a + 2; c < stuecke.length; c++) {
@@ -719,10 +722,12 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
       const A = stuecke[a].punkte; const C = stuecke[c].punkte;
       let x = 0;
       for (let m = 0; m + 1 < A.length; m++) for (let q = 0; q + 1 < C.length; q++) if (schneiden(A[m], A[m + 1], C[q], C[q + 1])) x += 1;
-      if (x) {
-        const mitte = stuecke[a + 1];
-        const schleife = c === a + 2 && mitte.art === 'bogen' && Math.abs(mitte.dreh) > 180 && stuecke[a].art === 'strecke';
-        if (!schleife) befund('Fehler', 'Sicht', 'Weg kreuzt sich nicht', `Stück ${a + 1} und ${c + 1}`, `${x} Kreuzung(en)`, 'keine');
+      const mitte = stuecke[a + 1];
+      const schleife = c === a + 2 && !gateDazwischen && mitte.art === 'bogen' && Math.abs(mitte.dreh) > 180 && stuecke[a].art === 'strecke';
+      if (x && !schleife) befund('Fehler', 'Sicht', 'Weg kreuzt sich nicht', `Stück ${a + 1} und ${c + 1}`, `${x} Kreuzung(en)`, 'keine');
+      if (schleife) {
+        const lage = schleifenLage(stuecke[a], stuecke[c]);
+        if (lage) befund('Unschärfe', 'Sicht', 'Schleife: Ein- und Ausfahrt kreuzen sich sauber', `Stück ${a + 1} und ${c + 1}`, lage, 'Kreuzung mindestens 9 vor beiden äußeren Enden, sonst Mittellinien mindestens 9');
       }
       if (getrennt) {
         const d = zugZug(A, C);
@@ -766,6 +771,23 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
     if (fremdD < eigenD) befund('Hinweis', 'Parcours', 'Beschriftung näher am eigenen Strich als an fremden', t.lesung.roh, `eigener Strich ${eigenD.toFixed(1)}, ${fremdName} ${fremdD.toFixed(1)} (Mittellinie zu Tinte), fremder Strich ${fremdWinkel.toFixed(0)}° zur Schrift`, 'eigener Strich am nächsten', { x: t.t.x, y: t.t.y });
   }
   return { flugKurse, drehung, zahl, profile, anteilWeg, anteilMitText, verhaeltnis, sichtBefunde, hoeheEnde: hoehe };
+}
+
+// Lage von Einfahrt "ein" und Ausfahrt "aus" einer Schleife: null bei einer
+// sauberen Kreuzung (mindestens 9 vor beiden äußeren Enden) oder mindestens 9
+// Abstand ohne Kreuzung, sonst die Beschreibung des Befunds
+function schleifenLage(ein, aus) {
+  if (aus.art !== 'strecke') return null;
+  const [p, q] = ein.punkte; const [r, s] = aus.punkte;
+  const d1 = sub(q, p); const d2 = sub(s, r); const w = sub(r, p);
+  const nenner = kreuz(d1, d2);
+  if (nenner !== 0 && schneiden(p, q, r, s)) {
+    const vorEin = (kreuz(w, d2) / nenner) * len(d1);
+    const vorAus = (1 - kreuz(w, d1) / nenner) * len(d2);
+    return Math.min(vorEin, vorAus) >= 9 ? null : `Kreuzung ${Math.min(vorEin, vorAus).toFixed(1)} vor dem ${vorEin < vorAus ? 'Anfang der Einfahrt' : 'Ende der Ausfahrt'}`;
+  }
+  const d = zugZug(ein.punkte, aus.punkte);
+  return d >= 9 ? null : `ohne Kreuzung, Mittellinien ${d.toFixed(1)} auseinander (Ende im Strich)`;
 }
 
 function verhaeltnisBerechnen(stuecke, kaesten, texte) {

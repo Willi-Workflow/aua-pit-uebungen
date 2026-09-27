@@ -326,8 +326,8 @@ test('Stufe 3: Kandidaten mit Prüfer kreuzen sich nicht und halten den Strichab
   assert.ok(geprueft.length >= 30, `nur ${geprueft.length} von 60 Kandidaten fertig`);
   for (const elemente of geprueft) {
     const roh = bahn(elemente, 0, true);
-    assert.equal(zaehleKreuzungen(roh.stuecke), 0);
-    assert.ok(kleinsterAbstand(roh.stuecke, 0, roh.flugzeug) >= LINIENBREITE_ABSTAND);
+    assert.equal(zaehleKreuzungen(roh.stuecke, Infinity, true), 0);
+    assert.ok(kleinsterAbstand(roh.stuecke, 0, roh.flugzeug, true) >= LINIENBREITE_ABSTAND);
   }
 });
 
@@ -369,6 +369,25 @@ test('Kurve: Bogen im eigenen Profil, Radius 24 unter 180°, Schleife 35 darübe
   // Eine Schleife über 180° kreuzt Ein- und Ausfahrt, das zählt nicht
   const schleife = geometrie([segment(0, 20), { art: 'kurve', winkel: 300, richtung: 'rechts', profil: 'horizontal' }, segment(300, 20, { anzeige: 'keine' })]);
   assert.equal(zaehleKreuzungen(schleife.stuecke), 0);
+});
+
+// Einfahrt 20 s nach Osten, Schleife rechts herum (Radius 28), Ausfahrt 10 s.
+// 270°: Die Ausfahrt kreuzt die Einfahrt 22 vor ihrem Ende, sauber wie in der
+// Handzeichnung. 240°: Kreuzung nur 1,5 vor dem Ende. 238°: Die Ausfahrt endet
+// 0,4 vor dem Strich der Einfahrt, ohne ihn zu kreuzen, ein T wie auf Blatt 80.
+test('Schleife: Ein- und Ausfahrt nur als saubere Kreuzung, nie ein Ende im Strich der Einfahrt', () => {
+  const kette = (winkel) => [segment(90, 20), segment(normieren(90 + winkel), 10, { anzeige: 'keine', relativ: winkel })];
+  for (const [winkel, sauber] of [[270, true], [240, false], [238, false]]) {
+    const elemente = kette(winkel);
+    assert.equal(schrittpruefer().pruefen(elemente, 2), sauber, `Schrittprüfer bei ${winkel}°`);
+    const { stuecke } = bahn(elemente, 0, true);
+    assert.equal(stuecke[1].schleife, true);
+    const frei = zaehleKreuzungen(stuecke, Infinity, true) === 0 && kleinsterAbstand(stuecke, 0, null, true) >= LINIENBREITE_ABSTAND;
+    assert.equal(frei, sauber, `Kreuzungen und Abstand bei ${winkel}°`);
+    // Stufe 2 behält die weite Ausnahme, damit ihre Blätter gleich bleiben
+    assert.equal(zaehleKreuzungen(stuecke), 0);
+    assert.equal(kleinsterAbstand(stuecke), Infinity);
+  }
 });
 
 test('GK: Kehre von 180° mit Radius 20 in der gewählten Richtung, HR mit kleiner Ecke, Beschriftungen HR und GK', () => {

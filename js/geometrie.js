@@ -599,17 +599,52 @@ function zugAbstand(a, b) {
   return kleinster;
 }
 
+// Einfahrt i und Ausfahrt j einer Schleife: die Strecke davor, der Bogen über
+// 180° und das Stück danach. Ihre Kreuzung ist Teil der Figur, wie in der
+// Vorlage. Das gilt nur für die Strecke vor der Schleife; ein Kreisbogen davor
+// wird regulär geprüft.
+function schleifenpaar(stuecke, i, j) {
+  return j === i + 2 && stuecke[i + 1].schleife && stuecke[i].art === 'strecke';
+}
+
+// Kreuzen sich Ein- und Ausfahrt einer Schleife sauber wie in der
+// Handzeichnung? Dann liegt der Kreuzungspunkt auf beiden mindestens eine
+// Strichbreite (LINIENBREITE_ABSTAND) vor dem äußeren Ende, dem Anfang der
+// Einfahrt und dem Ende der Ausfahrt. Sonst endete die Ausfahrt im oder dicht am
+// Strich der Einfahrt, und das Bild sähe aus wie ein T (Blatt 80 der Stufe 3).
+function schleifeSauber(einfahrt, ausfahrt) {
+  if (ausfahrt.art !== 'strecke') return false;
+  const [a1, a2] = einfahrt.punkte;
+  const [b1, b2] = ausfahrt.punkte;
+  if (!schneidenSich(a1, a2, b1, b2)) return false;
+  const ax = a2.x - a1.x;
+  const ay = a2.y - a1.y;
+  const bx = b2.x - b1.x;
+  const by = b2.y - b1.y;
+  const nenner = kreuzprodukt(ax, ay, bx, by);
+  const t = kreuzprodukt(b1.x - a1.x, b1.y - a1.y, bx, by) / nenner;
+  const u = kreuzprodukt(b1.x - a1.x, b1.y - a1.y, ax, ay) / nenner;
+  return t * Math.hypot(ax, ay) >= LINIENBREITE_ABSTAND && (1 - u) * Math.hypot(bx, by) >= LINIENBREITE_ABSTAND;
+}
+
+// Darf das Paar i, j als Ein- und Ausfahrt einer Schleife ungeprüft bleiben?
+// Stufe 2 ("eng" falsch) nimmt jede Lage aus, damit ihre Blätter gleich bleiben;
+// Stufe 3 nur die saubere Kreuzung, jede andere Lage prüft sie wie zwei
+// getrennte Stücke (keine Kreuzung, Mittellinien mindestens LINIENBREITE_ABSTAND).
+function schleifeAusgenommen(stuecke, i, j, eng) {
+  if (!schleifenpaar(stuecke, i, j)) return false;
+  return !eng || schleifeSauber(stuecke[i], stuecke[j]);
+}
+
 // Kreuzungen zwischen nicht benachbarten Stücken. Bricht ab, sobald die Zahl
-// über "grenze" liegt, damit die Kandidatensuche nicht unnötig zählt.
-export function zaehleKreuzungen(stuecke, grenze = Infinity) {
+// über "grenze" liegt, damit die Kandidatensuche nicht unnötig zählt. "eng" (Stufe
+// 3): Die Schleifenausnahme gilt nur für die saubere Kreuzung, siehe schleifeAusgenommen.
+export function zaehleKreuzungen(stuecke, grenze = Infinity, eng = false) {
   const kaesten = stuecke.map((s) => kasten(s.punkte));
   let anzahl = 0;
   for (let i = 0; i < stuecke.length; i++) {
     for (let j = i + 2; j < stuecke.length; j++) {
-      // Die Kreuzung von Einfahrt und Ausfahrt einer Schleife ist Teil der
-      // Figur, wie in der Vorlage, und kein Fehler. Das gilt nur für die Strecke
-      // vor der Schleife; ein Kreisbogen davor wird regulär geprüft.
-      if (j === i + 2 && stuecke[i + 1].schleife && stuecke[i].art === 'strecke') continue;
+      if (schleifeAusgenommen(stuecke, i, j, eng)) continue;
       if (kastenAbstand(kaesten[i], kaesten[j]) > 0) continue;
       const a = stuecke[i].punkte;
       const b = stuecke[j].punkte;
@@ -637,8 +672,9 @@ export function zaehleKreuzungen(stuecke, grenze = Infinity) {
 // Kreis um das Symbol gerade berührt, gilt wie zwei Striche, die sich gerade
 // berühren (LINIENBREITE_ABSTAND). Liegt das Symbol in einem Gate-Kasten, ist
 // der Abstand 0. Bricht ab, sobald ein Abstand unter "grenze" gefunden ist;
-// sonst ist das Ergebnis genau.
-export function kleinsterAbstand(stuecke, grenze = 0, flugzeug = null) {
+// sonst ist das Ergebnis genau. "eng" (Stufe 3): Ein- und Ausfahrt einer
+// Schleife, die sich nicht sauber kreuzen, zählen wie getrennte Stücke.
+export function kleinsterAbstand(stuecke, grenze = 0, flugzeug = null, eng = false) {
   const kaesten = stuecke.map((s) => kasten(s.punkte));
   let kleinster = Infinity;
   if (flugzeug) {
@@ -659,7 +695,7 @@ export function kleinsterAbstand(stuecke, grenze = 0, flugzeug = null) {
     let getrennt = false;
     for (let j = i + 2; j < stuecke.length; j++) {
       if (stuecke[j - 1].art === 'strecke' || stuecke[j - 1].art === 'gate') getrennt = true;
-      if (!getrennt) continue;
+      if (!getrennt && !(eng && schleifenpaar(stuecke, i, j) && !schleifeSauber(stuecke[i], stuecke[j]))) continue;
       if (kastenAbstand(kaesten[i], kaesten[j]) >= kleinster) continue;
       const d = zugAbstand(stuecke[i].punkte, stuecke[j].punkte);
       if (d < kleinster) {
@@ -694,10 +730,11 @@ function zugNaeherAls(a, b, grenze) {
 
 // Hat eines der Stücke ab "ab" einen Konflikt mit einem früheren oder einem
 // anderen neuen Stück? Dieselben Regeln wie zaehleKreuzungen und
-// kleinsterAbstand, nur für Paare mit einem neuen Stück: keine Kreuzung außer
-// Ein- und Ausfahrt einer Schleife, Mittellinien mindestens LINIENBREITE_ABSTAND
-// auseinander, sobald eine Strecke oder ein Gate dazwischen liegt, und frei vom
-// Flugzeugsymbol. "kaesten" sind die umgebenden Rechtecke aller Stücke.
+// kleinsterAbstand mit "eng", nur für Paare mit einem neuen Stück: keine
+// Kreuzung außer der sauberen von Ein- und Ausfahrt einer Schleife, Mittellinien
+// mindestens LINIENBREITE_ABSTAND auseinander, sobald eine Strecke oder ein Gate
+// dazwischen liegt oder Ein- und Ausfahrt sich nicht sauber kreuzen, und frei
+// vom Flugzeugsymbol. "kaesten" sind die umgebenden Rechtecke aller Stücke.
 function neuerKonflikt(stuecke, kaesten, ab, flugzeug) {
   for (let j = ab; j < stuecke.length; j++) {
     if (flugzeug && j >= 1) {
@@ -714,12 +751,13 @@ function neuerKonflikt(stuecke, kaesten, ab, flugzeug) {
       if (stuecke[i + 1].art === 'strecke' || stuecke[i + 1].art === 'gate') getrennt = true;
       const nah = kastenAbstand(kaesten[i], kaesten[j]);
       if (nah >= LINIENBREITE_ABSTAND) continue;
-      // Getrennte Stücke: Der Abstand schließt die Kreuzung ein (Abstand 0)
-      if (getrennt) {
+      const schleife = schleifenpaar(stuecke, i, j);
+      // Getrennte Stücke und eine Schleife ohne saubere Kreuzung: Der Abstand
+      // schließt die Kreuzung ein (Abstand 0)
+      if (getrennt || (schleife && !schleifeSauber(stuecke[i], stuecke[j]))) {
         if (zugNaeherAls(stuecke[i].punkte, stuecke[j].punkte, LINIENBREITE_ABSTAND)) return true;
         continue;
       }
-      const schleife = j === i + 2 && stuecke[i + 1].schleife && stuecke[i].art === 'strecke';
       if (schleife || nah > 0) continue;
       const a = stuecke[i].punkte;
       const b = stuecke[j].punkte;

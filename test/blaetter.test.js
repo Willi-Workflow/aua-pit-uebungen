@@ -136,12 +136,54 @@ test('Stufe 3: alle 100 Blätter entstehen, mindestens 90 zulässig, jedes unter
   for (const blatt of blaetter3) {
     if (!blatt.parcours.zulaessig) continue;
     const geo = blatt.parcours.geometrie;
-    assert.equal(zaehleKreuzungen(geo.stuecke), 0, `Blatt ${blatt.nummer}`);
-    assert.ok(kleinsterAbstand(geo.stuecke, 0, geo.flugzeug) >= LINIENBREITE_ABSTAND, `Blatt ${blatt.nummer}`);
+    assert.equal(zaehleKreuzungen(geo.stuecke, Infinity, true), 0, `Blatt ${blatt.nummer}`);
+    assert.ok(kleinsterAbstand(geo.stuecke, 0, geo.flugzeug, true) >= LINIENBREITE_ABSTAND, `Blatt ${blatt.nummer}`);
     assert.equal(beschriftungFrei(geo), true, `Blatt ${blatt.nummer}`);
     assert.equal(startOben(geo), true, `Blatt ${blatt.nummer}`);
     assert.equal(geo.drehung, 0);
   }
+});
+
+// Ein- und Ausfahrt einer Schleife (Strecke, Bogen über 180°, Strecke): Kreuzung
+// und ihr Abstand zu den äußeren Enden (Anfang der Einfahrt, Ende der Ausfahrt),
+// ohne Kreuzung der kleinste Abstand der Mittellinien
+function schleifenLage(ein, aus) {
+  const [p, q] = ein.punkte;
+  const [r, s] = aus.punkte;
+  const d1 = { x: q.x - p.x, y: q.y - p.y };
+  const d2 = { x: s.x - r.x, y: s.y - r.y };
+  const kreuz = (a, b) => a.x * b.y - a.y * b.x;
+  const nenner = kreuz(d1, d2);
+  const w = { x: r.x - p.x, y: r.y - p.y };
+  const t = nenner === 0 ? -1 : kreuz(w, d2) / nenner;
+  const u = nenner === 0 ? -1 : kreuz(w, d1) / nenner;
+  if (t > 0 && t < 1 && u > 0 && u < 1) {
+    return { kreuzung: true, vorEnden: Math.min(t * Math.hypot(d1.x, d1.y), (1 - u) * Math.hypot(d2.x, d2.y)) };
+  }
+  const punktStrecke = (x, a, b) => {
+    const v = { x: b.x - a.x, y: b.y - a.y };
+    const k = Math.max(0, Math.min(1, ((x.x - a.x) * v.x + (x.y - a.y) * v.y) / (v.x * v.x + v.y * v.y)));
+    return Math.hypot(x.x - a.x - k * v.x, x.y - a.y - k * v.y);
+  };
+  return { kreuzung: false, abstand: Math.min(punktStrecke(p, r, s), punktStrecke(q, r, s), punktStrecke(r, p, q), punktStrecke(s, p, q)) };
+}
+
+test('Stufe 3: Schleifen kreuzen Ein- und Ausfahrt sauber, kein Segment endet im Strich einer Einfahrt', () => {
+  let sauber = 0;
+  for (const blatt of blaetter3) {
+    const { stuecke } = blatt.parcours.geometrie;
+    for (let i = 0; i + 2 < stuecke.length; i++) {
+      if (stuecke[i].art !== 'strecke' || !stuecke[i + 1].schleife || stuecke[i + 2].art !== 'strecke') continue;
+      const lage = schleifenLage(stuecke[i], stuecke[i + 2]);
+      if (lage.kreuzung) {
+        assert.ok(lage.vorEnden >= LINIENBREITE_ABSTAND, `Blatt ${blatt.nummer}, Stück ${i + 1}: Kreuzung ${lage.vorEnden.toFixed(1)} vor einem Ende`);
+        sauber += 1;
+      } else {
+        assert.ok(lage.abstand >= LINIENBREITE_ABSTAND, `Blatt ${blatt.nummer}, Stück ${i + 1}: Ausfahrt ${lage.abstand.toFixed(1)} neben der Einfahrt`);
+      }
+    }
+  }
+  assert.ok(sauber > 100, `nur ${sauber} Schleifen mit Kreuzung`);
 });
 
 test('Stufe 3: Mengen je Blatt, Start und Ende beschriftet, alle Elemente der Vorlagen kommen vor', () => {

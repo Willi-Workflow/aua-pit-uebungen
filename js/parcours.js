@@ -19,11 +19,12 @@ export const KANDIDATEN_STUFE_3 = 1000;
 // Start oben, dann das Seitenverhältnis am nächsten an 1. Der Abstand zählt nur bis LINIENBREITE_ABSTAND:
 // Darüber liegt nichts mehr übereinander, und mehr Abstand hieße nur einen
 // weitläufigeren, langgezogenen Weg. "kreuzungen" ist bis zur Zahl des bisherigen
-// Ersatzes genau. Liefert die Kennzahlen des neuen Ersatzes oder null.
-function besserErsatz(roh, geoHolen, kreuzungen, ersatz) {
+// Ersatzes genau. "eng" wie bei kleinsterAbstand (Stufe 3). Liefert die
+// Kennzahlen des neuen Ersatzes oder null.
+function besserErsatz(roh, geoHolen, kreuzungen, ersatz, eng) {
   if (ersatz && kreuzungen > ersatz.kreuzungen) return null;
   const gleicheKreuzungen = ersatz !== null && kreuzungen === ersatz.kreuzungen;
-  const abstand = Math.min(LINIENBREITE_ABSTAND, kleinsterAbstand(roh.stuecke, gleicheKreuzungen ? ersatz.abstand : 0, roh.flugzeug));
+  const abstand = Math.min(LINIENBREITE_ABSTAND, kleinsterAbstand(roh.stuecke, gleicheKreuzungen ? ersatz.abstand : 0, roh.flugzeug, eng));
   if (gleicheKreuzungen && abstand < ersatz.abstand) return null;
   const gleicherAbstand = gleicheKreuzungen && abstand === ersatz.abstand;
   const geo = geoHolen();
@@ -47,7 +48,9 @@ function besserErsatz(roh, geoHolen, kreuzungen, ersatz) {
 // freien Beschriftungen. Unter den zulässigen gewinnt die höchste Füllung, bei
 // Gleichstand der frühere. Die Prüfungen laufen billig zuerst und nur so weit,
 // wie sie das Ergebnis noch ändern können; es ist dasselbe wie bei voller
-// Prüfung aller. "einstellungen" und "start" wie bei erzeugeElemente.
+// Prüfung aller. Stufe 3 lässt an Schleifen nur die saubere Kreuzung von Ein-
+// und Ausfahrt zu ("eng", siehe geometrie.js). "einstellungen" und "start" wie
+// bei erzeugeElemente.
 export function erzeugeParcours(zufall, einstellungen, start = null) {
   const stufe3 = einstellungen.stufe === 3;
   const anzahl = stufe3 ? KANDIDATEN_STUFE_3 : KANDIDATEN;
@@ -61,9 +64,9 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
     if (!elemente || hatGegenkursZeile(elemente)) continue;
     const roh = bahn(elemente, 0, stufe3);
     if (bester && fuellungObergrenze(roh.stuecke) <= bester.fuellung) continue;
-    const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity));
+    const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity), stufe3);
     let geo = null;
-    if (kreuzungen === 0 && kleinsterAbstand(roh.stuecke, LINIENBREITE_ABSTAND, roh.flugzeug) >= LINIENBREITE_ABSTAND) {
+    if (kreuzungen === 0 && kleinsterAbstand(roh.stuecke, LINIENBREITE_ABSTAND, roh.flugzeug, stufe3) >= LINIENBREITE_ABSTAND) {
       geo = vollenden(roh);
       const fuellung = fuellungBerechnen(geo);
       if (seitenverhaeltnisPasst(geo.umriss) && startOben(geo) && (!bester || fuellung > bester.fuellung) && beschriftungFrei(geo)) {
@@ -72,7 +75,7 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
       }
     }
     if (bester) continue;
-    const neu = besserErsatz(roh, () => geo || (geo = vollenden(roh)), kreuzungen, ersatz);
+    const neu = besserErsatz(roh, () => geo || (geo = vollenden(roh)), kreuzungen, ersatz, stufe3);
     if (neu) ersatz = { elemente, geometrie: geo, kandidat, fuellung: fuellungBerechnen(geo), ...neu };
   }
   if (!bester && !ersatz) {
@@ -81,7 +84,7 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
     const elemente = erzeugeElemente(zufall, einstellungen, start);
     const roh = bahn(elemente, 0, stufe3);
     const geo = vollenden(roh);
-    ersatz = { elemente, geometrie: geo, kandidat: anzahl + 1, fuellung: fuellungBerechnen(geo), kreuzungen: zaehleKreuzungen(roh.stuecke) };
+    ersatz = { elemente, geometrie: geo, kandidat: anzahl + 1, fuellung: fuellungBerechnen(geo), kreuzungen: zaehleKreuzungen(roh.stuecke, Infinity, stufe3) };
   }
   const sieger = bester || ersatz;
   return {
