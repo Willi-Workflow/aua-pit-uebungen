@@ -2,7 +2,7 @@
 // gezogen, der beste zulässige gewinnt. Die Bausteine entstehen in elemente.js,
 // Weg und Maße in geometrie.js.
 
-import { erzeugeElemente } from './elemente.js';
+import { erzeugeElemente, hatGegenkursZeile } from './elemente.js';
 import {
   bahn, vollenden, schrittpruefer, fuellungObergrenze, fuellungBerechnen, zaehleKreuzungen, kleinsterAbstand, verdeckteBeschriftungen,
   beschriftungFrei, seitenverhaeltnis, seitenverhaeltnisPasst, startOben, LINIENBREITE_ABSTAND,
@@ -55,8 +55,10 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
   let ersatz = null;
   for (let kandidat = 1; kandidat <= anzahl; kandidat++) {
     const elemente = erzeugeElemente(zufall, einstellungen, start, stufe3 ? schrittpruefer() : null);
-    // Stufe 3: Ein Schritt ließ sich nicht ohne Konflikt legen
-    if (!elemente) continue;
+    // Stufe 3: Ein Schritt ließ sich nicht ohne Konflikt legen. Stufe 2: Eine
+    // relative Gate-Zeile endet genau auf dem Gegenkurs (in Stufe 3 kommt das
+    // nicht vor, dort ist die Prüfung wirkungslos).
+    if (!elemente || hatGegenkursZeile(elemente)) continue;
     const roh = bahn(elemente, 0, stufe3);
     if (bester && fuellungObergrenze(roh.stuecke) <= bester.fuellung) continue;
     const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity));

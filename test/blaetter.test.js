@@ -21,10 +21,12 @@ const blaetter3 = Array.from({ length: BLAETTER_JE_STUFE }, (_, i) => {
   return blatt;
 });
 
-// Fingerabdruck (SHA-256) des JSON aller 100 Blätter der Stufe 2 vor dem Bau der
-// Stufe 3. Stufe 3 hat eigene Zufallsschlüssel und Erzeugungspfade; ändert sich
-// hier etwas, hat eine Änderung Stufe 2 mitverändert.
-const STUFE2_FINGERABDRUCK = '2f4d1e597fa166e3488c3b1f59aeebfd6e0ec759611a3cbbe2c684f2a1864723';
+// Fingerabdruck (SHA-256) des JSON aller 100 Blätter der Stufe 2. Stufe 3 hat
+// eigene Zufallsschlüssel und Erzeugungspfade; ändert sich hier etwas, hat eine
+// Änderung Stufe 2 mitverändert. Seit dem Bau der Stufe 3 bewusst geändert nur
+// durch den Ausschluss der Gate-Zeilen, die genau auf dem Gegenkurs enden: Das
+// betraf allein Blatt 51 (vorher 2f4d1e59…1864723).
+const STUFE2_FINGERABDRUCK = 'ac5eff849283b6c5355e9620af915aded66c4f2e5b2ca4abace9787f37c2d97c';
 
 test('Konstanten', () => {
   assert.equal(BLAETTER_JE_STUFE, 100);
@@ -93,6 +95,25 @@ test('der Parcours beginnt 20 bis 160 Grad vom Endkurs des Textteils', () => {
     assert.equal(erstes.art, 'segment');
     const a = Math.abs(differenz(endkurs, erstes.kurs));
     assert.ok(a >= 20 && a <= 160, `Blatt ${blatt.nummer}: ${endkurs} auf ${erstes.kurs}, ${a}°`);
+  }
+});
+
+// Nach "gedreht wird auf kürzestem Weg" bliebe bei genau 180° die Drehrichtung
+// offen (Blatt 51 hatte "-180 ↘ 10"" von 303° auf 123°)
+test('Stufe 2: keine relative Gate-Zeile, deren Kurs danach genau der Gegenkurs ist', () => {
+  for (const blatt of blaetter) {
+    let kurs = null;
+    for (const e of blatt.parcours.elemente) {
+      if (e.art === 'segment') kurs = e.kurs;
+      if (e.art !== 'gate') continue;
+      for (const z of e.zeilen) {
+        if (z.kurs.typ === 'relativ') {
+          const a = Math.abs(differenz(kurs, z.kursDanach));
+          assert.notEqual(a, 180, `Blatt ${blatt.nummer}: ${kurs} ${z.kurs.wert} = ${z.kursDanach}`);
+        }
+        kurs = z.kursDanach;
+      }
+    }
   }
 });
 

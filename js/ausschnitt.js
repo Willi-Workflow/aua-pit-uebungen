@@ -8,7 +8,7 @@
 // Kreuzung, mit Strichen, die sich höchstens berühren, und freien
 // Beschriftungen; sonst wird neu gewürfelt.
 
-import { erzeugeElemente, anschlussDrehung } from './elemente.js';
+import { erzeugeElemente, anschlussDrehung, gegenkursZeile } from './elemente.js';
 import { bahn, vollenden, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, LINIENBREITE_ABSTAND } from './geometrie.js';
 import { zeichneParcours } from './zeichnung.js';
 import { normieren } from './kurs.js';
@@ -44,6 +44,8 @@ function stueckFuer(elemente, i, art, stufe) {
     if (element.art !== 'gate') return null;
     if (art === 'anl' && !element.zeilen.some(istAnl)) return null;
     if (stufe === 2 && element.zeilen.length !== 3) return null;
+    // Wie auf dem Blatt keine relative Zeile, die genau auf dem Gegenkurs endet
+    if (element.zeilen.some(gegenkursZeile)) return null;
     letzter = i + 1;
   } else {
     if (!istSegment(element)) return null;

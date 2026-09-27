@@ -115,6 +115,21 @@ function gateZeileErzeugen(zufall, typ, kursDavor, verlauf, bilanz, hoehe) {
   return { kurs, kursDanach, profil, dauer };
 }
 
+// Relative Gate-Zeile, deren Kurs danach genau der Gegenkurs ist (Betrag mit Rest
+// 180 bei 360, in Stufe 2 also -180 oder +180). Nach "gedreht wird auf kürzestem
+// Weg" bliebe die Drehrichtung offen. Die Zeile wird nicht neu gezogen, sonst
+// verschöbe sich der Zufallsstrom aller folgenden Kandidaten und damit fast jedes
+// Blatt mit Gates; die Kandidatensuche verwirft stattdessen den ganzen Kandidaten
+// (siehe erzeugeParcours). So ändern sich nur Blätter, deren Sieger eine solche
+// Zeile hatte.
+export function gegenkursZeile(zeile) {
+  return zeile.kurs.typ === 'relativ' && Math.abs(zeile.kurs.wert) % 360 === 180;
+}
+
+export function hatGegenkursZeile(elemente) {
+  return elemente.some((e) => e.art === 'gate' && e.zeilen.some(gegenkursZeile));
+}
+
 // Gate mit drei bis vier Zeilen, je Zeile etwa zur Hälfte relativ, zu je einem
 // Viertel Himmelsrichtung und Gradkurs, mindestens eine Zeile relativ
 function gateErzeugen(zufall, kursDavor, verlauf, bilanz, hoehe) {
