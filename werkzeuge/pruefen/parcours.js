@@ -442,6 +442,8 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
           if ((form === 'c') !== (z.form === 'c')) { befund('Fehler', 'Gate', 'Zeilen eines Gates in einer Form', st, zeilenTexte[j], muster[2]); return; }
           if (z.typ === 'relativ' && form === 'a' && !z.gradzeichen) befund('Fehler', 'Gate', 'Form A: Relativwert mit Gradzeichen', st, zeilenTexte[j], '+127°');
           if (z.typ === 'relativ' && (form === 'b' || form === 'stufe2') && z.gradzeichen) befund('Fehler', 'Gate', 'Relativwert ohne Gradzeichen', st, zeilenTexte[j], '+72');
+          // Zwei Kehren ohne Richtung hintereinander führen auf den alten Kurs zurück; der Entwurf schließt sie aus
+          if (z.typ === 'gk' && j > 0 && zeilen[j - 1] && zeilen[j - 1].typ === 'gk') befund('Unschärfe', 'Gate', 'Form C: keine zwei reinen GK hintereinander', st, `${zeilenTexte[j - 1]} / ${zeilenTexte[j]}`, 'GK ± n oder ein anderer Ausdruck');
           let neu;
           let beliebigeRichtung = false;
           if (z.typ === 'relativ') {
