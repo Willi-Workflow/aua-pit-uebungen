@@ -10,7 +10,7 @@
 // Geometrie schon als Kurs minus Drehung gezeichnet. Ein Nordpfeil oben rechts
 // zeigt, wo Norden liegt, wie in der Handzeichnung.
 
-import { ZEILENABSTAND, MARKENLAENGE, FLUGZEUG_RADIUS, vektor } from './parcours.js';
+import { ZEILENABSTAND, MARKENLAENGE, FLUGZEUG_RADIUS, vektor } from './geometrie.js';
 
 // Rand um den Umriss: Querstriche ragen höchstens 9,6 Einheiten über die Mittellinie
 export const RAND = 15;

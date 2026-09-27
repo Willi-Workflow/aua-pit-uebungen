@@ -1,16 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Zufall } from '../js/zufall.js';
+import { erzeugeElemente, gateStellenWaehlen } from '../js/elemente.js';
 import {
-  erzeugeElemente, gateStellenWaehlen, geometrie, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, erzeugeParcours,
-  seitenverhaeltnisPasst, SEKUNDE_LAENGE, KANDIDATEN, ZEILENABSTAND, LINIENBREITE_ABSTAND, MARKENLAENGE,
-  FLUGZEUG_ABSTAND, FLUGZEUG_RADIUS, START_OBEN,
-} from '../js/parcours.js';
+  geometrie, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, seitenverhaeltnisPasst, SEKUNDE_LAENGE, ZEILENABSTAND,
+  LINIENBREITE_ABSTAND, MARKENLAENGE, FLUGZEUG_ABSTAND, FLUGZEUG_RADIUS, START_OBEN,
+} from '../js/geometrie.js';
+import { erzeugeParcours, KANDIDATEN } from '../js/parcours.js';
 import { erzeugeBlatt, BLAETTER_JE_STUFE, hatGates } from '../js/blatt.js';
 import { normieren, differenz } from '../js/kurs.js';
 
-const listen = Array.from({ length: 200 }, (_, i) => erzeugeElemente(new Zufall(`elemente-${i}`)));
-const gateListen = Array.from({ length: 200 }, (_, i) => erzeugeElemente(new Zufall(`gates-${i}`), true));
+// Einstellungen der Stufe 2 ohne und mit Gates
+const OHNE_GATES = { stufe: 2, mitGates: false };
+const MIT_GATES = { stufe: 2, mitGates: true };
+
+const listen = Array.from({ length: 200 }, (_, i) => erzeugeElemente(new Zufall(`elemente-${i}`), OHNE_GATES));
+const gateListen = Array.from({ length: 200 }, (_, i) => erzeugeElemente(new Zufall(`gates-${i}`), MIT_GATES));
 
 function segmente(elemente) {
   return elemente.filter((e) => e.art === 'segment');
@@ -155,7 +160,7 @@ test('mit Anfangszustand bleibt die Höhe im Parcours zwischen 1000 und 3000 ft,
   for (const hoehe of [1000, 1040, 1500, 2000, 2480, 2960, 3000]) {
     for (let k = 0; k < 40; k++) {
       for (const mitGates of [false, true]) {
-        const elemente = erzeugeElemente(new Zufall(`hoehe-${hoehe}-${k}`), mitGates, { kurs: 90, hoehe });
+        const elemente = erzeugeElemente(new Zufall(`hoehe-${hoehe}-${k}`), { stufe: 2, mitGates }, { kurs: 90, hoehe });
         for (const h of hoehenVerlauf(elemente, hoehe)) {
           assert.ok(h >= 1000 && h <= 3000, `ab ${hoehe} ft, Versuch ${k}${mitGates ? ' mit Gates' : ''}: ${h} ft`);
         }
@@ -167,16 +172,15 @@ test('mit Anfangszustand bleibt die Höhe im Parcours zwischen 1000 und 3000 ft,
 test('mit Anfangszustand liegt das erste Segment 20 bis 160 Grad vom Endkurs des Textteils', () => {
   for (let k = 0; k < 200; k++) {
     const kurs = normieren(k * 37.5);
-    const elemente = erzeugeElemente(new Zufall(`anfang-${k}`), k % 2 === 0, { kurs, hoehe: 2000 });
+    const elemente = erzeugeElemente(new Zufall(`anfang-${k}`), k % 2 === 0 ? MIT_GATES : OHNE_GATES, { kurs, hoehe: 2000 });
     const a = Math.abs(differenz(kurs, elemente[0].kurs));
     assert.ok(a >= 20 && a <= 160, `${kurs} auf ${elemente[0].kurs}: ${a}°`);
   }
 });
 
 test('gleicher Schlüssel, gleiche Elemente', () => {
-  assert.deepEqual(erzeugeElemente(new Zufall('x')), erzeugeElemente(new Zufall('x')));
-  assert.deepEqual(erzeugeElemente(new Zufall('x'), true), erzeugeElemente(new Zufall('x'), true));
-  assert.deepEqual(erzeugeElemente(new Zufall('x'), false), erzeugeElemente(new Zufall('x')));
+  assert.deepEqual(erzeugeElemente(new Zufall('x'), OHNE_GATES), erzeugeElemente(new Zufall('x'), OHNE_GATES));
+  assert.deepEqual(erzeugeElemente(new Zufall('x'), MIT_GATES), erzeugeElemente(new Zufall('x'), MIT_GATES));
 });
 
 test('Gates: mit Gates 3 bis 4 Gates zu je 3 bis 4 Zeilen, ohne Gates keins', () => {
@@ -519,8 +523,8 @@ test('seitenverhaeltnisPasst', () => {
 });
 
 test('erzeugeParcours ist bestimmt und liefert Kandidat, Kreuzungen und Umriss', () => {
-  const a = erzeugeParcours(new Zufall('stufe-2/blatt-1'));
-  const b = erzeugeParcours(new Zufall('stufe-2/blatt-1'));
+  const a = erzeugeParcours(new Zufall('stufe-2/blatt-1'), OHNE_GATES);
+  const b = erzeugeParcours(new Zufall('stufe-2/blatt-1'), OHNE_GATES);
   assert.deepEqual(a, b);
   assert.ok(a.kandidat >= 1 && a.kandidat <= KANDIDATEN);
   assert.ok(a.kreuzungen >= 0);
@@ -534,7 +538,7 @@ test('erzeugeParcours ist bestimmt und liefert Kandidat, Kreuzungen und Umriss',
 test('erzeugeParcours findet fast immer einen zulässigen Kandidaten, und zulässig heißt alle Filter bestanden', () => {
   let zulaessig = 0;
   for (let i = 0; i < 30; i++) {
-    const p = erzeugeParcours(new Zufall(`suche-${i}`));
+    const p = erzeugeParcours(new Zufall(`suche-${i}`), OHNE_GATES);
     if (!p.zulaessig) continue;
     zulaessig += 1;
     assert.equal(p.kreuzungen, 0);

@@ -5,7 +5,7 @@ import { erzeugeParcours } from '../js/parcours.js';
 import { zeichneParcours, RAND } from '../js/zeichnung.js';
 import { erzeugeBlatt } from '../js/blatt.js';
 
-const parcours = erzeugeParcours(new Zufall('stufe-2/blatt-1'));
+const parcours = erzeugeParcours(new Zufall('stufe-2/blatt-1'), { stufe: 2, mitGates: false });
 const svg = zeichneParcours(parcours);
 
 function anzahl(text, muster) {
