@@ -29,15 +29,15 @@ Ein Kasten an der Strecke ist ein Gate: Seine drei bis vier Zeilen werden ohne g
 
 Stufe 3 hat alle Zeichen der Stufe 2 und dazu:
 
-- **Start** und **Ende** stehen fett am Flugzeugsymbol und am Ende des letzten Segments.
+- **Start 2000 ft** und **Ende** stehen fett am Flugzeugsymbol und am Ende des letzten Segments.
 - **Gradzahl an einer Kurve** (`300`, `145`, ohne Vorzeichen und Gradzeichen): Die Kurve dreht um diesen Winkel in der gezeichneten Richtung, in ihrer eigenen Linienart; das Segment danach hat keinen Kurs (`/10"`), sein Kurs ist der Kurs davor plus oder minus der Winkel. Ab 180° ist die Kurve eine Schleife.
 - **HR** = nächste Himmelsrichtung. `HR/20"`: vom aktuellen Kurs auf die nächste Himmelsrichtung drehen (010° auf N), das ist eine kleine Ecke. `HR 111°/15"`: 111° auf die nächste Himmelsrichtung runden, hier ESE (112,5°).
 - **GK** = Gegenkurs. `GK/15"` fliegt den Gegenkurs des aktuellen Kurses; die Kehre davor ist gezeichnet. In Gates `GK` und `GK -19°` (Gegenkurs minus 19).
-- **anl. Kurs** = anliegender, also gerade geflogener Kurs: `anl. Kurs +98°` ist der aktuelle Kurs plus 98, `anl. Kurs +7×8` plus 56. Selten, höchstens einmal je Blatt.
+- **anl. Kurs** = anliegender, also gerade geflogener Kurs: `anl. Kurs +98°` ist der aktuelle Kurs plus 98, `anl. Kurs +7×8` plus 56, `anl. Kurs +9×13` plus 117. Selten, höchstens einmal je Blatt.
 - **K** in der letzten Zeile eines Gates ist der Kurs des nächsten gezeichneten Segments: `über N auf K` dreht so, dass die Drehung durch Norden (000°) geht, auch wenn das die lange Seite ist, `über S auf K` durch Süden, `kürz. W. auf K` auf kürzestem Weg.
-- **Gates in drei Formen:** wie in der PDF drei Zeilen mit Gradzeichen am Relativwert (`+127° → 15"`) und der Zeile mit K; wie im Gegenkursbeispiel vier Zeilen wie in Stufe 2 (`-322 ↗ 15"`); wie in der Handzeichnung mit dem Pfeil voran (`↗ NNE +102° 15"`, `→ GK 25"`).
+- **Gates in drei Formen:** wie in der PDF drei Zeilen mit Gradzeichen am Relativwert (`+127° → 15"`, bis `+190°`, das Vorzeichen nennt die Richtung) und der Zeile mit K; wie im Gegenkursbeispiel vier Zeilen wie in Stufe 2 (`-322 ↗ 15"`); wie in der Handzeichnung mit dem Pfeil voran (`↗ NNE +102° 15"`, `→ GK 25"`).
 
-Norden ist oben, der Start liegt oben; der Pfeil zeigt nach Norden. Das Flugzeug steht am Start und zeigt in die erste Flugrichtung. In Stufe 2 beginnt der Parcours 20° bis 160° vom Endkurs des Textteils und hält wie der Textteil die Höhe zwischen 1000 und 3000 ft; in Stufe 3 gilt derselbe Höhenrahmen ab 2000 ft.
+Jede Beschriftung steht deutlich näher an ihrem eigenen Strich als an jedem anderen, zu dem sie passen könnte, und Schleifen kreuzen Ein- und Ausfahrt sauber. Norden ist oben, der Start liegt oben; der Pfeil zeigt nach Norden. Das Flugzeug steht am Start und zeigt in die erste Flugrichtung. In Stufe 2 beginnt der Parcours 20° bis 160° vom Endkurs des Textteils und hält wie der Textteil die Höhe zwischen 1000 und 3000 ft; in Stufe 3 gilt derselbe Höhenrahmen ab 2000 ft.
 
 ## Blitzrechnen
 
