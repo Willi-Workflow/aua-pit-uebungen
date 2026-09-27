@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "vorschauen": "node werkzeuge/vorschauen.js"
+    "vorschauen": "node werkzeuge/vorschauen.js",
+    "pruefen": "node werkzeuge/pruefen.js"
   }
 }
