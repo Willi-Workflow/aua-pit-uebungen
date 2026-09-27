@@ -157,8 +157,31 @@ export function druckschrift(geometrie, hoehe = DRUCKFLAECHE.hoehe) {
   return 9 * 0.75 * Math.min(DRUCKFLAECHE.breite / feld.breite, hoehe / feld.hoehe);
 }
 
+// Übungsmodus der Blattansicht (loesungen.js): Die Lösungen stehen fett in Rot
+// mit weißem Umriss, eine Einheit größer als die Beschriftungen, und sind
+// verborgen, bis die Klasse "gezeigt" sie einblendet. Die weißen Umrisse liegen
+// als eigene Lage unter allen roten Texten: Mit paint-order: stroke an jedem
+// Text deckte der Umriss einer Gate-Zeile das Komma der Zeile darüber halb ab.
+export const LOESUNG_SCHRIFT = 10;
+export const LOESUNG_FARBE = '#c0262d';
+const LOESUNG_UMRISS = 2.5;
+
+// Eine Lösung als Text, "anker" 'start' (beginnt an x, y), 'end' (endet dort)
+// oder 'middle' (mittig dort); "umriss" für die weiße Lage darunter
+const ANKER_KLASSE = { start: '', end: ' ende', middle: ' mitte' };
+
+function loesung(s, i, sichtbar, umriss) {
+  const klasse = `loesung${umriss ? ' umriss' : ''}${ANKER_KLASSE[s.anker]}${i < sichtbar ? ' gezeigt' : ''}`;
+  return `<text class="${klasse}" data-schritt="${i + 1}" transform="translate(${zahl(s.x)} ${zahl(s.y)}) rotate(${zahl(s.winkel)})">${s.text}</text>`;
+}
+
 // "optionen.nordpfeil" false zeichnet ohne Nordpfeil (Ausschnitte im
 // Blitzrechnen, Norden ist dort immer oben); die Blätter zeichnen ihn immer.
+// "optionen.loesungen" (Liste aus rechenstellen in loesungen.js) zeichnet die
+// Lösungen des Übungsmodus als verborgene Gruppe obenauf, einzeln über
+// "data-schritt" einzublenden; die ersten "optionen.loesungenSichtbar" stehen
+// schon da (Prüfmodus). Ohne "loesungen" bleibt das SVG Zeichen für Zeichen,
+// wie es war.
 export function zeichneParcours(parcours, optionen = {}) {
   const { stuecke, marken, beschriftungen } = parcours.geometrie;
   const start = marken[0];
@@ -167,6 +190,15 @@ export function zeichneParcours(parcours, optionen = {}) {
   // Die Regel für fette Beschriftungen nur, wo es sie gibt, damit die Blätter
   // der Stufe 2 Zeichen für Zeichen bleiben, wie sie waren
   const fett = beschriftungen.some((b) => b.fett) ? '\n.parcours text.fett { font-weight: 700; }' : '';
+  const loesungen = optionen.loesungen || null;
+  const uebung = loesungen
+    ? `\n.parcours .loesung { display: none; font: 700 ${LOESUNG_SCHRIFT}px system-ui, -apple-system, sans-serif; fill: ${LOESUNG_FARBE}; text-anchor: start; dominant-baseline: middle; }`
+      + `\n.parcours .loesung.umriss { fill: #fff; stroke: #fff; stroke-width: ${LOESUNG_UMRISS}px; stroke-linejoin: round; }`
+      + '\n.parcours .loesung.ende { text-anchor: end; }'
+      + '\n.parcours .loesung.mitte { text-anchor: middle; }'
+      + '\n.parcours .loesung.gezeigt { display: inline; }'
+    : '';
+  const sichtbar = optionen.loesungenSichtbar || 0;
   const teile = [
     ...stuecke.filter((s) => s.art !== 'gate').map(stueck),
     ...stuecke.filter((s) => s.art === 'gate').map(gateKasten),
@@ -176,6 +208,12 @@ export function zeichneParcours(parcours, optionen = {}) {
     ...(nord ? [
       `<path class="nordpfeil" d="${nord.pfad(zahl)}"/>`,
       `<text class="nord" transform="translate(${zahl(nord.n.x)} ${zahl(nord.n.y)})">N</text>`,
+    ] : []),
+    ...(loesungen ? [
+      '<g class="loesungen">',
+      ...loesungen.map((s, i) => loesung(s, i, sichtbar, true)),
+      ...loesungen.map((s, i) => loesung(s, i, sichtbar, false)),
+      '</g>',
     ] : []),
   ];
   return `<svg xmlns="http://www.w3.org/2000/svg" class="parcours" viewBox="${zahl(x)} ${zahl(y)} ${zahl(breite)} ${zahl(hoehe)}" role="img" aria-label="Parcours">
@@ -189,7 +227,7 @@ export function zeichneParcours(parcours, optionen = {}) {
 .parcours .flugzeug { fill: #000; stroke: none; }
 .parcours text.gate { text-anchor: start; }
 .parcours .nordpfeil { fill: #000; stroke: #000; stroke-width: 1.5; stroke-linejoin: round; }
-.parcours text.nord { font-weight: 700; }${fett}
+.parcours text.nord { font-weight: 700; }${fett}${uebung}
 </style>
 ${teile.join('\n')}
 </svg>`;
