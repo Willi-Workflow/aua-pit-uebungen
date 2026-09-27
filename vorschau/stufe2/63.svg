@@ -1,38 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-180.3 -29.6 462.7 588.4" preserveAspectRatio="xMidYMid meet">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-106.3 -20 729.4 687.4" preserveAspectRatio="xMidYMid meet">
 <g fill="none" stroke="#000" stroke-width="11" stroke-linecap="round">
-<path d="M 0 0 L 140.9 51.3"/>
-<path d="M 140.9 51.3 A 12 12 0 0 0 153.9 48.1"/>
-<path d="M 153.9 48.1 L 187.7 11.3"/>
-<path d="M 187.7 11.3 A 28 28 0 1 1 226.1 51.8"/>
-<path d="M 226.1 51.8 L 187.6 83.6"/>
-<path d="M 187.6 83.6 A 12 12 0 0 1 182.2 86.1"/>
-<path d="M 182.2 86.1 L 108.6 100.4"/>
-<path d="M 47.3 85.4 L -28.2 19.8"/>
-<path d="M -28.2 19.8 A 12 12 0 0 0 -45.5 21.5"/>
-<path d="M -45.5 21.5 L -107.1 100.3"/>
-<path d="M -96.1 144.3 L -56.7 175.1"/>
-<path d="M -56.7 175.1 A 35 35 0 0 0 -13.6 119.9"/>
-<path d="M -13.6 119.9 A 35 35 0 0 0 -56.7 175.1"/>
-<path d="M -56.7 175.1 A 12 12 0 0 1 -55.3 192.6"/>
-<path d="M -55.3 192.6 L -105.9 247.9"/>
-<path d="M -107.3 282.9 L -43 359.5"/>
-<path d="M -43 359.5 A 35 35 0 0 0 10.6 314.5"/>
-<path d="M 10.6 314.5 A 35 35 0 0 0 -43 359.5"/>
-<path d="M -43 359.5 A 12 12 0 0 1 -57.3 378.1"/>
-<path d="M -57.3 378.1 L -102.6 357"/>
-<path d="M -102.6 357 A 12 12 0 0 0 -113.1 378.6"/>
-<path d="M -113.1 378.6 L -24 424"/>
-<path d="M 18.7 464.3 L 33.4 512.1"/>
-<path d="M 33.4 512.1 A 12 12 0 0 0 55.5 514.1"/>
-<path d="M 55.5 514.1 L 100.9 425"/>
-<path d="M 100.9 425 A 12 12 0 0 0 98.7 411"/>
-<path d="M 98.7 411 L 45.7 358"/>
-<path d="M 45.7 358 A 12 12 0 0 1 49.1 338.6"/>
-<path d="M 49.1 338.6 L 139.7 296.4"/>
+<path d="M 0 0 L 138.6 57.4"/>
+<path d="M 138.6 57.4 A 12 12 0 0 1 137.7 79.9"/>
+<path d="M 137.7 79.9 L 90.2 95.3"/>
+<path d="M 18.1 122.3 L -73.9 161.4"/>
+<path d="M -73.9 161.4 A 12 12 0 0 0 -80.6 176.2"/>
+<path d="M -80.6 176.2 L -57.5 247.5"/>
+<path d="M -14.3 276.5 L 59.3 290.8"/>
+<path d="M 59.3 290.8 A 35 35 0 0 0 72.7 222.1"/>
+<path d="M 72.7 222.1 A 35 35 0 0 0 59.3 290.8"/>
+<path d="M 59.3 290.8 A 12 12 0 0 1 65.7 310.9"/>
+<path d="M 65.7 310.9 L -3.8 382.9"/>
+<path d="M -3.8 382.9 A 12 12 0 0 0 -3.7 399.7"/>
+<path d="M -3.7 399.7 L 67 470.4"/>
+<path d="M 67 470.4 A 12 12 0 0 1 66.1 488.2"/>
+<path d="M 66.1 488.2 L 27.3 519.6"/>
+<path d="M 27.3 519.6 A 12 12 0 0 0 37.3 540.7"/>
+<path d="M 37.3 540.7 L 110.7 525.1"/>
+<path d="M 110.7 525.1 A 12 12 0 0 0 115.6 522.8"/>
+<path d="M 115.6 522.8 L 194.4 461.3"/>
+<path d="M 194.4 461.3 A 12 12 0 0 1 206.3 459.6"/>
+<path d="M 206.3 459.6 L 298.7 497.9"/>
+<path d="M 298.7 497.9 A 35 35 0 0 1 271.9 562.6"/>
+<path d="M 271.9 562.6 A 35 35 0 0 1 298.7 497.9"/>
+<path d="M 298.7 497.9 A 12 12 0 0 0 315 489.5"/>
+<path d="M 315 489.5 L 337.5 392.1"/>
+<path d="M 337.5 392.1 A 12 12 0 0 1 357.7 386.3"/>
+<path d="M 357.7 386.3 L 463.8 492.4"/>
+<path d="M 521.8 536 L 564.6 561.8"/>
+<path d="M 564.6 561.8 A 12 12 0 0 1 570.4 572.5"/>
+<path d="M 570.4 572.5 L 567.8 647.4"/>
 </g>
-<rect x="36.6" y="85.4" width="72" height="44" fill="#fff" stroke="#000" stroke-width="4"/>
-<rect x="-160.3" y="100.3" width="72" height="44" fill="#fff" stroke="#000" stroke-width="4"/>
-<rect x="-158" y="247.9" width="72" height="35" fill="#fff" stroke="#000" stroke-width="4"/>
-<rect x="-24" y="420.3" width="72" height="44" fill="#fff" stroke="#000" stroke-width="4"/>
-<path class="nordpfeil" d="M 265 -2.3 L 274.4 1.1 M 280 3.1 L 273.2 4.4 L 275.5 -2.2 Z" fill="#000" stroke="#000" stroke-width="3" stroke-linejoin="round"/>
+<rect x="18.1" y="89.5" width="72" height="35" fill="#fff" stroke="#000" stroke-width="4"/>
+<rect x="-86.3" y="247.5" width="72" height="44" fill="#fff" stroke="#000" stroke-width="4"/>
+<rect x="449.8" y="492.4" width="72" height="44" fill="#fff" stroke="#000" stroke-width="4"/>
+<path class="nordpfeil" d="M 613.1 18 L 613.1 8 M 613.1 2 L 616.6 8 L 609.6 8 Z" fill="#000" stroke="#000" stroke-width="3" stroke-linejoin="round"/>
 </svg>
