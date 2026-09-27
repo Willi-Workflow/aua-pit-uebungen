@@ -169,6 +169,8 @@ const ANSCHLUSS = /^(über N|über S|kürz\. W\.) auf K$/;
 test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf', () => {
   const formen = { a: 0, b: 0, c: 0 };
   const typenC = {};
+  // Form A wie in der PDF (+182°): Relativwerte bis 190, auch über 160
+  let formAUeber160 = 0;
   for (const elemente of alle) {
     let anl = 0;
     elemente.forEach((gate, k) => {
@@ -197,7 +199,8 @@ test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf
         if (typ === 'relativ') {
           const betrag = Math.abs(z.kurs.wert);
           assert.ok(gate.form !== 'c');
-          assert.ok(betrag >= 20 && betrag <= (gate.form === 'a' ? 160 : 490), `${gate.form}: ${z.kurs.wert}`);
+          assert.ok(betrag >= 20 && betrag <= (gate.form === 'a' ? 190 : 490), `${gate.form}: ${z.kurs.wert}`);
+          if (gate.form === 'a' && betrag > 160) formAUeber160 += 1;
           ziel = normieren(kurs + z.kurs.wert);
         } else if (typ === 'himmelsrichtung') ziel = himmelsrichtungGrad(z.kurs.index);
         else if (typ === 'grad') {
@@ -229,6 +232,8 @@ test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf
         assert.equal(z.kursDanach, ziel);
         const a = Math.abs(differenz(kurs, ziel));
         if (typ === 'gk') assert.equal(a, 180);
+        // Form A darf über 160° gehen, aber nie genau auf den Gegenkurs
+        else if (typ === 'relativ' && gate.form === 'a') assert.ok(a >= 20 && a !== 180, `a relativ: ${kurs} auf ${ziel}, ${a}°`);
         else assert.ok(a >= 20 && a <= 160, `${gate.form} ${typ}: ${kurs} auf ${ziel}, ${a}°`);
         assert.ok([10, 15, 20, 25].includes(z.dauer));
         kurs = ziel;
@@ -239,6 +244,7 @@ test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf
   const summe = formen.a + formen.b + formen.c;
   for (const f of ['a', 'b', 'c']) assert.ok(formen[f] / summe > 0.28 && formen[f] / summe < 0.39, JSON.stringify(formen));
   for (const typ of ['hrPlus', 'gk', 'gkPlus', 'anl', 'anlProdukt']) assert.ok(typenC[typ] > 0, `${typ} kommt nicht vor: ${JSON.stringify(typenC)}`);
+  assert.ok(formAUeber160 > 0, 'Form A ohne Relativwert über 160');
 });
 
 test('Stufe 3: Anschlusszeile nur bei Form A, eindeutig, das Segment danach trägt den Kurs K', () => {

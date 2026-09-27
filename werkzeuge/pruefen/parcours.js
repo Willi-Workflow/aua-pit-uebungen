@@ -445,7 +445,8 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
           let neu;
           let beliebigeRichtung = false;
           if (z.typ === 'relativ') {
-            const [min, max] = form === 'a' ? [20, 160] : [20, 490];
+            // Form A wie in der PDF (+182°) bis 190, Form B und Stufe 2 bis 490
+            const [min, max] = form === 'a' ? [20, 190] : [20, 490];
             if (Math.abs(z.wert) < min || Math.abs(z.wert) > max) befund('Fehler', 'Gate', `Relativwert Betrag ${min} bis ${max}`, st, String(z.wert), `${min} bis ${max}`);
             neu = norm(kurs + z.wert);
             const d = diff(kurs, neu); const a = Math.abs(d);
@@ -454,10 +455,15 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
             // Richtung, ist das nach dieser Regel eindeutig (Hinweis). Unscharf ist
             // der kürzeste Weg über 160° und genau 180°: Dann bleibt nur das
             // Vorzeichen als Richtung, der Kurs danach ist in jeder Lesart derselbe.
+            // Form A nimmt wie die PDF (+182°) Werte bis 190; über 160° zeigt dort
+            // das Vorzeichen mit Gradzeichen die Richtung (Hinweis), nur genau 180°
+            // bleibt unscharf.
             const text = `${kursName(kurs)} ${z.wert > 0 ? '+' : ''}${z.wert} = ${kursName(neu)}`;
             if (a === 180) {
               beliebigeRichtung = true;
               befund('Unschärfe', 'Gate', 'Drehrichtung bei Relativwert (kürzester Weg über 160°)', st, `${text}; genau 180°, Richtung nur aus dem Vorzeichen (${z.wert > 0 ? 'rechts' : 'links'})`, 'kürzester Weg höchstens 160°');
+            } else if (a > 160 && form === 'a') {
+              befund('Hinweis', 'Gate', 'Form A: Relativwert über 160° wie in der PDF (+182°)', st, `${text}; kürzester Weg ${d > 0 ? 'rechts' : 'links'} ${Math.round(a * 10) / 10}°`, 'Vorzeichen nennt die Richtung');
             } else if (a > 160) {
               befund('Unschärfe', 'Gate', 'Drehrichtung bei Relativwert (kürzester Weg über 160°)', st, `${text}; kürzester Weg ${d > 0 ? 'rechts' : 'links'} ${Math.round(a * 10) / 10}°`, 'kürzester Weg höchstens 160°');
             } else if (a >= 20 && (z.wert > 0) !== (d > 0)) {

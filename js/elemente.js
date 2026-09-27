@@ -367,9 +367,10 @@ function mitVorzeichen(zufall, von, bis) {
 
 // Eine Gate-Zeile der Stufe 3 ab "kursDavor". Jede Zeile ergibt einen neuen Kurs
 // 20° bis 160° vom alten, damit der kürzeste Weg eindeutig ist; nur GK ist eine
-// Kehre von 180°, deren Richtung frei ist.
-// Form A: relativ mit Gradzeichen, Betrag 20 bis 160, dann zeigt das Vorzeichen
-//   die Richtung des kürzesten Wegs. Form B: relativ wie Stufe 2, Betrag 20 bis 490.
+// Kehre von 180°, deren Richtung frei ist, und Form A folgt der PDF.
+// Form A: relativ mit Gradzeichen, Betrag 20 bis 190 wie in der PDF (+182°); das
+//   Vorzeichen nennt die Richtung, der Kurs danach ist nie genau der Gegenkurs.
+//   Form B: relativ wie Stufe 2, Betrag 20 bis 490.
 // Form C: Himmelsrichtung, Himmelsrichtung ± 10 bis 130, GK, GK ± 10 bis 60,
 //   anl. Kurs + n oder + a×b (a, b einstellig ab 2, Ergebnis 20 bis 160).
 function gateZeileStufe3(zufall, form, typ, kursDavor, verlauf, bilanz, hoehe) {
@@ -377,8 +378,9 @@ function gateZeileStufe3(zufall, form, typ, kursDavor, verlauf, bilanz, hoehe) {
   let kursDanach;
   if (typ === 'relativ') {
     let wert;
-    if (form === 'a') wert = mitVorzeichen(zufall, 20, 160);
-    else {
+    if (form === 'a') {
+      do { wert = mitVorzeichen(zufall, 20, 190); } while (abstand(kursDavor, normieren(kursDavor + wert)) === 180);
+    } else {
       do { wert = mitVorzeichen(zufall, 20, 490); } while (!imBereich(abstand(kursDavor, normieren(kursDavor + wert))));
     }
     kurs = { typ, wert };
