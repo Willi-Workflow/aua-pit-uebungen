@@ -201,3 +201,23 @@ test('Nordpfeil hält in jeder Richtung mindestens 8 Einheiten Abstand zum Umris
   // Nur Pfeile, die nach links zeigen, rücken nach rechts
   assert.ok(verschoben > 0 && verschoben < 12, `${verschoben} von 24 Richtungen verschoben`);
 });
+
+test('Stufe 3: Kurven im Profilstil, Gates mit allen Zeilen im Kasten, Start und Ende fett; Stufe 2 ohne Regel für fett', () => {
+  const blatt = erzeugeBlatt(3, 3);
+  const bild = zeichneParcours(blatt.parcours);
+  const { stuecke, beschriftungen, marken } = blatt.parcours.geometrie;
+  const kurven = stuecke.filter((s) => s.kurve);
+  assert.ok(kurven.length >= 2);
+  for (const s of stuecke) {
+    if (s.art === 'gate') continue;
+    if (s.profil === 'horizontal') assert.ok(bild.includes(`<path class="horizontal" d="${s.pfad}"/>`));
+    else assert.ok(bild.includes(`<path class="rand" d="${s.pfad}"/><path class="${s.profil}" d="${s.pfad}"/>`));
+  }
+  assert.equal(anzahl(bild, /<rect class="gate"/g), stuecke.filter((s) => s.art === 'gate').length);
+  assert.equal(anzahl(bild, /class="marke"/g), marken.length);
+  assert.equal(anzahl(bild, /<text (?!class="nord")/g), beschriftungen.length);
+  for (const b of beschriftungen) for (const zeile of b.zeilen) assert.ok(bild.includes(`>${zeile}</tspan>`), `${zeile} fehlt`);
+  assert.equal(anzahl(bild, /<text class="fett" /g), 2);
+  assert.ok(bild.includes('.parcours text.fett { font-weight: 700; }'));
+  assert.ok(!svg.includes('fett'), 'Stufe 2 ohne fett');
+});

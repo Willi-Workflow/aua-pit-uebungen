@@ -3,8 +3,10 @@
 //
 // Linienarten: horizontal = dicke schwarze Linie; sinken = schwarzer Rand mit
 // weißer Linie darüber; steigen = dasselbe, die weiße Linie gestrichelt, so dass
-// die Lücken als Sprossen erscheinen. Gates sind weiße Kästen mit dünnem Rand,
-// gezeichnet über den Linien, damit sie die ankommende Linie sauber abschneiden.
+// die Lücken als Sprossen erscheinen. Gradzahl-Kurven der Stufe 3 sind Bögen in
+// derselben Linienart, Sprossen also auch auf dem Bogen. Gates sind weiße Kästen
+// mit dünnem Rand, gezeichnet über den Linien, damit sie die ankommende Linie
+// sauber abschneiden.
 //
 // Das Blatt ist so gedreht, dass der Start oben liegt; jede Richtung ist in der
 // Geometrie schon als Kurs minus Drehung gezeichnet. Ein Nordpfeil oben rechts
@@ -58,9 +60,11 @@ function gateText(b) {
   return `<text class="gate" transform="translate(${zahl(x)} ${zahl(y)})">${tspans(b.zeilen)}</text>`;
 }
 
+// "Start" und "Ende" (Stufe 3) fett, sonst wie jede Beschriftung
 function beschriftung(b) {
   if (b.gate) return gateText(b);
-  return `<text transform="translate(${zahl(b.x)} ${zahl(b.y)}) rotate(${zahl(b.winkel)})">${tspans(b.zeilen)}</text>`;
+  const klasse = b.fett ? ' class="fett"' : '';
+  return `<text${klasse} transform="translate(${zahl(b.x)} ${zahl(b.y)}) rotate(${zahl(b.winkel)})">${tspans(b.zeilen)}</text>`;
 }
 
 // Flugzeugsymbol am Anfang des Parcours, Nase in gezeichneter Richtung des ersten Segments.
@@ -137,6 +141,9 @@ export function zeichneParcours(parcours) {
   const y = minY - RAND;
   const breite = maxX - minX + 2 * RAND;
   const hoehe = maxY - minY + 2 * RAND;
+  // Die Regel für fette Beschriftungen nur, wo es sie gibt, damit die Blätter
+  // der Stufe 2 Zeichen für Zeichen bleiben, wie sie waren
+  const fett = beschriftungen.some((b) => b.fett) ? '\n.parcours text.fett { font-weight: 700; }' : '';
   const teile = [
     ...stuecke.filter((s) => s.art !== 'gate').map(stueck),
     ...stuecke.filter((s) => s.art === 'gate').map(gateKasten),
@@ -157,7 +164,7 @@ export function zeichneParcours(parcours) {
 .parcours .flugzeug { fill: #000; stroke: none; }
 .parcours text.gate { text-anchor: start; }
 .parcours .nordpfeil { fill: #000; stroke: #000; stroke-width: 1.5; stroke-linejoin: round; }
-.parcours text.nord { font-weight: 700; }
+.parcours text.nord { font-weight: 700; }${fett}
 </style>
 ${teile.join('\n')}
 </svg>`;
