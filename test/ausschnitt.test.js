@@ -4,6 +4,7 @@ import { Zufall } from '../js/zufall.js';
 import { AUSSCHNITT_ARTEN, erzeugeAusschnitt, zeichneAusschnitt } from '../js/ausschnitt.js';
 import { zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, LINIENBREITE_ABSTAND } from '../js/geometrie.js';
 import { svgLesen } from '../werkzeuge/pruefen/svg.js';
+import { SCHWIERIGKEITEN } from '../js/schwierigkeit.js';
 
 const RICHTUNGEN = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 const norm = (g) => ((g % 360) + 360) % 360;
@@ -14,6 +15,7 @@ function naechste(kurs) {
   return beste;
 }
 
+// Ohne Angabe entstehen die Ausschnitte in der Schwierigkeit normal
 const ANZAHL = 200;
 const ausschnitte = {
   2: Array.from({ length: ANZAHL }, (_, i) => erzeugeAusschnitt(new Zufall(`ausschnitt-2-${i}`), 2)),
@@ -246,4 +248,156 @@ test('Ausschnitte: jede Art lässt sich gezielt erzeugen, gleicher Startwert gib
   // Stufe 2 kennt die Gradzahl-Kurve, aber kein HR, GK und anl. Kurs
   assert.equal(erzeugeAusschnitt(new Zufall('x'), 2, 'kurve').art, 'kurve');
   for (const art of ['hr', 'hrKurs', 'gk', 'anl', 'gkAngabe']) assert.throws(() => erzeugeAusschnitt(new Zufall('x'), 2, art));
+});
+
+// ------------------------------------------------------------ Schwierigkeit
+
+// Wertebereiche je Schwierigkeit, von bis, als Betrag: Kurs plus oder minus Zahl
+// (Rechenaufgabe, relative Gate-Zeile ohne Gradzeichen), relative Ecke, Form A
+// mit Gradzeichen, GK ± n, Himmelsrichtung ± n, Drehwinkel der Kurve
+const BEREICHE = {
+  leicht: { zahl: [10, 150], ecke: [10, 150], formA: [20, 150], gk: [10, 60], hr: [10, 130], kurve: [30, 150] },
+  normal: { zahl: [20, 490], ecke: [20, 340], formA: [20, 190], gk: [10, 60], hr: [10, 130], kurve: [30, 350] },
+  schwer: { zahl: [20, 490], ecke: [20, 340], formA: [20, 190], gk: [10, 60], hr: [10, 130], kurve: [151, 349] },
+};
+const JE_SCHWIERIGKEIT = 100;
+const nachSchwierigkeit = Object.fromEntries([2, 3].map((stufe) => [stufe, Object.fromEntries(SCHWIERIGKEITEN.map((s) => [
+  s, Array.from({ length: JE_SCHWIERIGKEIT }, (_, i) => erzeugeAusschnitt(new Zufall(`schwierig-${stufe}-${s}-${i}`), stufe, null, s)),
+]))]));
+
+// Alle Zahlen, die ein gezeichneter Ausschnitt nennt, nur aus dem Bild gelesen
+function zahlenAusBild(svgText) {
+  const { texte } = svgLesen(svgText);
+  const w = { zahl: [], ecke: [], formA: [], gk: [], hr: [], hrRichtung: [], anl: [], anlProdukt: [], kurve: [], gateGrad: [], gateRichtung: [], rechenBasis: [] };
+  for (const t of texte) {
+    const erste = t.zeilen[0];
+    let m;
+    if (t.klasse === 'gate') {
+      for (const zeile of t.zeilen) {
+        const c = zeile.match(/^[→↗↘] (.+) \d+"$/);
+        const a = c ? c[1] : zeile.replace(/ [→↗↘] \d+"$/, '');
+        if ((m = a.match(/^([+-]\d+)°$/))) w.formA.push(Number(m[1]));
+        else if ((m = a.match(/^([+-]\d+)$/))) w.zahl.push(Number(m[1]));
+        else if ((m = a.match(/^GK ([+-]\d+)°$/))) w.gk.push(Number(m[1]));
+        else if ((m = a.match(/^anl\. Kurs \+(\d)×(\d{1,2})$/))) w.anlProdukt.push([Number(m[1]), Number(m[2])]);
+        else if ((m = a.match(/^anl\. Kurs \+(\d+)°$/))) w.anl.push(Number(m[1]));
+        else if ((m = a.match(/^([A-Z]{1,3}) ([+-]\d+)°$/)) && m[1] !== 'GK') {
+          w.hr.push(Number(m[2]));
+          w.hrRichtung.push(RICHTUNGEN.indexOf(m[1]));
+        } else if ((m = a.match(/^(\d{3})°$/))) w.gateGrad.push(Number(m[1]));
+        else if ((m = a.match(/^([A-Z]{1,3})$/)) && a !== 'GK') w.gateRichtung.push(RICHTUNGEN.indexOf(m[1]));
+      }
+    } else if (t.zeilen.length === 1 && /^[+-]\d+°$/.test(erste)) w.ecke.push(parseInt(erste, 10));
+    else if (t.zeilen.length === 1 && /^\d+$/.test(erste)) w.kurve.push(Number(erste));
+    else if (t.zeilen.length === 2 && /\/\d+"$/.test(erste)) {
+      w.zahl.push(Number(t.zeilen[1]));
+      w.rechenBasis.push(segmentKurs(erste));
+    }
+  }
+  return w;
+}
+
+function wertebereichePruefen(a, s) {
+  const w = zahlenAusBild(zeichneAusschnitt(a));
+  const b = BEREICHE[s];
+  const text = `${s}, ${a.art}`;
+  for (const art of ['zahl', 'ecke', 'formA', 'gk', 'hr']) {
+    for (const wert of w[art]) {
+      const betrag = Math.abs(wert);
+      assert.ok(betrag >= b[art][0] && betrag <= b[art][1], `${text}: ${art} ${wert} außerhalb ${b[art]}`);
+      if (s === 'leicht') assert.equal(betrag % 10, 0, `${text}: ${art} ${wert} nicht in Zehnerschritten`);
+      if (s === 'schwer') assert.notEqual(betrag % 5, 0, `${text}: ${art} ${wert} mit Endziffer 0 oder 5`);
+    }
+  }
+  for (const wert of w.ecke) assert.notEqual(Math.abs(wert), 180);
+  for (const winkel of w.kurve) {
+    assert.ok(winkel >= b.kurve[0] && winkel <= b.kurve[1] && winkel !== 180, `${text}: Kurve ${winkel}`);
+    if (s === 'leicht') assert.equal(winkel % 10, 0, `${text}: Kurve ${winkel}`);
+    if (s === 'schwer') assert.equal(winkel % 2, 1, `${text}: Kurve ${winkel} gerade`);
+  }
+  if (s === 'leicht') {
+    assert.equal(a.ankunft % 10, 0, `${text}: Ankunft ${a.ankunft}`);
+    for (const basis of w.rechenBasis) assert.equal(basis % 10, 0, `${text}: Rechenaufgabe an ${basis}`);
+    for (const i of [...w.hrRichtung, ...w.gateRichtung]) assert.ok([0, 4, 8, 12].includes(i), `${text}: Richtung ${RICHTUNGEN[i]}`);
+    for (const grad of w.gateGrad) assert.equal(grad % 10, 0, `${text}: Gate-Kurs ${grad}`);
+    for (const wert of w.anl) assert.ok(wert % 10 === 0 && wert >= 20 && wert <= 150, `${text}: anl. Kurs +${wert}`);
+    assert.equal(w.anlProdukt.length, 0, `${text}: anl. Kurs mit Produkt`);
+  }
+  if (s === 'normal') {
+    for (const wert of w.anl) assert.ok(wert >= 20 && wert <= 160);
+    for (const [x, y] of w.anlProdukt) assert.ok(x >= 2 && x <= 9 && y >= 2 && y <= 13 && x * y >= 20 && x * y <= 160);
+  }
+  if (s === 'schwer') {
+    for (const i of w.hrRichtung) assert.equal(i % 2, 1, `${text}: ${RICHTUNGEN[i]} ohne halben Grad`);
+    assert.equal(w.anl.length, 0, `${text}: anl. Kurs ohne Produkt`);
+    for (const [x, y] of w.anlProdukt) assert.ok(x % 5 !== 0 && y % 5 !== 0 && y >= 11 && x * y <= 160, `${text}: ${x}×${y}`);
+  }
+  return w;
+}
+
+for (const stufe of [2, 3]) {
+  for (const s of SCHWIERIGKEITEN) {
+    test(`Ausschnitte Stufe ${stufe}, ${s}: ${JE_SCHWIERIGKEIT} Lösungen nachgerechnet, kreuzungsfrei, Wertebereiche aus den Beschriftungen`, () => {
+      const arten = new Set();
+      for (const a of nachSchwierigkeit[stufe][s]) {
+        assert.equal(a.schwierigkeit, s);
+        arten.add(a.art);
+        const nach = nachrechnen(zeichneAusschnitt(a), a.art);
+        assert.equal(a.ankunft, nach.ankunft, `${a.art}: Ankunft`);
+        assert.deepEqual(a.fragen.map((f) => f.loesung), nach.loesungen, `${s}, ${a.art}: Lösungen`);
+        const geo = a.geometrie;
+        assert.equal(zaehleKreuzungen(geo.stuecke), 0, `${a.art}: Kreuzung`);
+        assert.ok(kleinsterAbstand(geo.stuecke, 0, geo.flugzeug) >= LINIENBREITE_ABSTAND, `${a.art}: Striche zu nah`);
+        assert.ok(beschriftungFrei(geo), `${a.art}: Beschriftung verdeckt`);
+        wertebereichePruefen(a, s);
+      }
+      assert.deepEqual(arten, new Set(AUSSCHNITT_ARTEN[stufe]), `${s}: nicht alle Arten`);
+    });
+  }
+}
+
+test('Ausschnitte nach Schwierigkeit: jede Art gezielt, Rechenaufgaben mit Überlauf und über 360 wie beim Kopfrechnen', () => {
+  const zahlen = {};
+  for (const s of SCHWIERIGKEITEN) {
+    for (const stufe of [2, 3]) {
+      for (const art of AUSSCHNITT_ARTEN[stufe]) {
+        for (let i = 0; i < 5; i++) {
+          const a = erzeugeAusschnitt(new Zufall(`gezielt-${s}-${stufe}-${art}-${i}`), stufe, art, s);
+          assert.equal(a.art, art);
+          assert.deepEqual(a.fragen.map((f) => f.loesung), nachrechnen(zeichneAusschnitt(a), art).loesungen, `${s}, ${art}`);
+          wertebereichePruefen(a, s);
+        }
+      }
+    }
+    // Rechenaufgaben: Basis aus der Beschriftung, Zahl darunter
+    zahlen[s] = Array.from({ length: 150 }, (_, i) => {
+      const w = zahlenAusBild(zeichneAusschnitt(erzeugeAusschnitt(new Zufall(`rechen-${s}-${i}`), 2, 'rechen', s)));
+      return { basis: w.rechenBasis[0], zahl: w.zahl[0] };
+    });
+  }
+  const anteil = (liste, bedingung) => liste.filter(bedingung).length / liste.length;
+  const ueber = (x) => x.basis + x.zahl >= 360 || x.basis + x.zahl < 0;
+  const leicht = anteil(zahlen.leicht, ueber);
+  assert.ok(leicht > 0 && leicht <= 1 / 3, `leicht: Überlauf in ${leicht}`);
+  const normal = anteil(zahlen.normal, ueber);
+  assert.ok(normal >= 0.35 && normal <= 0.65, `normal: Überlauf in ${normal}`);
+  const gross = anteil(zahlen.schwer, (x) => Math.abs(x.zahl) > 360);
+  assert.ok(gross >= 0.2 && gross <= 0.47, `schwer: über 360 in ${gross}`);
+  assert.ok(anteil(zahlen.schwer, ueber) >= 0.5, 'schwer: Überlauf zu selten');
+  // Himmelsrichtung ± n mit halbem Grad im Ergebnis bei schwer, auch im Ausschnitt
+  let halbe = 0;
+  for (let i = 0; i < 30; i++) {
+    const a = erzeugeAusschnitt(new Zufall(`anl-schwer-${i}`), 3, 'anl', 'schwer');
+    halbe += a.fragen.filter((f) => f.antwort === 'kurs' && !Number.isInteger(f.loesung)).length;
+  }
+  assert.ok(halbe > 0, 'keine halben Grade bei schwer');
+});
+
+test('Ausschnitte: ohne Schwierigkeit gilt normal, eine unbekannte ebenso', () => {
+  for (const stufe of [2, 3]) {
+    const eins = zeichneAusschnitt(erzeugeAusschnitt(new Zufall(`vorgabe-${stufe}`), stufe));
+    assert.equal(zeichneAusschnitt(erzeugeAusschnitt(new Zufall(`vorgabe-${stufe}`), stufe, null, 'normal')), eins);
+    assert.equal(zeichneAusschnitt(erzeugeAusschnitt(new Zufall(`vorgabe-${stufe}`), stufe, null, 'mittel')), eins);
+    assert.equal(erzeugeAusschnitt(new Zufall(`vorgabe-${stufe}`), stufe).schwierigkeit, 'normal');
+  }
 });

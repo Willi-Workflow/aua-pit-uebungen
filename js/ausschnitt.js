@@ -7,11 +7,16 @@
 // Gezeichnet mit Norden oben, ohne Nordpfeil. Zulässig ist ein Ausschnitt ohne
 // Kreuzung, mit Strichen, die sich höchstens berühren, und freien
 // Beschriftungen; sonst wird neu gewürfelt.
+// Die Schwierigkeit (leicht, normal, schwer) geht als Einstellung an die
+// Erzeugung und legt dort Zahlen, Kurse und Winkel fest (schwierigkeit.js); bei
+// leicht beginnt der Ausschnitt zudem auf einem Kurs in Zehnerschritten, und
+// eine Rechenaufgabe steht nur an einem solchen Kurs.
 
 import { erzeugeElemente, anschlussDrehung, gegenkursZeile } from './elemente.js';
 import { bahn, vollenden, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, LINIENBREITE_ABSTAND } from './geometrie.js';
 import { zeichneParcours } from './zeichnung.js';
 import { normieren } from './kurs.js';
+import { VORGABE_SCHWIERIGKEIT, gueltigeSchwierigkeit } from './schwierigkeit.js';
 
 // Aufgabenelemente je Stufe. "gate" ist in Stufe 2 ein Gate mit drei Zeilen,
 // in Stufe 3 eines der Formen A, B oder C; "anl" ist ein Gate der Form C mit
@@ -36,10 +41,12 @@ const istAnl = (zeile) => zeile.kurs.typ === 'anl' || zeile.kurs.typ === 'anlPro
 // als [erster, letzter] Index: ein Segment davor mit ganzzahligem Kurs, das
 // Aufgabenelement (bei einer Kurve samt dem Segment ohne Kurs danach) und ein
 // Folgesegment mit eigenem Gradkurs, alles direkt hintereinander.
-function stueckFuer(elemente, i, art, stufe) {
+function stueckFuer(elemente, i, art, stufe, schwierigkeit) {
   const element = elemente[i];
   const davor = elemente[i - 1];
+  const leicht = schwierigkeit === 'leicht';
   if (!istSegment(davor) || !Number.isInteger(davor.kurs)) return null;
+  if (leicht && davor.kurs % 10 !== 0) return null;
   let letzter;
   if (art === 'kurve') {
     if (element.art !== 'kurve' || !istSegment(elemente[i + 1])) return null;
@@ -55,6 +62,7 @@ function stueckFuer(elemente, i, art, stufe) {
     if (!istSegment(element)) return null;
     if (art === 'relativ' && element.relativ === null) return null;
     if (art === 'rechen' && (element.rechenaufgabe === null || !['grad', 'himmelsrichtung'].includes(element.anzeige))) return null;
+    if (art === 'rechen' && leicht && element.kurs % 10 !== 0) return null;
     if (['himmelsrichtung', 'hr', 'hrKurs', 'gk'].includes(art) && element.anzeige !== art) return null;
     // Himmelsrichtung in Grad nur ohne Gegenkurs-Angabe, dafür gibt es "gkAngabe"
     if (art === 'himmelsrichtung' && element.alsGegenkurs) return null;
@@ -111,23 +119,25 @@ function fragenFuer(kette, art) {
 }
 
 // Ein Ausschnitt der Stufe 2 oder 3, ohne "art" eine gleichverteilt gewählte
-// Aufgabenart. Liefert { stufe, art, ankunft, elemente, geometrie, fragen }.
-export function erzeugeAusschnitt(zufall, stufe, art = null) {
+// Aufgabenart, in der Schwierigkeit "schwierigkeit" (ohne Angabe normal).
+// Liefert { stufe, art, schwierigkeit, ankunft, elemente, geometrie, fragen }.
+export function erzeugeAusschnitt(zufall, stufe, art = null, schwierigkeit = VORGABE_SCHWIERIGKEIT) {
   const arten = AUSSCHNITT_ARTEN[stufe];
   if (!arten) throw new Error(`Stufe ${stufe} gibt es nicht`);
   const gewaehlt = art || zufall.auswahl(arten);
   if (!arten.includes(gewaehlt)) throw new Error(`Aufgabenart ${gewaehlt} gibt es in Stufe ${stufe} nicht`);
-  const einstellungen = stufe === 2 ? { stufe: 2, mitGates: gewaehlt === 'gate' } : { stufe: 3 };
+  const s = gueltigeSchwierigkeit(schwierigkeit);
+  const einstellungen = stufe === 2 ? { stufe: 2, mitGates: gewaehlt === 'gate', schwierigkeit: s } : { stufe: 3, schwierigkeit: s };
   for (let versuch = 0; versuch < VERSUCHE; versuch++) {
     const elemente = erzeugeElemente(zufall, einstellungen);
     const stellen = zufall.mischen(elemente.map((_, i) => i).slice(1));
     for (const i of stellen) {
-      const stueck = stueckFuer(elemente, i, gewaehlt, stufe);
+      const stueck = stueckFuer(elemente, i, gewaehlt, stufe, s);
       if (!stueck) continue;
       const kette = ketteBauen(elemente, stueck, gewaehlt);
       const geometrie = geometriePruefen(kette);
       if (!geometrie) continue;
-      return { stufe, art: gewaehlt, ankunft: kette[0].kurs, elemente: kette, geometrie, fragen: fragenFuer(kette, gewaehlt) };
+      return { stufe, art: gewaehlt, schwierigkeit: s, ankunft: kette[0].kurs, elemente: kette, geometrie, fragen: fragenFuer(kette, gewaehlt) };
     }
   }
   throw new Error(`Kein Ausschnitt der Art ${gewaehlt} gefunden`);
