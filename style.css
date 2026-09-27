@@ -501,6 +501,16 @@ button:focus-visible {
   font-weight: 500;
 }
 
+.erklaerung {
+  margin: 2px 0 0;
+  color: var(--zweittext);
+}
+
+/* Stufe 3 ohne Textteil: Abstand zwischen den Hinweisen und dem Parcours */
+.ohne-textteil .parcours {
+  margin-top: 24px;
+}
+
 /* Umbrochene Anweisungen hängend einrücken, damit jede Zeile als eine erkennbar bleibt */
 .textteil {
   list-style: none;
@@ -697,12 +707,18 @@ button:focus-visible {
   }
 
   .gatehinweis,
+  .erklaerung,
   .legende {
     color: inherit;
   }
 
-  .gatehinweis {
+  .gatehinweis,
+  .erklaerung {
     margin: 0;
+  }
+
+  .ohne-textteil .parcours {
+    margin-top: 0.75rem;
   }
 
   .gatehinweis strong {

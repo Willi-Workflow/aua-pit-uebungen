@@ -1,5 +1,5 @@
 // Oberfläche: Adressanker auf Ansichten abbilden, Blatt anzeigen, drucken.
-// Adressen: #/  #/stufe2  #/stufe2/blatt/7  #/stufe3  #/stufe2/endlos  #/blitzrechnen
+// Adressen: #/  #/stufe2  #/stufe2/blatt/7  #/stufe3  #/stufe3/blatt/7  #/stufe2/endlos  #/blitzrechnen
 
 import { erzeugeBlatt, hatGates, BLAETTER_JE_STUFE, STUFEN } from './blatt.js';
 import { zeichneParcours } from './zeichnung.js';
@@ -14,6 +14,10 @@ const LEGENDE = `<div class="legende">
 </div>`;
 
 const GATEHINWEIS = '<p class="gatehinweis"><strong>Mit Gates:</strong> Kästchen am Parcours aus dem Gedächtnis fliegen. Relative Werte mit dem aktuellen Kurs verrechnen, gedreht wird auf kürzestem Weg.</p>';
+
+// Stufe 3 hat keinen Textteil: Start und die Kürzel der Vorlagen stehen über dem Parcours
+const STUFE3_START = '<p class="ausgang">Start 2000 ft, Kurs vom ersten Segment</p>';
+const STUFE3_KUERZEL = '<p class="erklaerung">HR = nächste Himmelsrichtung, GK = Gegenkurs, K = Kurs des nächsten Segments, nackte Gradzahl an einer Kurve = Drehwinkel in gezeichneter Richtung</p>';
 
 // Kursrose wie auf der Kursanzeige im Flug auf dem Ausgangskurs aller Blätter:
 // Die Skala ist so gedreht, dass 090 oben unter dem festen Zeiger steht, die
@@ -82,19 +86,20 @@ function startseite() {
     + `<main class="rahmen startseite">
 <div class="start-text">
 <h1 class="titel-gross">Übungsblätter für die PIT-Übungen</h1>
-<p class="einleitung">Jedes Blatt hat zwölf Anweisungen im Textteil und einen gezeichneten Parcours, der daran anschließt. Wähle eine Stufe und ein Blatt, übe am Bildschirm oder drucke es auf A4 aus.</p>
+<p class="einleitung">In Stufe 2 hat jedes Blatt zwölf Anweisungen im Textteil und einen gezeichneten Parcours, der daran anschließt, in Stufe 3 nur den Parcours. Wähle eine Stufe und ein Blatt, übe am Bildschirm oder drucke es auf A4 aus.</p>
 </div>
 <figure class="start-rose">${kursrose(280, true)}<figcaption>Ausgangskurs 090°, 2000 ft</figcaption><a class="karte blitz" href="#/blitzrechnen">${BLITZ}<span class="karte-titel">Blitzrechnen</span></a></figure>
 <nav class="stufen" aria-label="Stufen">
 <a class="karte" href="#/stufe2"><span class="karte-titel">Stufe 2</span><span class="karte-text">Textteil und Parcours, ${BLAETTER_JE_STUFE} Blätter, jedes dritte mit Gates</span></a>
-<a class="karte spaeter" href="#/stufe3"><span class="karte-titel">Stufe 3</span><span class="karte-text">Kommt in einem späteren Abschnitt</span></a>
+<a class="karte" href="#/stufe3"><span class="karte-titel">Stufe 3</span><span class="karte-text">Nur Parcours, ${BLAETTER_JE_STUFE} Blätter, alle mit Gates</span></a>
 </nav>
 </main>`;
 }
 
-// Karte der Blattliste: fertiges Vorschaubild aus vorschau/, darunter die Nummer
+// Karte der Blattliste: fertiges Vorschaubild aus vorschau/, darunter die Nummer.
+// Die Gate-Marke nur in Stufe 2, in Stufe 3 hat jedes Blatt Gates.
 function blattKarte(stufe, nummer) {
-  const gates = hatGates(stufe, nummer) ? '<span class="gatemarke">Gates</span>' : '';
+  const gates = stufe === 2 && hatGates(stufe, nummer) ? '<span class="gatemarke">Gates</span>' : '';
   return `<li><a class="blattkarte" href="#/stufe${stufe}/blatt/${nummer}">`
     + `<span class="vorschau"><img src="vorschau/stufe${stufe}/${nummer}.svg" alt="" loading="lazy" width="160" height="120"></span>`
     + `<span class="blattkarte-fuss"><span class="blattnummer">Blatt ${nummer}</span>${gates}</span>`
@@ -106,7 +111,7 @@ function stufenseite(stufe) {
   return kopf(`Stufe ${stufe}`, '#/')
     + `<main class="rahmen liste">
 <h1 class="titel">Stufe ${stufe}</h1>
-<p class="unterzeile">${BLAETTER_JE_STUFE} Blätter. Jedes dritte Blatt hat Gates.</p>
+<p class="unterzeile">${BLAETTER_JE_STUFE} Blätter. ${stufe === 2 ? 'Jedes dritte Blatt hat Gates.' : 'Nur Parcours, alle mit Gates.'}</p>
 <ol class="raster">
 ${karten}
 </ol>
@@ -126,9 +131,20 @@ function blattseite(stufe, nummer) {
     // Sollte nach der Adressprüfung nicht vorkommen; wenn doch, lieber eine Meldung als eine leere Seite
     return platzhalter('Fehler', `#/stufe${stufe}`, `Dieses Blatt konnte nicht erzeugt werden: ${fehler.message}`);
   }
+  const drucken = '<button type="button" class="knopf" data-aktion="drucken">Drucken</button>';
+  if (!blatt.textteil) {
+    return kopf(`Stufe ${stufe}, Blatt ${nummer}`, `#/stufe${stufe}`, drucken)
+      + `<main class="rahmen blattseite"><article class="blatt ohne-textteil">
+<h1>AUA PIT Stufe ${stufe}, Blatt ${nummer}</h1>
+${STUFE3_START}
+${STUFE3_KUERZEL}
+${GATEHINWEIS}
+${zeichneParcours(blatt.parcours)}
+${LEGENDE}
+</article></main>`;
+  }
   // Zahl und Einheit nicht trennen, sonst steht auf dem Handy "15" am Zeilenende und "s" darunter
   const zeilen = blatt.textteil.zeilen.map((z) => `<li>${z.satz.replace(/(\d) (s|ft)\b/g, '$1\u00a0$2')}</li>`).join('');
-  const drucken = '<button type="button" class="knopf" data-aktion="drucken">Drucken</button>';
   return kopf(`Stufe ${stufe}, Blatt ${nummer}`, `#/stufe${stufe}`, drucken)
     + `<main class="rahmen blattseite"><article class="blatt">
 <h1>AUA PIT Stufe ${stufe}, Blatt ${nummer}</h1>
@@ -146,7 +162,6 @@ export function ansichtFuer(hash) {
   if (teile[0] === 'blitzrechnen') return platzhalter('Blitzrechnen', '#/', 'Blitzrechnen kommt in einem späteren Abschnitt.');
   const stufe = Number((teile[0].match(/^stufe(\d)$/) || [])[1]);
   if (!STUFEN.includes(stufe)) return platzhalter('Nicht gefunden', '#/', 'Diese Seite gibt es nicht.');
-  if (stufe === 3) return platzhalter('Stufe 3', '#/', 'Diese Stufe kommt in einem späteren Abschnitt.');
   if (teile.length === 1) return stufenseite(stufe);
   if (teile[1] === 'endlos') return platzhalter(`Stufe ${stufe}, Endlos`, `#/stufe${stufe}`, 'Der Endlosmodus kommt in einem späteren Abschnitt.');
   if (teile[1] === 'blatt') {
