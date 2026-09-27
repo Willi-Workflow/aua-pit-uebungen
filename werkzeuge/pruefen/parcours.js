@@ -13,7 +13,7 @@ const PFEILPROFIL = { '→': 'horizontal', '↗': 'steigen', '↘': 'sinken' };
 const ANSCHLUSS = /^(über N|über S|kürz\. W\.) auf K$/;
 
 // Zeile "Wert Pfeil Sekunden" (Stufe 2, Form A und B) oder "Pfeil Ausdruck
-// Sekunden" (Form C)
+// Sekunden" (Form C). Form A kann als Wert auch "GK" oder "GK -19°" tragen.
 function gateZeileLesen(z) {
   const c = z.match(/^([→↗↘]) (.+) (\d+)"$/);
   if (c) {
@@ -28,10 +28,12 @@ function gateZeileLesen(z) {
     if ((m = a.match(/^anl\. Kurs \+(\d+)×(\d+)$/))) return { ...zeile, typ: 'anlProdukt', a: Number(m[1]), b: Number(m[2]), wert: Number(m[1]) * Number(m[2]) };
     return null;
   }
-  const m = z.match(/^([+-]\d+°?|[A-Z]{1,3}|\d{3}°) ([→↗↘]) (\d+)"$/);
+  const m = z.match(/^([+-]\d+°?|[A-Z]{1,3}|\d{3}°|GK [+-]\d+°) ([→↗↘]) (\d+)"$/);
   if (!m) return null;
   const zeile = { profil: PFEILPROFIL[m[2]], sek: Number(m[3]), text: z };
   if (/^[+-]\d+°?$/.test(m[1])) return { ...zeile, typ: 'relativ', wert: parseInt(m[1], 10), gradzeichen: m[1].endsWith('°') };
+  if (m[1] === 'GK') return { ...zeile, typ: 'gk' };
+  if (m[1].startsWith('GK ')) return { ...zeile, typ: 'gkPlus', wert: parseInt(m[1].slice(3), 10) };
   if (/°$/.test(m[1])) return { ...zeile, typ: 'grad', wert: Number(m[1].slice(0, -1)) };
   return { ...zeile, typ: 'richtung', richtung: m[1] };
 }
@@ -238,7 +240,8 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
   // Flug nachrechnen
   let kurs = textEnde.kurs; let hoehe = textEnde.hoehe;
   const profile = [];
-  const zahl = { segmente: 0, vollkreise: 0, kurven: 0, relativ: 0, hrgk: 0, rechen: 0, richtung: 0, gates: 0, formen: { a: 0, b: 0, c: 0 }, anl: 0 };
+  const zahl = { segmente: 0, vollkreise: 0, kurven: 0, relativ: 0, hr: 0, gk: 0, gkZeilen: 0, rechen: 0, richtung: 0, gates: 0, formen: { a: 0, b: 0, c: 0 }, anl: 0 };
+  let gkSegDavor = null; // Nummer des letzten Segments mit GK
   const hoeheFliegen = (p, sek, stelle) => {
     profile.push(p);
     if (p === 'steigen') hoehe += RATE * sek;
@@ -272,7 +275,11 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
         if (kurveDavor && (l.mitKurs || l.hrgk)) befund('Fehler', 'Parcours', 'nach einer Gradzahl-Kurve ein Segment ohne Kurs', stelle, l.roh, '/10" ohne Kurs');
         if (l.hrgk) {
           // HR und GK: der Kurs ergibt sich aus dem aktuellen oder genannten Kurs, die Ecke davor ist gezeichnet
-          zahl.hrgk += 1;
+          if (l.gk) {
+            zahl.gk += 1;
+            if (gkSegDavor === segNr - 1) befund('Fehler', 'Mengen', 'keine zwei Segmente mit GK direkt hintereinander', stelle, `Segment ${segNr - 1} und ${segNr}`, 'mindestens ein Segment dazwischen');
+            gkSegDavor = segNr;
+          } else zahl.hr += 1;
           if (!eckeDavor) befund('Fehler', 'Parcours', 'HR und GK nach einer gezeichneten Ecke', stelle, vorigesElement ? vorigesElement.art : 'Anfang', 'Ecke');
           const d0 = eckeDavor ? eckeDavor.stueck.dreh : NaN;
           if (l.gk) {
@@ -435,6 +442,13 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
         if (stufe === 3 && formC && anschluss) befund('Fehler', 'Gate', 'Anschlusszeile nur in Form A', stelle, anschluss, 'keine');
         if ((form === 'stufe2' || form === 'b') && !zeilen.some((z) => z && z.typ === 'relativ')) befund('Fehler', 'Gate', 'mindestens eine relative Zeile', stelle, text.zeilen.join(' / '), 'eine Zeile wie +72');
         if (form === 'a' && !zeilen.some((z) => z && z.typ === 'relativ')) befund('Hinweis', 'Gate', 'Form A mit relativer Zeile wie in der PDF', stelle, text.zeilen.join(' / '), 'eine Zeile wie +127°');
+        // Gegenkurs in Gates: Form C mindestens eine Zeile, Form A höchstens eine,
+        // Form B und Stufe 2 keine
+        const gkZeilen = zeilen.filter((z) => z && (z.typ === 'gk' || z.typ === 'gkPlus')).length;
+        zahl.gkZeilen += gkZeilen;
+        if ((form === 'b' || form === 'stufe2') && gkZeilen) befund('Fehler', 'Gate', `keine GK-Zeile in ${form === 'b' ? 'Form B' : 'Stufe 2'}`, stelle, `${gkZeilen} GK-Zeilen`, 'keine');
+        if (form === 'a' && gkZeilen > 1) befund('Fehler', 'Gate', 'Form A höchstens eine GK-Zeile', stelle, `${gkZeilen} GK-Zeilen`, 'höchstens 1');
+        if (form === 'c' && !gkZeilen) befund('Fehler', 'Gate', 'Form C mindestens eine GK-Zeile', stelle, text.zeilen.join(' / '), 'GK oder GK ± n');
         zeilen.forEach((z, j) => {
           const st = `${stelle}, Zeile ${j + 1} (${zeilenTexte[j]})`;
           if (!z) { befund('Fehler', 'Gate', 'Gate-Zeile lesbar', st, zeilenTexte[j], muster[2]); return; }
@@ -442,7 +456,7 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
           if (z.typ === 'relativ' && form === 'a' && !z.gradzeichen) befund('Fehler', 'Gate', 'Form A: Relativwert mit Gradzeichen', st, zeilenTexte[j], '+127°');
           if (z.typ === 'relativ' && (form === 'b' || form === 'stufe2') && z.gradzeichen) befund('Fehler', 'Gate', 'Relativwert ohne Gradzeichen', st, zeilenTexte[j], '+72');
           // Zwei Kehren ohne Richtung hintereinander führen auf den alten Kurs zurück; der Entwurf schließt sie aus
-          if (z.typ === 'gk' && j > 0 && zeilen[j - 1] && zeilen[j - 1].typ === 'gk') befund('Unschärfe', 'Gate', 'Form C: keine zwei reinen GK hintereinander', st, `${zeilenTexte[j - 1]} / ${zeilenTexte[j]}`, 'GK ± n oder ein anderer Ausdruck');
+          if (z.typ === 'gk' && j > 0 && zeilen[j - 1] && zeilen[j - 1].typ === 'gk') befund('Unschärfe', 'Gate', 'keine zwei reinen GK hintereinander', st, `${zeilenTexte[j - 1]} / ${zeilenTexte[j]}`, 'GK ± n oder ein anderer Ausdruck');
           let neu;
           let beliebigeRichtung = false;
           if (z.typ === 'relativ') {
@@ -570,7 +584,10 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
     bereich(zahl.kurven, M.kurven, 'Gradzahl-Kurven');
     bereich(zahl.gates, M.gates, 'Gates');
     bereich(zahl.relativ, M.relativ, 'relative Ecken');
-    bereich(zahl.hrgk, M.hrgk, 'Segmente mit HR oder GK');
+    bereich(zahl.hr, M.hr, 'Segmente mit HR');
+    bereich(zahl.gk, M.gkSegmente, 'Segmente mit GK');
+    bereich(zahl.gkZeilen, M.gkZeilen, 'Gate-Zeilen mit GK');
+    bereich(zahl.gk + zahl.gkZeilen, M.gkGesamt, 'Gegenkurs-Aufgaben (Segmente und Gate-Zeilen)');
     bereich(zahl.rechen, M.rechen, 'Rechenaufgaben');
     bereich(zahl.richtung, M.richtung, 'Himmelsrichtungen');
     if (zahl.anl > 1) befund('Fehler', 'Mengen', 'anl. Kurs höchstens einmal je Blatt', 'Parcours', String(zahl.anl), 'höchstens 1');

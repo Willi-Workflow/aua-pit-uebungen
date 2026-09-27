@@ -252,14 +252,18 @@ function elementeStufe2(zufall, mitGates, start) {
 // HR und GK und Gates in drei Formen. Eigener Zufallsstrom (stufe-3/blatt-n),
 // deshalb frei im Aufbau.
 
-// Mengen je Blatt, jeweils von bis
+// Mengen je Blatt, jeweils von bis. Gegenkurs kommt je Blatt drei- bis fünfmal
+// vor wie in der Handzeichnung: als Segment "GK/…" (gkSegmente) und als
+// Gate-Zeile "GK" oder "GK ± n" (gkZeilen). Segmente mit HR zählen getrennt.
 export const STUFE3 = {
   segmente: [18, 24],
   vollkreise: [1, 2],
   kurven: [2, 3],
   gates: [3, 4],
   relative: [2, 3],
-  hrgk: [1, 3],
+  hr: [1, 2],
+  gkSegmente: [1, 2],
+  gkZeilen: [2, 3],
   rechenaufgaben: [3, 5],
   himmelsrichtungen: [3, 5],
 };
@@ -268,6 +272,11 @@ export const STUFE3_START = { kurs: null, hoehe: 2000 };
 export const KURVE_WINKEL = { min: 40, max: 340 };
 export const KURVENRATE = 3;
 export const GATE_FORMEN = ['a', 'b', 'c'];
+// Gewichte der Formen beim Ziehen. Form B trägt nie eine GK-Zeile, Form A
+// höchstens eine; Formen ohne Platz für die GK-Zeilen des Blatts werden
+// verworfen (siehe gatesPlanen). Das träfe B am häufigsten und C nie, mit
+// diesen Gewichten kommt trotzdem jede Form auf rund ein Drittel.
+const FORM_GEWICHTE = { a: 10, b: 16, c: 9 };
 export const ANSCHLUESSE = ['ueberN', 'ueberS', 'kuerzester'];
 // Anteil der Gates in Form C, die eine Zeile mit "anl. Kurs" bekommen, solange
 // das Blatt noch keine hat; höchstens eine je Blatt
@@ -324,20 +333,19 @@ export function anschlussDrehung(art, von, nach) {
   return rechtsDurch ? rechts : -links;
 }
 
-// Segment mit HR oder GK. HR/: nächste Himmelsrichtung zum aktuellen Kurs, nur
-// wenn sie mindestens 5° entfernt liegt (dann eine kleine Ecke, höchstens
-// 11,25°). HR mit Kurs: ein Gradkurs, der 1° bis 10° neben einer Himmelsrichtung
-// liegt, gerundet auf diese; die Ecke dreht 20° bis 160° auf kürzestem Weg.
-// GK/: Gegenkurs des aktuellen Kurses, die 180°-Kehre geht in "gkRichtung".
-function hrgkSetzen(zufall, segment, kurs) {
-  const arten = ['hrKurs', 'gk'];
+// Segment mit HR. HR/: nächste Himmelsrichtung zum aktuellen Kurs, nur wenn sie
+// mindestens 5° entfernt liegt (dann eine kleine Ecke, höchstens 11,25°). HR mit
+// Kurs: ein Gradkurs, der 1° bis 10° neben einer Himmelsrichtung liegt,
+// gerundet auf diese; die Ecke dreht 20° bis 160° auf kürzestem Weg.
+function hrSetzen(zufall, segment, kurs) {
+  const arten = ['hrKurs'];
   if (hrAbstand(kurs) >= 5 && hrEindeutig(kurs)) arten.push('hr');
   const art = zufall.auswahl(arten);
   segment.anzeige = art;
   if (art === 'hr') {
     segment.himmelsrichtung = naechsteHimmelsrichtung(kurs);
     segment.kurs = himmelsrichtungGrad(segment.himmelsrichtung);
-  } else if (art === 'hrKurs') {
+  } else {
     let grad;
     let index;
     do {
@@ -347,10 +355,14 @@ function hrgkSetzen(zufall, segment, kurs) {
     segment.hrGrad = grad;
     segment.himmelsrichtung = index;
     segment.kurs = himmelsrichtungGrad(index);
-  } else {
-    segment.gkRichtung = zufall.auswahl(['links', 'rechts']);
-    segment.kurs = normieren(kurs + 180);
   }
+}
+
+// Segment mit GK/: Gegenkurs des aktuellen Kurses, die 180°-Kehre geht in "gkRichtung"
+function gkSetzen(zufall, segment, kurs) {
+  segment.anzeige = 'gk';
+  segment.gkRichtung = zufall.auswahl(['links', 'rechts']);
+  segment.kurs = normieren(kurs + 180);
 }
 
 // Gradzahl-Kurve: Drehwinkel 40 bis 340, nicht 180, links oder rechts, eigenes
@@ -373,7 +385,8 @@ function mitVorzeichen(zufall, von, bis) {
 // Kehre von 180°, deren Richtung frei ist, und Form A folgt der PDF.
 // Form A: relativ mit Gradzeichen, Betrag 20 bis 190 wie in der PDF (+182°); das
 //   Vorzeichen nennt die Richtung, der Kurs danach ist nie genau der Gegenkurs.
-//   Form B: relativ wie Stufe 2, Betrag 20 bis 490.
+//   Dazu höchstens eine Zeile GK oder GK ± 10 bis 60.
+// Form B: relativ wie Stufe 2, Betrag 20 bis 490.
 // Form C: Himmelsrichtung, Himmelsrichtung ± 10 bis 130, GK, GK ± 10 bis 60,
 //   anl. Kurs + n oder + a×b (a von 2 bis 9, b von 2 bis 13 wie "9×13" in der
 //   Handzeichnung, Ergebnis 20 bis 160).
@@ -436,40 +449,50 @@ function gateZeileStufe3(zufall, form, typ, kursDavor, verlauf, bilanz, hoehe) {
   return { kurs, kursDanach, profil, dauer };
 }
 
-// Typen der Zeilen eines Gates. A: drei Zeilen, B: vier Zeilen, beide etwa zur
-// Hälfte relativ, zu je einem Viertel Himmelsrichtung und Gradkurs, mindestens
-// eine relative Zeile. C: drei bis vier Zeilen aus Himmelsrichtung, Himmels-
-// richtung ± n, GK und GK ± n, keine zwei reinen GK hintereinander; selten eine
-// Zeile "anl. Kurs", höchstens eine je Blatt ("zustand.anl").
-function gateTypen(zufall, form, zustand) {
+// Typen der Zeilen eines Gates mit "gk" Zeilen GK oder GK ± n (je zur Hälfte).
+// A: drei Zeilen, B: vier Zeilen, die übrigen etwa zur Hälfte relativ, zu je
+// einem Viertel Himmelsrichtung und Gradkurs, mindestens eine relative Zeile;
+// B hat nie GK, A höchstens eine. C: drei bis vier Zeilen, außer GK und GK ± n
+// Himmelsrichtung und Himmelsrichtung ± n, keine zwei reinen GK hintereinander;
+// selten eine Zeile "anl. Kurs" statt einer der übrigen, höchstens eine je Blatt
+// ("zustand.anl").
+function gateTypen(zufall, form, gk, zustand) {
+  const anzahl = form === 'a' ? 3 : form === 'b' ? 4 : zufall.ganzzahl(3, 4);
+  const gkStellen = new Set(verschiedeneIndizes(zufall, gk, bereich(0, anzahl - 1)));
+  const uebrige = bereich(0, anzahl - 1).filter((j) => !gkStellen.has(j));
+  const typen = new Array(anzahl);
+  for (const j of gkStellen) typen[j] = zufall.auswahl(['gk', 'gkPlus']);
   if (form === 'c') {
-    const typen = Array.from({ length: zufall.ganzzahl(3, 4) }, () => zufall.gewichteteAuswahl([
-      { wert: 'himmelsrichtung', gewicht: 1 },
-      { wert: 'hrPlus', gewicht: 2 },
-      { wert: 'gk', gewicht: 1 },
-      { wert: 'gkPlus', gewicht: 1 },
-    ]));
-    for (let j = 1; j < typen.length; j++) if (typen[j] === 'gk' && typen[j - 1] === 'gk') typen[j] = 'gkPlus';
+    for (const j of uebrige) {
+      typen[j] = zufall.gewichteteAuswahl([
+        { wert: 'himmelsrichtung', gewicht: 1 },
+        { wert: 'hrPlus', gewicht: 2 },
+      ]);
+    }
+    for (let j = 1; j < anzahl; j++) if (typen[j] === 'gk' && typen[j - 1] === 'gk') typen[j] = 'gkPlus';
     if (!zustand.anl && zufall.wuerfel(ANL_ANTEIL)) {
-      typen[zufall.ganzzahl(0, typen.length - 1)] = 'anl';
+      typen[zufall.auswahl(uebrige)] = 'anl';
       zustand.anl = true;
     }
     return typen;
   }
-  const typen = Array.from({ length: form === 'a' ? 3 : 4 }, () => zufall.gewichteteAuswahl([
-    { wert: 'relativ', gewicht: 2 },
-    { wert: 'himmelsrichtung', gewicht: 1 },
-    { wert: 'grad', gewicht: 1 },
-  ]));
-  if (!typen.includes('relativ')) typen[zufall.ganzzahl(0, typen.length - 1)] = 'relativ';
+  for (const j of uebrige) {
+    typen[j] = zufall.gewichteteAuswahl([
+      { wert: 'relativ', gewicht: 2 },
+      { wert: 'himmelsrichtung', gewicht: 1 },
+      { wert: 'grad', gewicht: 1 },
+    ]);
+  }
+  if (!typen.includes('relativ')) typen[zufall.auswahl(uebrige)] = 'relativ';
   return typen;
 }
 
-function gateStufe3(zufall, kursDavor, verlauf, bilanz, hoehe, zustand) {
-  const form = zufall.auswahl(GATE_FORMEN);
+// Gate nach dem Bauplan "geplant" ({ form, gk })
+function gateStufe3(zufall, geplant, kursDavor, verlauf, bilanz, hoehe, zustand) {
+  const { form, gk } = geplant;
   const zeilen = [];
   let kurs = kursDavor;
-  for (const typ of gateTypen(zufall, form, zustand)) {
+  for (const typ of gateTypen(zufall, form, gk, zustand)) {
     const zeile = gateZeileStufe3(zufall, form, typ, kurs, verlauf, bilanz, hoehe);
     zeilen.push(zeile);
     kurs = zeile.kursDanach;
@@ -477,6 +500,28 @@ function gateStufe3(zufall, kursDavor, verlauf, bilanz, hoehe, zustand) {
   // Die Anschlusszeile der Form A setzt das nächste Segment, weil sie von
   // seinem Kurs abhängt
   return { art: 'gate', form, zeilen, anschluss: null };
+}
+
+// Formen und GK-Zeilen der Gates an den Stellen "stellen": zusammen
+// STUFE3.gkZeilen Zeilen GK oder GK ± n, jedes Gate der Form C mit einer oder
+// zwei, der Form A mit keiner oder einer, der Form B mit keiner (wie im
+// Gegenkursbeispiel). Formen, auf die die Zeilen so nicht passen, werden neu
+// gezogen. Liefert je Stelle { form, gk }.
+function gatesPlanen(zufall, stellen) {
+  const gkZeilen = zufall.ganzzahl(...STUFE3.gkZeilen);
+  const gewichte = GATE_FORMEN.map((f) => ({ wert: f, gewicht: FORM_GEWICHTE[f] }));
+  for (;;) {
+    const formen = stellen.map(() => zufall.gewichteteAuswahl(gewichte));
+    const c = formen.filter((f) => f === 'c').length;
+    const a = formen.filter((f) => f === 'a').length;
+    if (c > gkZeilen || a + 2 * c < gkZeilen) continue;
+    // Jedes Gate der Form C hat eine, die übrigen gehen je höchstens eine an ein
+    // Gate der Form A oder als zweite an eines der Form C
+    const gk = formen.map((f) => (f === 'c' ? 1 : 0));
+    const plaetze = formen.map((f, j) => (f === 'b' ? -1 : j)).filter((j) => j >= 0);
+    for (const j of verschiedeneIndizes(zufall, gkZeilen - c, plaetze)) gk[j] += 1;
+    return new Map(stellen.map((stelle, j) => [stelle, { form: formen[j], gk: gk[j] }]));
+  }
 }
 
 // Kurs eines Segments mit eigener Angabe, als Himmelsrichtung oder Gradkurs, der
@@ -499,7 +544,9 @@ function eigenerKurs(zufall, segment, himmelsrichtung, passt) {
 // folgen auf Segment i mit i von 1 bis Anzahl minus 3, je Stelle höchstens eines:
 // nie am ersten oder letzten Segment, immer mindestens ein Segment dazwischen.
 // Nach einer Kurve trägt das Segment keine Kursangabe, nach einem Gate immer
-// eine; relative Ecken und HR/GK brauchen eine gezeichnete Ecke davor.
+// eine; relative Ecken, HR und GK brauchen eine gezeichnete Ecke davor. Zwei
+// Segmente mit GK folgen nie direkt aufeinander. Form und GK-Zeilen jedes Gates
+// stehen im Bauplan fest ("gates"), damit ein wiederholter Schritt sie behält.
 function planStufe3(zufall) {
   const m = STUFE3;
   const anzahl = zufall.ganzzahl(...m.segmente);
@@ -512,11 +559,21 @@ function planStufe3(zufall) {
   const gateNach = new Set(stellen.slice(anzahlKreise + anzahlKurven, anzahlKreise + anzahlKurven + anzahlGates));
   const mitEcke = bereich(1, anzahl - 1).filter((i) => !kurveNach.has(i - 1) && !gateNach.has(i - 1));
   const relativeIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.relative), mitEcke));
-  const hrgkIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.hrgk), mitEcke.filter((i) => !relativeIndizes.has(i))));
-  const mitKurs = bereich(0, anzahl - 1).filter((i) => !kurveNach.has(i - 1) && !relativeIndizes.has(i) && !hrgkIndizes.has(i));
+  const hrIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.hr), mitEcke.filter((i) => !relativeIndizes.has(i))));
+  // Mindestens fünf Stellen bleiben frei (Ecken bei höchstens 7 Kurven und
+  // Gates, 3 relativen und 2 HR); die erste gewählte sperrt höchstens zwei
+  // Nachbarn, die zweite findet also immer Platz
+  const gkAnzahl = zufall.ganzzahl(...m.gkSegmente);
+  const gkIndizes = new Set();
+  for (const i of zufall.mischen(mitEcke.filter((j) => !relativeIndizes.has(j) && !hrIndizes.has(j)))) {
+    if (gkIndizes.size === gkAnzahl) break;
+    if (!gkIndizes.has(i - 1) && !gkIndizes.has(i + 1)) gkIndizes.add(i);
+  }
+  const mitKurs = bereich(0, anzahl - 1).filter((i) => !kurveNach.has(i - 1) && !relativeIndizes.has(i) && !hrIndizes.has(i) && !gkIndizes.has(i));
   const himmelsIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.himmelsrichtungen), mitKurs));
   const rechenIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.rechenaufgaben), bereich(0, anzahl - 1)));
-  return { anzahl, kreisNach, kurveNach, gateNach, relativeIndizes, hrgkIndizes, himmelsIndizes, rechenIndizes };
+  const gates = gatesPlanen(zufall, [...gateNach].sort((x, y) => x - y));
+  return { anzahl, kreisNach, kurveNach, gateNach, gates, relativeIndizes, hrIndizes, gkIndizes, himmelsIndizes, rechenIndizes };
 }
 
 // Drehrichtung eines Vollkreises entgegen der folgenden Ecke, wie in Stufe 2,
@@ -546,8 +603,10 @@ function schrittStufe3(zufall, plan, z, i) {
     segment.anzeige = 'keine';
     segment.relativ = zufall.auswahl([1, -1]) * winkel;
     segment.kurs = normieren(kurs + segment.relativ);
-  } else if (plan.hrgkIndizes.has(i)) {
-    hrgkSetzen(zufall, segment, kurs);
+  } else if (plan.hrIndizes.has(i)) {
+    hrSetzen(zufall, segment, kurs);
+  } else if (plan.gkIndizes.has(i)) {
+    gkSetzen(zufall, segment, kurs);
   } else {
     let passt = (k) => kurs === null || imBereich(abstand(kurs, k));
     if (plan.gateNach.has(i - 1) && z.gate.form === 'a') {
@@ -576,7 +635,7 @@ function schrittStufe3(zufall, plan, z, i) {
     z.kurs = normieren(z.kurs + (kurve.richtung === 'rechts' ? kurve.winkel : -kurve.winkel));
   }
   if (plan.gateNach.has(i)) {
-    z.gate = gateStufe3(zufall, z.kurs, z.verlauf, z.bilanz, z.hoehe, z);
+    z.gate = gateStufe3(zufall, plan.gates.get(i), z.kurs, z.verlauf, z.bilanz, z.hoehe, z);
     z.elemente.push(z.gate);
     z.kurs = z.gate.zeilen[z.gate.zeilen.length - 1].kursDanach;
   }

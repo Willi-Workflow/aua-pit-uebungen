@@ -42,8 +42,11 @@ function gateZeile(zeile, kurs) {
     if ((m = a.match(/^anl\. Kurs \+(\d)×(\d{1,2})$/))) return norm(kurs + Number(m[1]) * Number(m[2]));
     throw new Error(`Gate-Zeile nicht lesbar: ${zeile}`);
   }
-  m = zeile.match(/^([+-]\d+°?|[A-Z]{1,3}|\d{3}°) [→↗↘] \d+"$/);
+  // Form A kann als Wert auch "GK" oder "GK -19°" tragen
+  m = zeile.match(/^([+-]\d+°?|[A-Z]{1,3}|\d{3}°|GK [+-]\d+°) [→↗↘] \d+"$/);
   if (!m) throw new Error(`Gate-Zeile nicht lesbar: ${zeile}`);
+  if (m[1] === 'GK') return norm(kurs + 180);
+  if (m[1].startsWith('GK ')) return norm(kurs + 180 + parseInt(m[1].slice(3), 10));
   if (/^[+-]/.test(m[1])) return norm(kurs + parseInt(m[1], 10));
   if (m[1].endsWith('°')) return Number(m[1].slice(0, -1));
   return RICHTUNGEN.indexOf(m[1]) * 22.5;

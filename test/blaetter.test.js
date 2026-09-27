@@ -282,7 +282,7 @@ test('Stufe 3: Start und Ende stehen deutlich näher an ihrem eigenen Punkt als 
 
 test('Stufe 3: Mengen je Blatt, Start und Ende beschriftet, alle Elemente der Vorlagen kommen vor', () => {
   const formen = { a: 0, b: 0, c: 0 };
-  const zahlen = { kurve: 0, vollkreis: 0, hr: 0, hrKurs: 0, gk: 0, relativ: 0, anl: 0, anschluss: 0, rechen: 0, himmel: 0 };
+  const zahlen = { kurve: 0, vollkreis: 0, hr: 0, hrKurs: 0, gk: 0, gkZeileA: 0, gkZeileC: 0, relativ: 0, anl: 0, anschluss: 0, rechen: 0, himmel: 0 };
   let blaetterMitAnl = 0;
   for (const blatt of blaetter3) {
     const { elemente, geometrie } = blatt.parcours;
@@ -294,7 +294,8 @@ test('Stufe 3: Mengen je Blatt, Start und Ende beschriftet, alle Elemente der Vo
     bereich(n('kurve'), STUFE3.kurven, 'Kurven');
     bereich(n('gate'), STUFE3.gates, 'Gates');
     bereich(segmente.filter((e) => e.relativ !== null).length, STUFE3.relative, 'relative Ecken');
-    bereich(segmente.filter((e) => ['hr', 'hrKurs', 'gk'].includes(e.anzeige)).length, STUFE3.hrgk, 'HR/GK');
+    bereich(segmente.filter((e) => ['hr', 'hrKurs'].includes(e.anzeige)).length, STUFE3.hr, 'HR');
+    bereich(segmente.filter((e) => e.anzeige === 'gk').length, STUFE3.gkSegmente, 'GK-Segmente');
     bereich(segmente.filter((e) => e.rechenaufgabe !== null).length, STUFE3.rechenaufgaben, 'Rechenaufgaben');
     bereich(segmente.filter((e) => e.anzeige === 'himmelsrichtung').length, STUFE3.himmelsrichtungen, 'Himmelsrichtungen');
     const texte = geometrie.beschriftungen.map((b) => b.zeilen.join(' | '));
@@ -308,6 +309,9 @@ test('Stufe 3: Mengen je Blatt, Start und Ende beschriftet, alle Elemente der Vo
         formen[e.form] += 1;
         if (e.anschluss) zahlen.anschluss += 1;
         anl += e.zeilen.filter((z) => z.kurs.typ.startsWith('anl')).length;
+        const gk = e.zeilen.filter((z) => z.kurs.typ === 'gk' || z.kurs.typ === 'gkPlus').length;
+        if (e.form === 'a') zahlen.gkZeileA += gk;
+        if (e.form === 'c') zahlen.gkZeileC += gk;
       } else if (e.art === 'kurve') zahlen.kurve += 1;
       else if (e.art === 'vollkreis') zahlen.vollkreis += 1;
       else {
@@ -327,4 +331,39 @@ test('Stufe 3: Mengen je Blatt, Start und Ende beschriftet, alle Elemente der Vo
   for (const [name, zahl] of Object.entries(zahlen)) assert.ok(zahl > 0, `${name} kommt auf keinem Blatt vor`);
   assert.equal(zahlen.anschluss, formen.a, 'jedes Gate der Form A hat eine Anschlusszeile');
   assert.ok(blaetterMitAnl < 60, `anl. Kurs auf ${blaetterMitAnl} Blättern, soll selten sein`);
+});
+
+// Gegenkurs wie in der Handzeichnung drei- bis fünfmal je Blatt: 1 bis 2
+// Segmente "GK/…", nie zwei direkt hintereinander, und 2 bis 3 Gate-Zeilen "GK"
+// oder "GK ± n"; jedes Gate der Form C mit mindestens einer, Form A mit
+// höchstens einer, Form B ohne. Vorher hatten 21 von 100 Blättern kein GK.
+test('Stufe 3: Gegenkurs mindestens dreimal je Blatt, meist vier- bis fünfmal', () => {
+  const jeBlatt = {};
+  const summe = { segmente: 0, zeilen: 0 };
+  for (const blatt of blaetter3) {
+    const { elemente } = blatt.parcours;
+    const segmente = elemente.filter((e) => e.art === 'segment');
+    const gkSegmente = segmente.filter((e) => e.anzeige === 'gk').length;
+    segmente.forEach((e, j) => {
+      if (j > 0 && e.anzeige === 'gk') assert.notEqual(segmente[j - 1].anzeige, 'gk', `Blatt ${blatt.nummer}: zwei GK-Segmente hintereinander`);
+    });
+    let gkZeilen = 0;
+    for (const e of elemente) {
+      if (e.art !== 'gate') continue;
+      const n = e.zeilen.filter((z) => z.kurs.typ === 'gk' || z.kurs.typ === 'gkPlus').length;
+      if (e.form === 'c') assert.ok(n >= 1, `Blatt ${blatt.nummer}: Form C ohne GK`);
+      if (e.form === 'a') assert.ok(n <= 1, `Blatt ${blatt.nummer}: Form A mit ${n} GK`);
+      if (e.form === 'b') assert.equal(n, 0, `Blatt ${blatt.nummer}: Form B mit GK`);
+      gkZeilen += n;
+    }
+    assert.ok(gkSegmente >= STUFE3.gkSegmente[0] && gkSegmente <= STUFE3.gkSegmente[1], `Blatt ${blatt.nummer}: ${gkSegmente} GK-Segmente`);
+    assert.ok(gkZeilen >= STUFE3.gkZeilen[0] && gkZeilen <= STUFE3.gkZeilen[1], `Blatt ${blatt.nummer}: ${gkZeilen} GK-Zeilen`);
+    assert.ok(gkSegmente + gkZeilen >= 3, `Blatt ${blatt.nummer}: nur ${gkSegmente + gkZeilen} GK`);
+    jeBlatt[gkSegmente + gkZeilen] = (jeBlatt[gkSegmente + gkZeilen] || 0) + 1;
+    summe.segmente += gkSegmente;
+    summe.zeilen += gkZeilen;
+  }
+  console.log(`Stufe 3, GK je Blatt: ${JSON.stringify(jeBlatt)}; ${summe.segmente} Segmente, ${summe.zeilen} Gate-Zeilen`);
+  // "meist 4 bis 5"
+  assert.ok((jeBlatt[4] || 0) + (jeBlatt[5] || 0) >= 60, JSON.stringify(jeBlatt));
 });

@@ -193,14 +193,15 @@ function gateAusdruck(kurs) {
 // Zeile eines Gates: erster Wert, Pfeil für das Profil, Dauer. Relativwerte mit
 // Vorzeichen, Himmelsrichtung englisch, Gradkurs dreistellig mit Gradzeichen.
 // Stufe 2 und Form B (Gegenkursbeispiel) wie "+72 → 10"", Form A (PDF) mit
-// Gradzeichen am Relativwert wie "+127° → 15"", Form C (Handzeichnung) mit dem
-// Pfeil voran wie "↗ NNE +102° 15"".
+// Gradzeichen am Relativwert wie "+127° → 15"" und GK wie "GK -19° ↘ 20"", Form C
+// (Handzeichnung) mit dem Pfeil voran wie "↗ NNE +102° 15"".
 function gateZeileText(zeile, form) {
   const { kurs } = zeile;
   if (form === 'c') return `${GATE_PFEILE[zeile.profil]} ${gateAusdruck(kurs)} ${zeile.dauer}"`;
   let wert;
   if (kurs.typ === 'relativ') wert = form === 'a' ? `${vorzeichenText(kurs.wert)}°` : vorzeichenText(kurs.wert);
   else if (kurs.typ === 'himmelsrichtung') wert = himmelsrichtungName(kurs.index, SCHREIBWEISE.zeichnung);
+  else if (kurs.typ === 'gk' || kurs.typ === 'gkPlus') wert = gateAusdruck(kurs);
   else wert = `${kursText(kurs.grad)}°`;
   return `${wert} ${GATE_PFEILE[zeile.profil]} ${zeile.dauer}"`;
 }

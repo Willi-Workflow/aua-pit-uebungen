@@ -39,7 +39,7 @@ function kursVor(elemente, k) {
 }
 
 test('Stufe 3: Mengen je Blatt nach dem Entwurf, Randwerte kommen vor', () => {
-  const gesehen = { segmente: new Set(), vollkreise: new Set(), kurven: new Set(), gates: new Set(), relative: new Set(), hrgk: new Set(), rechen: new Set(), himmel: new Set() };
+  const gesehen = { segmente: new Set(), vollkreise: new Set(), kurven: new Set(), gates: new Set(), relative: new Set(), hr: new Set(), gk: new Set(), gkZeilen: new Set(), rechen: new Set(), himmel: new Set() };
   for (const elemente of alle) {
     const s = segmente(elemente);
     const zahlen = {
@@ -48,13 +48,15 @@ test('Stufe 3: Mengen je Blatt nach dem Entwurf, Randwerte kommen vor', () => {
       kurven: zaehle(elemente, 'kurve'),
       gates: zaehle(elemente, 'gate'),
       relative: s.filter((e) => e.relativ !== null).length,
-      hrgk: s.filter((e) => ['hr', 'hrKurs', 'gk'].includes(e.anzeige)).length,
+      hr: s.filter((e) => ['hr', 'hrKurs'].includes(e.anzeige)).length,
+      gk: s.filter((e) => e.anzeige === 'gk').length,
+      gkZeilen: elemente.filter((e) => e.art === 'gate').flatMap((e) => e.zeilen).filter((z) => ['gk', 'gkPlus'].includes(z.kurs.typ)).length,
       rechen: s.filter((e) => e.rechenaufgabe !== null).length,
       himmel: s.filter((e) => e.anzeige === 'himmelsrichtung').length,
     };
     const soll = {
       segmente: STUFE3.segmente, vollkreise: STUFE3.vollkreise, kurven: STUFE3.kurven, gates: STUFE3.gates, relative: STUFE3.relative,
-      hrgk: STUFE3.hrgk, rechen: STUFE3.rechenaufgaben, himmel: STUFE3.himmelsrichtungen,
+      hr: STUFE3.hr, gk: STUFE3.gkSegmente, gkZeilen: STUFE3.gkZeilen, rechen: STUFE3.rechenaufgaben, himmel: STUFE3.himmelsrichtungen,
     };
     for (const [name, wert] of Object.entries(zahlen)) {
       assert.ok(imBereich(wert, soll[name]), `${name}: ${wert}, erlaubt ${soll[name]}`);
@@ -67,7 +69,10 @@ test('Stufe 3: Mengen je Blatt nach dem Entwurf, Randwerte kommen vor', () => {
   }
   assert.deepEqual(STUFE3.segmente, [18, 24]);
   for (const [name, werte] of Object.entries(gesehen)) {
-    const soll = { segmente: STUFE3.segmente, vollkreise: STUFE3.vollkreise, kurven: STUFE3.kurven, gates: STUFE3.gates, relative: STUFE3.relative, hrgk: STUFE3.hrgk, rechen: STUFE3.rechenaufgaben, himmel: STUFE3.himmelsrichtungen }[name];
+    const soll = {
+      segmente: STUFE3.segmente, vollkreise: STUFE3.vollkreise, kurven: STUFE3.kurven, gates: STUFE3.gates, relative: STUFE3.relative,
+      hr: STUFE3.hr, gk: STUFE3.gkSegmente, gkZeilen: STUFE3.gkZeilen, rechen: STUFE3.rechenaufgaben, himmel: STUFE3.himmelsrichtungen,
+    }[name];
     assert.ok(werte.has(soll[0]) && werte.has(soll[1]), `${name}: Randwerte ${soll} nicht beide gesehen`);
   }
 });
@@ -161,7 +166,7 @@ test('Stufe 3: Segmente mit eigenem Kurs 20 bis 160 Grad nach einer Ecke oder ei
   }
 });
 
-const GATE_A = /^([+-]\d+°|[NESW]{1,3}|\d{3}°) [→↗↘] (10|15|20|25)"$/;
+const GATE_A = /^([+-]\d+°|[NESW]{1,3}|\d{3}°|GK|GK [+-]\d+°) [→↗↘] (10|15|20|25)"$/;
 const GATE_B = /^([+-]\d+|[NESW]{1,3}|\d{3}°) [→↗↘] (10|15|20|25)"$/;
 const GATE_C = /^[→↗↘] ([NESW]{1,3}|[NESW]{1,3} [+-]\d+°|GK|GK [+-]\d+°|anl\. Kurs \+\d+°|anl\. Kurs \+\d×\d{1,2}) (10|15|20|25)"$/;
 const ANSCHLUSS = /^(über N|über S|kürz\. W\.) auf K$/;
@@ -173,6 +178,7 @@ test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf
   let formAUeber160 = 0;
   // anl. Kurs a×b wie in der Handzeichnung (9×13): zweiter Faktor bis 13
   let zweiterUeber9 = 0;
+  let gkInFormA = 0;
   for (const elemente of alle) {
     let anl = 0;
     elemente.forEach((gate, k) => {
@@ -194,6 +200,13 @@ test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf
         texte.forEach((t) => assert.match(t, GATE_C));
       }
       if (gate.form !== 'c') assert.ok(gate.zeilen.some((z) => z.kurs.typ === 'relativ'), 'Form A und B mit relativer Zeile');
+      // GK-Zeilen: Form C mindestens eine, Form A höchstens eine, Form B keine
+      const gk = gate.zeilen.filter((z) => ['gk', 'gkPlus'].includes(z.kurs.typ)).length;
+      if (gate.form === 'a') {
+        assert.ok(gk <= 1, `Form A mit ${gk} GK-Zeilen`);
+        gkInFormA += gk;
+      } else if (gate.form === 'b') assert.equal(gk, 0, 'Form B mit GK');
+      else assert.ok(gk >= 1, 'Form C ohne GK');
       let kurs = kursVor(elemente, k);
       for (const z of gate.zeilen) {
         const { typ } = z.kurs;
@@ -209,8 +222,9 @@ test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf
           assert.ok(gate.form !== 'c');
           ziel = z.kurs.grad;
         } else {
-          assert.equal(gate.form, 'c', `${typ} nur in Form C`);
-          typenC[typ] = (typenC[typ] || 0) + 1;
+          if (typ === 'gk' || typ === 'gkPlus') assert.notEqual(gate.form, 'b', `${typ} nicht in Form B`);
+          else assert.equal(gate.form, 'c', `${typ} nur in Form C`);
+          if (gate.form === 'c') typenC[typ] = (typenC[typ] || 0) + 1;
           if (typ === 'hrPlus') {
             assert.ok(Math.abs(z.kurs.wert) >= 10 && Math.abs(z.kurs.wert) <= 130);
             ziel = normieren(himmelsrichtungGrad(z.kurs.index) + z.kurs.wert);
@@ -249,6 +263,35 @@ test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf
   for (const typ of ['hrPlus', 'gk', 'gkPlus', 'anl', 'anlProdukt']) assert.ok(typenC[typ] > 0, `${typ} kommt nicht vor: ${JSON.stringify(typenC)}`);
   assert.ok(formAUeber160 > 0, 'Form A ohne Relativwert über 160');
   assert.ok(zweiterUeber9 > 0, 'anl. Kurs a×b ohne zweiten Faktor über 9');
+  assert.ok(gkInFormA > 0, 'Form A ohne GK-Zeile');
+});
+
+test('Stufe 3: Gegenkurs drei- bis fünfmal je Kette, GK-Segmente nie direkt hintereinander', () => {
+  const summen = {};
+  for (const elemente of alle) {
+    const s = segmente(elemente);
+    s.forEach((e, j) => {
+      if (j > 0 && e.anzeige === 'gk') assert.notEqual(s[j - 1].anzeige, 'gk', 'zwei GK-Segmente hintereinander');
+    });
+    const gk = s.filter((e) => e.anzeige === 'gk').length
+      + elemente.filter((e) => e.art === 'gate').flatMap((e) => e.zeilen).filter((z) => ['gk', 'gkPlus'].includes(z.kurs.typ)).length;
+    assert.ok(gk >= 3 && gk <= 5, `${gk} GK`);
+    summen[gk] = (summen[gk] || 0) + 1;
+  }
+  assert.ok(summen[3] && summen[4] && summen[5], JSON.stringify(summen));
+  assert.ok(summen[4] + summen[5] > summen[3], `meist 4 bis 5: ${JSON.stringify(summen)}`);
+});
+
+test('Stufe 3: GK in Form A als Wert vor dem Pfeil', () => {
+  const gate = {
+    art: 'gate', form: 'a', anschluss: 'kuerzester',
+    zeilen: [
+      { kurs: { typ: 'gk' }, kursDanach: 270, profil: 'horizontal', dauer: 15 },
+      { kurs: { typ: 'gkPlus', wert: -19 }, kursDanach: 71, profil: 'sinken', dauer: 20 },
+      { kurs: { typ: 'relativ', wert: 127 }, kursDanach: 198, profil: 'steigen', dauer: 10 },
+    ],
+  };
+  assert.deepEqual(gateTexte(gate), ['GK → 15"', 'GK -19° ↘ 20"', '+127° ↗ 10"', 'kürz. W. auf K']);
 });
 
 test('Stufe 3: Anschlusszeile nur bei Form A, eindeutig, das Segment danach trägt den Kurs K', () => {
