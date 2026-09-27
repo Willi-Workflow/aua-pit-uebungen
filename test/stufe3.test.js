@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Zufall } from '../js/zufall.js';
 import {
-  erzeugeElemente, STUFE3, STUFE3_START, KURVE_WINKEL, KURVENRATE, hrAbstand, anschlussPasst, anschlussMoeglich, anschlussDrehung,
+  erzeugeElemente, STUFE3, STUFE3_START, KURVE_WINKEL, KURVENRATE, GEGENKURS_ANGABE, hrAbstand, anschlussPasst, anschlussMoeglich, anschlussDrehung,
 } from '../js/elemente.js';
 import {
   geometrie, bahn, gateTexte, schrittpruefer, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, KURVENRADIUS, KURVENSCHLEIFE, KEHRENRADIUS,
@@ -67,7 +67,7 @@ test('Stufe 3: Mengen je Blatt nach dem Entwurf, Randwerte kommen vor', () => {
       if (e.rechenaufgabe !== null) assert.ok(Number.isInteger(e.rechenaufgabe) && Math.abs(e.rechenaufgabe) >= 100 && Math.abs(e.rechenaufgabe) <= 350);
     }
   }
-  assert.deepEqual(STUFE3.segmente, [18, 24]);
+  assert.deepEqual(STUFE3.segmente, [18, 21]);
   for (const [name, werte] of Object.entries(gesehen)) {
     const soll = {
       segmente: STUFE3.segmente, vollkreise: STUFE3.vollkreise, kurven: STUFE3.kurven, gates: STUFE3.gates, relative: STUFE3.relative,
@@ -280,6 +280,40 @@ test('Stufe 3: Gegenkurs drei- bis fünfmal je Kette, GK-Segmente nie direkt hin
   }
   assert.ok(summen[3] && summen[4] && summen[5], JSON.stringify(summen));
   assert.ok(summen[4] + summen[5] > summen[3], `meist 4 bis 5: ${JSON.stringify(summen)}`);
+});
+
+// Gegenkursbeispiel: Die Angabe nennt den Gegenkurs, gezeichnet ist der tatsächliche Kurs
+test('Angabe als Gegenkurs: "GK 247°/15"" für 067°, "GK SSW/10"" für NNE, gezeichnet der tatsächliche Kurs', () => {
+  const geo = geometrie([
+    segment(90, 20),
+    segment(67, 15, { alsGegenkurs: true }),
+    segment(22.5, 10, { anzeige: 'himmelsrichtung', himmelsrichtung: 1, alsGegenkurs: true }),
+    segment(300, 10, { alsGegenkurs: false }),
+  ]);
+  const texte = geo.beschriftungen.map((b) => b.zeilen[0]);
+  assert.deepEqual(texte, ['090°/20"', 'GK 247°/15"', 'GK SSW/10"', '300°/10"']);
+  const strecken = geo.stuecke.filter((s) => s.art === 'strecke');
+  const richtung = (s) => normieren((Math.atan2(s.punkte[1].x - s.punkte[0].x, -(s.punkte[1].y - s.punkte[0].y)) * 180) / Math.PI);
+  assert.ok(Math.abs(differenz(richtung(strecken[1]), 67)) < 1e-6, 'gezeichnet 067°');
+  assert.ok(Math.abs(differenz(richtung(strecken[2]), 22.5)) < 1e-6, 'gezeichnet NNE');
+});
+
+test('Stufe 3: Angabe als Gegenkurs nur an Segmenten mit eigenem Kurs, je Kette 60 bis 80 %', () => {
+  let gk = 0;
+  let mitKurs = 0;
+  for (const elemente of alle) {
+    const s = segmente(elemente);
+    for (const e of s) {
+      assert.equal(typeof e.alsGegenkurs, 'boolean');
+      if (e.alsGegenkurs) assert.ok(['grad', 'himmelsrichtung'].includes(e.anzeige), `GK-Angabe an ${e.anzeige}`);
+    }
+    const eigene = s.filter((e) => ['grad', 'himmelsrichtung'].includes(e.anzeige));
+    const n = eigene.filter((e) => e.alsGegenkurs).length;
+    assert.ok(n >= Math.ceil(GEGENKURS_ANGABE[0] * eigene.length) && n <= Math.floor(GEGENKURS_ANGABE[1] * eigene.length), `${n} von ${eigene.length}`);
+    gk += n;
+    mitKurs += eigene.length;
+  }
+  assert.ok(gk / mitKurs > 0.65 && gk / mitKurs < 0.75, `${gk} von ${mitKurs}`);
 });
 
 test('Stufe 3: GK in Form A als Wert vor dem Pfeil', () => {

@@ -229,8 +229,13 @@ function planStufe2(zufall, mitGates) {
 // Mengen je Blatt, jeweils von bis. Gegenkurs kommt je Blatt drei- bis fünfmal
 // vor wie in der Handzeichnung: als Segment "GK/…" (gkSegmente) und als
 // Gate-Zeile "GK" oder "GK ± n" (gkZeilen). Segmente mit HR zählen getrennt.
+// Dazu nennen wie im Gegenkursbeispiel rund 70 % der Segmente mit eigenem Kurs
+// (Gradkurs oder Himmelsrichtung) den Gegenkurs, "GK 247°/15"" für 067°
+// (GEGENKURS_ANGABE, Anteil je Blatt von bis). Mit diesen längeren Angaben
+// hielten erst 18 bis 21 Segmente (vorher 18 bis 24) die Druckschrift im Median
+// über 7,4 pt.
 export const STUFE3 = {
-  segmente: [18, 24],
+  segmente: [18, 21],
   vollkreise: [1, 2],
   kurven: [2, 3],
   gates: [3, 4],
@@ -241,6 +246,7 @@ export const STUFE3 = {
   rechenaufgaben: [3, 5],
   himmelsrichtungen: [3, 5],
 };
+export const GEGENKURS_ANGABE = [0.6, 0.8];
 export const STUFE3_START = { kurs: null, hoehe: 2000 };
 // Gradzahl-Kurve: Drehwinkel ganzzahlig im Bereich, nicht 180, Standardrate 3°/s
 export const KURVE_WINKEL = { min: 40, max: 340 };
@@ -549,7 +555,14 @@ function planStufe3(zufall) {
   const himmelsIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.himmelsrichtungen), mitKurs));
   const rechenIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.rechenaufgaben), bereich(0, anzahl - 1)));
   const gates = gatesPlanen(zufall, [...gateNach].sort((x, y) => x - y));
-  return { stufe: 3, anzahl, kreisNach, kurveNach, gateNach, gates, relativeIndizes, hrIndizes, gkIndizes, himmelsIndizes, rechenIndizes };
+  // Segmente mit eigenem Kurs, deren Angabe der Gegenkurs ist; gezeichnet wird
+  // der tatsächliche Kurs
+  const [anteilVon, anteilBis] = GEGENKURS_ANGABE;
+  const anzahlGk = zufall.ganzzahl(Math.ceil(anteilVon * mitKurs.length), Math.floor(anteilBis * mitKurs.length));
+  const gegenkursIndizes = new Set(verschiedeneIndizes(zufall, anzahlGk, mitKurs));
+  return {
+    stufe: 3, anzahl, kreisNach, kurveNach, gateNach, gates, relativeIndizes, hrIndizes, gkIndizes, himmelsIndizes, rechenIndizes, gegenkursIndizes,
+  };
 }
 
 // Drehrichtung eines Vollkreises entgegen der folgenden Ecke, wie in Stufe 2,
@@ -593,6 +606,9 @@ function schritt(zufall, plan, z, i) {
     }
     eigenerKurs(zufall, segment, plan.himmelsIndizes.has(i), passt);
   }
+  // Angabe als Gegenkurs, nur an Segmenten mit eigenem Kurs. Nur Stufe 3 kennt
+  // das Feld, damit die Blätter der Stufe 2 gleich bleiben.
+  if (plan.stufe === 3) segment.alsGegenkurs = plan.gegenkursIndizes.has(i);
   if (plan.rechenIndizes.has(i)) segment.rechenaufgabe = mitVorzeichen(zufall, 100, RECHEN_BIS[plan.stufe]);
   segment.dauer = plan.stufe === 3 ? dauerStufe3(zufall) : dauerWaehlen(zufall);
   segment.profil = profilWaehlen(zufall, z.verlauf, z.bilanz, z.hoehe, segment.dauer);

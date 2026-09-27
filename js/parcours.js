@@ -5,9 +5,9 @@
 import { erzeugeElemente, hatGegenkursZeile } from './elemente.js';
 import {
   bahn, vollenden, schrittpruefer, fuellungObergrenze, fuellungBerechnen, zaehleKreuzungen, kleinsterAbstand, verdeckteBeschriftungen,
-  beschriftungFrei, querstrichAnBeschriftung, seitenverhaeltnis, seitenverhaeltnisPasst, startOben, LINIENBREITE_ABSTAND,
+  beschriftungFrei, querstrichAnBeschriftung, eigenerBogenAnBeschriftung, seitenverhaeltnis, seitenverhaeltnisPasst, startOben, LINIENBREITE_ABSTAND,
 } from './geometrie.js';
-import { druckschrift, DRUCKFLAECHE } from './zeichnung.js';
+import { druckschrift, DRUCKFLAECHE, RAND } from './zeichnung.js';
 
 // Beide Stufen prüfen schon beim Erzeugen jeden Schritt (siehe
 // elementeSchrittweise), ein Kandidat kostet mehr, kommt aber meist ohne
@@ -16,16 +16,34 @@ import { druckschrift, DRUCKFLAECHE } from './zeichnung.js';
 export const KANDIDATEN_STUFE_2 = 1000;
 export const KANDIDATEN_STUFE_3 = 1000;
 
-// Stufe 2: Die Beschriftung erscheint im A4-Druck mindestens so groß (in pt,
-// siehe druckschrift in zeichnung.js), und kein Querstrich berührt eine
-// Beschriftung. Ohne diese Regeln lag Blatt 39 bei 5,1 pt, auf den Blättern 33
-// und 41 lief ein Querstrich in die erste Ziffer. Stufe 3 bleibt ohne sie,
-// damit ihre Blätter gleich bleiben.
+// Beide Stufen: Die Beschriftung erscheint im A4-Druck mindestens so groß (in
+// pt, siehe druckschrift in zeichnung.js), und kein Querstrich berührt eine
+// Beschriftung. Ohne diese Regeln lag Blatt 39 der Stufe 2 bei 5,1 pt, auf den
+// Blättern 33 und 41 lief ein Querstrich in die erste Ziffer.
 export const DRUCKSCHRIFT_MIN = 6;
+// Unter den zulässigen Kandidaten gewinnen zuerst die mit mindestens dieser
+// Druckschrift, dann die höchste Füllung. In Stufe 2 ist das die Untergrenze
+// selbst, also ohne Wirkung. In Stufe 3 brauchen die Angaben als Gegenkurs
+// ("GK 247°/15"") mehr Platz; ohne den Vorzug fiel die Druckschrift im Median
+// von 7,4 auf 7,1 pt.
+export const DRUCKSCHRIFT_WUNSCH = { 2: DRUCKSCHRIFT_MIN, 3: 7 };
 
 // Höhe der Zeichnung im Druck: Gate-Blätter der Stufe 2 tragen den Gate-Hinweis
 function druckhoehe(einstellungen) {
   return einstellungen.stufe === 2 && einstellungen.mitGates ? DRUCKFLAECHE.hoeheMitGateHinweis : DRUCKFLAECHE.hoehe;
+}
+
+// Höchstmögliche Druckschrift eines Wegs vor den Beschriftungen: Das
+// Zeichenfeld umfasst mindestens die Stücke und den Rand, Beschriftungen,
+// Flugzeugsymbol und Nordpfeil machen es nur größer
+function druckObergrenze(stuecke, hoehe) {
+  let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
+  for (const s of stuecke) {
+    for (const q of s.punkte) {
+      minX = Math.min(minX, q.x); minY = Math.min(minY, q.y); maxX = Math.max(maxX, q.x); maxY = Math.max(maxY, q.y);
+    }
+  }
+  return 9 * 0.75 * Math.min(DRUCKFLAECHE.breite / (maxX - minX + 2 * RAND), hoehe / (maxY - minY + 2 * RAND));
 }
 
 // Ausweichlösung, solange kein Kandidat zulässig ist: wenigste Kreuzungen, dann
@@ -59,11 +77,11 @@ function besserErsatz(roh, geoHolen, kreuzungen, ersatz, eng) {
 // Start im oberen Teil zulässig sind. Zulässig ist ein Kandidat ohne Kreuzung,
 // mit Strichen, die sich höchstens berühren und das Flugzeugsymbol frei lassen,
 // im Seitenverhältnis, mit dem Start im oberen Teil (siehe START_OBEN), mit
-// freien Beschriftungen, in Stufe 2 zudem mit mindestens DRUCKSCHRIFT_MIN pt im
-// Druck und ohne Querstrich an einer Beschriftung. Unter den zulässigen gewinnt die höchste Füllung, bei
-// Gleichstand der frühere. Die Prüfungen laufen billig zuerst und nur so weit,
-// wie sie das Ergebnis noch ändern können; es ist dasselbe wie bei voller
-// Prüfung aller. Beide Stufen lassen an Schleifen nur die saubere Kreuzung von
+// freien Beschriftungen, mit mindestens DRUCKSCHRIFT_MIN pt im Druck, ohne
+// Querstrich an einer Beschriftung und ohne Beschriftung im eigenen Bogen. Unter den zulässigen gewinnen die mit
+// DRUCKSCHRIFT_WUNSCH, unter diesen die höchste Füllung, bei Gleichstand der
+// frühere. Die Prüfungen laufen billig zuerst und nur so weit, wie sie das
+// Ergebnis noch ändern können; es ist dasselbe wie bei voller Prüfung aller. Beide Stufen lassen an Schleifen nur die saubere Kreuzung von
 // Ein- und Ausfahrt zu ("eng", siehe geometrie.js). "einstellungen" und "start"
 // wie bei erzeugeElemente.
 export function erzeugeParcours(zufall, einstellungen, start = null) {
@@ -71,7 +89,7 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
   // für die Zuordnung der Beschriftungen gelten in beiden Stufen
   const stufe3 = einstellungen.stufe === 3;
   const anzahl = stufe3 ? KANDIDATEN_STUFE_3 : KANDIDATEN_STUFE_2;
-  const stufe2Passt = (geo) => stufe3 || (druckschrift(geo, druckhoehe(einstellungen)) >= DRUCKSCHRIFT_MIN && querstrichAnBeschriftung(geo) === 0);
+  const wunschPt = DRUCKSCHRIFT_WUNSCH[einstellungen.stufe];
   let bester = null;
   let ersatz = null;
   for (let kandidat = 1; kandidat <= anzahl; kandidat++) {
@@ -81,7 +99,14 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
     // nicht vor, dort ist die Prüfung wirkungslos).
     if (!elemente || hatGegenkursZeile(elemente)) continue;
     const roh = bahn(elemente, 0, stufe3, true);
-    if (bester && fuellungObergrenze(roh.stuecke) <= bester.fuellung) continue;
+    // Gegen einen Sieger hat ein Kandidat nur eine Chance mit mehr Füllung oder,
+    // solange der Sieger die Wunschschrift verfehlt, mit Wunschschrift; einen
+    // Sieger mit Wunschschrift schlägt nur ein Kandidat mit beidem
+    if (bester) {
+      const mehrFuellung = fuellungObergrenze(roh.stuecke) > bester.fuellung;
+      const wunschMoeglich = druckObergrenze(roh.stuecke, druckhoehe(einstellungen)) >= wunschPt;
+      if (bester.wunsch ? !(mehrFuellung && wunschMoeglich) : !(mehrFuellung || wunschMoeglich)) continue;
+    }
     const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity), true);
     let geo = null;
     if (kreuzungen === 0 && kleinsterAbstand(roh.stuecke, LINIENBREITE_ABSTAND, roh.flugzeug, true) >= LINIENBREITE_ABSTAND) {
@@ -90,9 +115,14 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
       geo = vollenden(roh, bester !== null);
       if (!geo) continue;
       const fuellung = fuellungBerechnen(geo);
-      if (seitenverhaeltnisPasst(geo.umriss) && startOben(geo) && (!bester || fuellung > bester.fuellung) && stufe2Passt(geo) && beschriftungFrei(geo)) {
-        bester = { elemente, geometrie: geo, kreuzungen: 0, kandidat, fuellung };
-        continue;
+      if (seitenverhaeltnisPasst(geo.umriss) && startOben(geo)) {
+        const pt = druckschrift(geo, druckhoehe(einstellungen));
+        const wunsch = pt >= wunschPt;
+        const besser = !bester || (wunsch && !bester.wunsch) || (wunsch === bester.wunsch && fuellung > bester.fuellung);
+        if (besser && pt >= DRUCKSCHRIFT_MIN && querstrichAnBeschriftung(geo) === 0 && eigenerBogenAnBeschriftung(geo) === 0 && beschriftungFrei(geo)) {
+          bester = { elemente, geometrie: geo, kreuzungen: 0, kandidat, fuellung, wunsch };
+          continue;
+        }
       }
     }
     if (bester) continue;

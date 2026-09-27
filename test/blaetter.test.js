@@ -5,14 +5,18 @@ import { erzeugeBlatt, BLAETTER_JE_STUFE, STUFEN, hatGates } from '../js/blatt.j
 import { differenz } from '../js/kurs.js';
 import { STUFE2, STUFE3, KURVENRATE } from '../js/elemente.js';
 import {
-  beschriftungFrei, beschriftungsAbstand, kleinsterAbstand, zaehleKreuzungen, startOben, querstrichAnBeschriftung, LINIENBREITE_ABSTAND,
+  beschriftungFrei, beschriftungsAbstand, kleinsterAbstand, zaehleKreuzungen, startOben, querstrichAnBeschriftung, eigenerBogenAnBeschriftung,
+  LINIENBREITE_ABSTAND,
 } from '../js/geometrie.js';
 import { druckschrift, DRUCKFLAECHE } from '../js/zeichnung.js';
 import { DRUCKSCHRIFT_MIN } from '../js/parcours.js';
 
 // Alle Blätter beider Stufen einmal erzeugen, die Prüfungen unten teilen sie sich
-// Rechenzeit je Blatt als CPU-Zeit, siehe Stufe 3 unten
+// Rechenzeit je Blatt als CPU-Zeit, siehe Stufe 3 unten. Vorab ungemessen ein
+// Blatt ohne und eines mit Gates: Sonst fiel die einmalige Übersetzung des
+// Gate-Codes auf Blatt 3 (unter Last bis 498 ms statt rund 300)
 erzeugeBlatt(2, BLAETTER_JE_STUFE);
+erzeugeBlatt(2, 99);
 const beginn = Date.now();
 const zeiten2 = [];
 const blaetter = Array.from({ length: BLAETTER_JE_STUFE }, (_, i) => {
@@ -146,7 +150,38 @@ test('Stufe 2: Druckschrift mindestens 6 pt, im Median mindestens 7,5 pt, kein Q
   assert.equal(DRUCKSCHRIFT_MIN, 6);
   pt.forEach((wert, i) => assert.ok(wert >= 6, `Blatt ${i + 1}: ${wert.toFixed(2)} pt`));
   assert.ok((sortiert[49] + sortiert[50]) / 2 >= 7.5);
-  for (const blatt of blaetter) assert.equal(querstrichAnBeschriftung(blatt.parcours.geometrie), 0, `Blatt ${blatt.nummer}`);
+  for (const blatt of blaetter) {
+    assert.equal(querstrichAnBeschriftung(blatt.parcours.geometrie), 0, `Blatt ${blatt.nummer}: Querstrich`);
+    assert.equal(eigenerBogenAnBeschriftung(blatt.parcours.geometrie), 0, `Blatt ${blatt.nummer}: eigener Bogen`);
+  }
+});
+
+// Wie im Gegenkursbeispiel nennen rund 70 % der Segmente mit eigenem Kurs den
+// Gegenkurs; die Druckschrift bleibt trotz der längeren Angaben mindestens 6 pt,
+// im Median wie vorher mindestens 7,4 pt, kein Querstrich berührt eine Beschriftung
+test('Stufe 3: Kursangaben als Gegenkurs 65 bis 75 %, je Blatt mindestens 50 %, Druckschrift und Querstriche', () => {
+  let gk = 0;
+  let mitKurs = 0;
+  let kleinster = 1;
+  for (const blatt of blaetter3) {
+    const eigene = blatt.parcours.elemente.filter((e) => e.art === 'segment' && ['grad', 'himmelsrichtung'].includes(e.anzeige));
+    const n = eigene.filter((e) => e.alsGegenkurs).length;
+    assert.ok(n >= 0.5 * eigene.length, `Blatt ${blatt.nummer}: ${n} von ${eigene.length}`);
+    kleinster = Math.min(kleinster, n / eigene.length);
+    gk += n;
+    mitKurs += eigene.length;
+    // Die Beschriftung nennt den Gegenkurs, der Kurs des Segments ist der tatsächliche
+    const texte = blatt.parcours.geometrie.beschriftungen.map((b) => b.zeilen[0]);
+    assert.equal(texte.filter((t) => /^GK (\d{3}°|[A-Z]{1,3})\//.test(t)).length, n, `Blatt ${blatt.nummer}: Beschriftungen mit GK-Angabe`);
+    assert.equal(querstrichAnBeschriftung(blatt.parcours.geometrie), 0, `Blatt ${blatt.nummer}: Querstrich`);
+    // In der Kehre vor "GK/…" lief eine Angabe bis in den eigenen Bogen (Blatt 48 und 95)
+    assert.equal(eigenerBogenAnBeschriftung(blatt.parcours.geometrie), 0, `Blatt ${blatt.nummer}: eigener Bogen`);
+  }
+  const pt = blaetter3.map((b) => druckschrift(b.parcours.geometrie));
+  const sortiert = [...pt].sort((a, b) => a - b);
+  console.log(`Stufe 3, Angaben als Gegenkurs: ${gk} von ${mitKurs} (${((100 * gk) / mitKurs).toFixed(1)} %), je Blatt mindestens ${(100 * kleinster).toFixed(0)} %; Druckschrift Median ${((sortiert[49] + sortiert[50]) / 2).toFixed(2)} pt, kleinste ${sortiert[0].toFixed(2)} pt`);
+  assert.ok(gk / mitKurs >= 0.65 && gk / mitKurs <= 0.75);
+  assert.ok(sortiert[0] >= 6 && (sortiert[49] + sortiert[50]) / 2 >= 7.4);
 });
 
 test('der Parcours beginnt in beiden Stufen 20 bis 160 Grad vom Endkurs des Textteils', () => {
@@ -277,7 +312,8 @@ test('Stufe 3: Schleifen kreuzen Ein- und Ausfahrt sauber, kein Segment endet im
       }
     }
   }
-  assert.ok(sauber > 100, `nur ${sauber} Schleifen mit Kreuzung`);
+  // Mit 18 bis 21 Segmenten (vorher bis 24) gibt es weniger Schleifen
+  assert.ok(sauber > 80, `nur ${sauber} Schleifen mit Kreuzung`);
 });
 
 // Jede Beschriftung an einem Segment, einer Ecke oder einer Kurve steht ihrem
@@ -315,7 +351,7 @@ test('Stufe 3: Beschriftungen stehen ihrem Stück deutlich näher als jedem frem
       geprueft += 1;
     }
   }
-  assert.ok(geprueft > 2500, `nur ${geprueft} Beschriftungen`);
+  assert.ok(geprueft > 2200, `nur ${geprueft} Beschriftungen`);
 });
 
 // "Start" gehört sichtbar zum Flugzeugsymbol, "Ende" zum Ende des Wegs: Der

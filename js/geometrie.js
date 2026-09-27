@@ -132,14 +132,20 @@ function vorzeichenText(zahl) {
 // Kurs und Dauer eines Segments. Stufe 3: "HR/20"" nächste Himmelsrichtung,
 // "HR 111°/15"" der Gradkurs auf die nächste Himmelsrichtung gerundet, "GK/15""
 // Gegenkurs.
+// Mit "alsGegenkurs" (Stufe 3, wie im Gegenkursbeispiel) nennt die Angabe den
+// Gegenkurs des tatsächlichen Kurses: "GK 247°/15"" für 067°, "GK SSW/15"" für NNE
 function kursBeschriftung(element) {
   const dauer = `/${element.dauer}"`;
+  const gk = element.alsGegenkurs ? 'GK ' : '';
   if (element.anzeige === 'keine') return dauer;
-  if (element.anzeige === 'himmelsrichtung') return `${himmelsrichtungName(element.himmelsrichtung, SCHREIBWEISE.zeichnung)}${dauer}`;
+  if (element.anzeige === 'himmelsrichtung') {
+    const index = element.alsGegenkurs ? (element.himmelsrichtung + 8) % 16 : element.himmelsrichtung;
+    return `${gk}${himmelsrichtungName(index, SCHREIBWEISE.zeichnung)}${dauer}`;
+  }
   if (element.anzeige === 'hr') return `HR${dauer}`;
   if (element.anzeige === 'hrKurs') return `HR ${kursText(element.hrGrad)}°${dauer}`;
   if (element.anzeige === 'gk') return `GK${dauer}`;
-  return `${kursText(element.kurs)}°${dauer}`;
+  return `${gk}${kursText(element.alsGegenkurs ? normieren(element.kurs + 180) : element.kurs)}°${dauer}`;
 }
 
 function laengsteZeile(zeilen) {
@@ -1006,6 +1012,24 @@ function streckeRechteckAbstand(a, b, r) {
   return abstand;
 }
 
+// Kommt einer der Züge "zuege" (Punktlisten) der Tinte der Beschriftung b
+// näher als "halb" (halbe Strichbreite)?
+function tinteBeruehrt(b, zuege, halb) {
+  const w = (b.winkel * Math.PI) / 180;
+  const cos = Math.cos(w);
+  const sin = Math.sin(w);
+  // In das Koordinatensystem der Beschriftung: Ursprung am Anker, x längs der Zeilen
+  const lokal = (p) => ({ x: (p.x - b.x) * cos + (p.y - b.y) * sin, y: -(p.x - b.x) * sin + (p.y - b.y) * cos });
+  const rechtecke = b.zeilen.map((zeile, i) => zeilenTinte(zeile, i * ZEILENABSTAND));
+  return zuege.some((zug) => {
+    const punkte = zug.map(lokal);
+    for (let i = 0; i + 1 < punkte.length; i++) {
+      if (rechtecke.some((r) => streckeRechteckAbstand(punkte[i], punkte[i + 1], r) < halb)) return true;
+    }
+    return false;
+  });
+}
+
 // Zählt Beschriftungen, deren Tinte ein Querstrich berührt (Stufe 2, Blatt 33
 // und 41: der Querstrich am Segmentanfang lief in die erste Ziffer). Gate-Texte
 // zählen nicht, ihre Querstriche regelt austrittsMarke.
@@ -1015,23 +1039,18 @@ export function querstrichAnBeschriftung(geo) {
     const n = { x: Math.cos(r) * MARKENLAENGE, y: Math.sin(r) * MARKENLAENGE };
     return [{ x: m.punkt.x - n.x, y: m.punkt.y - n.y }, { x: m.punkt.x + n.x, y: m.punkt.y + n.y }];
   });
-  let anzahl = 0;
-  for (const b of geo.beschriftungen) {
-    if (b.gate) continue;
-    const w = (b.winkel * Math.PI) / 180;
-    const cos = Math.cos(w);
-    const sin = Math.sin(w);
-    // In das Koordinatensystem der Beschriftung: Ursprung am Anker, x längs der Zeilen
-    const lokal = (p) => ({ x: (p.x - b.x) * cos + (p.y - b.y) * sin, y: -(p.x - b.x) * sin + (p.y - b.y) * cos });
-    const rechtecke = b.zeilen.map((zeile, i) => zeilenTinte(zeile, i * ZEILENABSTAND));
-    const trifft = striche.some(([a, e]) => {
-      const la = lokal(a);
-      const le = lokal(e);
-      return rechtecke.some((r) => streckeRechteckAbstand(la, le, r) < QUERSTRICH_HALB);
-    });
-    if (trifft) anzahl += 1;
-  }
-  return anzahl;
+  return geo.beschriftungen.filter((b) => !b.gate && tinteBeruehrt(b, striche, QUERSTRICH_HALB)).length;
+}
+
+// Zählt Beschriftungen, deren Tinte einen eigenen Bogen berührt: Die Prüfung
+// auf freie Lage lässt die angrenzenden Bögen eines Segments aus; in der Kehre
+// vor "GK/…" liefen Angaben so bis in den Bogen (Stufe 3, Blatt 48 und 95).
+export function eigenerBogenAnBeschriftung(geo) {
+  return geo.beschriftungen.filter((b) => {
+    if (b.gate || !b.eigeneStuecke) return false;
+    const boegen = b.eigeneStuecke.map((i) => geo.stuecke[i]).filter((st) => st.art === 'bogen').map((st) => st.punkte);
+    return tinteBeruehrt(b, boegen, HALBE_STRICHBREITE);
+  }).length;
 }
 
 export function beschriftungFrei(geo) {
