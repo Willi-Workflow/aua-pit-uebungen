@@ -316,6 +316,10 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.start-rose .knopf {
+  margin-top: 6px;
+}
+
 .stufen {
   grid-area: stufen;
   display: grid;

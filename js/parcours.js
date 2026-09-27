@@ -13,7 +13,7 @@ export const SEKUNDE_LAENGE = 5;
 export const ECKENRADIUS = 12;
 export const SCHLEIFENRADIUS = 28;
 export const KREISRADIUS = 35;
-export const KANDIDATEN = 4000;
+export const KANDIDATEN = 12000;
 export const SEITENVERHAELTNIS = { min: 0.7, max: 1.25 };
 // Der Start liegt im oberen Teil des gedrehten Umrisses, höchstens bei diesem
 // Anteil der Höhe von oben gemessen

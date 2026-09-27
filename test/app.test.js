@@ -56,3 +56,12 @@ test('Kopfleiste nennt den Ort ohne Mittelpunkte und Pfeile', () => {
     assert.ok(!ansicht.includes('←'), `Pfeil in ${hash}`);
   }
 });
+
+test('Startseite hat unter der Kursrose den Knopf Blitzrechnen, die Seite ist ein Platzhalter', () => {
+  const start = ansichtFuer('#/');
+  const rose = start.indexOf('class="kursrose"');
+  const knopf = start.indexOf('href="#/blitzrechnen"');
+  assert.ok(rose >= 0 && knopf > rose, 'Knopf fehlt oder steht nicht nach der Kursrose');
+  assert.ok(start.includes('>Blitzrechnen</a>'));
+  assert.ok(ansichtFuer('#/blitzrechnen').includes('Blitzrechnen kommt'));
+});

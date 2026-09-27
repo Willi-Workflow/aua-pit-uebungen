@@ -1,5 +1,5 @@
 // Oberfläche: Adressanker auf Ansichten abbilden, Blatt anzeigen, drucken.
-// Adressen: #/  #/stufe2  #/stufe2/blatt/7  #/stufe3  #/stufe2/endlos
+// Adressen: #/  #/stufe2  #/stufe2/blatt/7  #/stufe3  #/stufe2/endlos  #/blitzrechnen
 
 import { erzeugeBlatt, hatGates, BLAETTER_JE_STUFE, STUFEN } from './blatt.js';
 import { zeichneParcours } from './zeichnung.js';
@@ -81,7 +81,7 @@ function startseite() {
 <h1 class="titel-gross">Übungsblätter für die PIT-Übungen</h1>
 <p class="einleitung">Jedes Blatt hat zwölf Anweisungen im Textteil und einen gezeichneten Parcours, der daran anschließt. Wähle eine Stufe und ein Blatt, übe am Bildschirm oder drucke es auf A4 aus.</p>
 </div>
-<figure class="start-rose">${kursrose(280, true)}<figcaption>Ausgangskurs 090°, 2000 ft</figcaption></figure>
+<figure class="start-rose">${kursrose(280, true)}<figcaption>Ausgangskurs 090°, 2000 ft</figcaption><a class="knopf" href="#/blitzrechnen">Blitzrechnen</a></figure>
 <nav class="stufen" aria-label="Stufen">
 <a class="karte" href="#/stufe2"><span class="karte-titel">Stufe 2</span><span class="karte-text">Textteil und Parcours, ${BLAETTER_JE_STUFE} Blätter, jedes dritte mit Gates</span></a>
 <a class="karte spaeter" href="#/stufe3"><span class="karte-titel">Stufe 3</span><span class="karte-text">Kommt in einem späteren Abschnitt</span></a>
@@ -140,6 +140,7 @@ ${LEGENDE}
 export function ansichtFuer(hash) {
   const teile = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   if (teile.length === 0) return startseite();
+  if (teile[0] === 'blitzrechnen') return platzhalter('Blitzrechnen', '#/', 'Blitzrechnen kommt in einem späteren Abschnitt.');
   const stufe = Number((teile[0].match(/^stufe(\d)$/) || [])[1]);
   if (!STUFEN.includes(stufe)) return platzhalter('Nicht gefunden', '#/', 'Diese Seite gibt es nicht.');
   if (stufe === 3) return platzhalter('Stufe 3', '#/', 'Diese Stufe kommt in einem späteren Abschnitt.');
