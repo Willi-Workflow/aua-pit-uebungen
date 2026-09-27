@@ -156,7 +156,7 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
     t.lesung = l; segTexte.push(t);
     if (t.t.w < -90 || t.t.w > 90) befund('Fehler', 'Sicht', 'Beschriftung nicht auf dem Kopf', l.roh, `Drehung ${t.t.w}°`, '-90 bis 90°');
   }
-  if (stufe === 2 && (kurvenTexte.length || fettTexte.length)) befund('Fehler', 'Parcours', 'Gradzahlen, Start und Ende nur in Stufe 3', 'Texte', [...kurvenTexte, ...fettTexte].map((t) => t.zeilen[0]).join(', '), 'keine');
+  if (stufe === 2 && fettTexte.length) befund('Fehler', 'Parcours', 'Start und Ende nur in Stufe 3', 'Texte', fettTexte.map((t) => t.zeilen[0]).join(', '), 'keine');
 
   // Segmentbeschriftungen zu Strecken: parallel, Fußpunkt auf der Strecke, kleinster Abstand
   const segmente = kette.filter((e) => e.art === 'segment');
@@ -269,7 +269,8 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
         if (!M.dauern.includes(l.sek)) befund('Fehler', 'Parcours', `Dauer ${M.dauern.join(', ')} s`, stelle, `${l.sek} s`, M.dauern.join(', '));
         if (l.rechen !== null) {
           zahl.rechen += 1;
-          if (Math.abs(l.rechen) < 100 || Math.abs(l.rechen) > 350) befund('Fehler', 'Parcours', 'Rechenaufgabe Betrag 100 bis 350', stelle, String(l.rechen), '100 bis 350');
+          const [rmin, rmax] = M.rechenBetrag;
+          if (Math.abs(l.rechen) < rmin || Math.abs(l.rechen) > rmax) befund('Fehler', 'Parcours', `Rechenaufgabe Betrag ${rmin} bis ${rmax}`, stelle, String(l.rechen), `${rmin} bis ${rmax}`);
         }
         if (relText.length && (l.mitKurs || l.hrgk)) befund('Fehler', 'Parcours', 'relative Ecke nur vor Segment ohne Kurs', stelle, `Ecke ${relText[0].zeilen[0]} und Kurs am Segment`, 'eines von beiden');
         if (kurveDavor && (l.mitKurs || l.hrgk)) befund('Fehler', 'Parcours', 'nach einer Gradzahl-Kurve ein Segment ohne Kurs', stelle, l.roh, '/10" ohne Kurs');
@@ -393,12 +394,12 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
       const s = e.stueck;
       const stelle = `Gradzahl-Kurve nach Segment ${segNr}`;
       besondere.push({ art: 'Kurve', nachSeg: segNr, n });
-      if (stufe === 2) befund('Fehler', 'Parcours', 'Gradzahl-Kurven nur in Stufe 3', stelle, `Radius ${s.r}`, 'keine');
       if (!vorigesElement || vorigesElement.art !== 'segment') befund('Fehler', 'Parcours', 'Kurve folgt auf ein Segment', stelle, vorigesElement ? vorigesElement.art : 'Anfang', 'Segment');
       const naechstes = kette[n + 1];
       if (!naechstes || naechstes.art !== 'segment') befund('Fehler', 'Parcours', 'auf eine Kurve folgt ein Segment ohne Ecke', stelle, naechstes ? naechstes.art : 'Ende', 'Segment');
       const w = Math.abs(s.dreh);
-      if (w < 40 - 0.5 || w > 340 + 0.5 || Math.abs(w - 180) < 0.5) befund('Fehler', 'Parcours', 'Kurve 40 bis 340°, nicht 180°', stelle, `${w.toFixed(1)}°`, '40 bis 340°');
+      const [kmin, kmax] = M.kurveWinkel;
+      if (w < kmin - 0.5 || w > kmax + 0.5 || Math.abs(w - 180) < 0.5) befund('Fehler', 'Parcours', `Kurve ${kmin} bis ${kmax}°, nicht 180°`, stelle, `${w.toFixed(1)}°`, `${kmin} bis ${kmax}°`);
       if ((w > 180) !== istKreisRadius(s.r)) befund('Fehler', 'Parcours', 'Kurvenradius 35 ab 180°, sonst 24', stelle, `Radius ${s.r} bei ${w.toFixed(1)}°`, w > 180 ? '35' : '24');
       const text = e.texte && e.texte[0];
       if (text && Math.abs(Number(text.zeilen[0]) - w) > 0.6) befund('Fehler', 'Parcours', 'Gradzahl passt zur gezeichneten Kurve', stelle, `Angabe ${text.zeilen[0]}, gezeichnet ${w.toFixed(1)}°`, 'gleich');
@@ -555,12 +556,13 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
   const bereich = (wert, [von, bis], regel) => { if (wert < von || wert > bis) befund('Fehler', 'Mengen', `${regel} ${von} bis ${bis}`, 'Parcours', String(wert), `${von} bis ${bis}`); };
   if (stufe === 2) {
     const gatesSoll = b.nummer % 3 === 0;
-    const [smin, smax] = gatesSoll ? [15, 19] : [18, 22];
-    bereich(zahl.segmente, [smin, smax], 'Segmente');
+    bereich(zahl.segmente, gatesSoll ? M.segmenteMitGates : M.segmente, 'Segmente');
     bereich(zahl.vollkreise, [2, 2], 'Vollkreise');
-    bereich(zahl.relativ, [3, 4], 'relative Ecken');
-    bereich(zahl.rechen, [4, 5], 'Rechenaufgaben');
-    bereich(zahl.richtung, [3, 4], 'Himmelsrichtungen');
+    bereich(zahl.kurven, gatesSoll ? M.kurvenMitGates : M.kurven, 'Gradzahl-Kurven');
+    bereich(zahl.relativ, M.relativ, 'relative Ecken');
+    bereich(zahl.relativ + zahl.kurven, M.kursberechnungen, 'Kursberechnungen (relative Ecken und Kurven)');
+    bereich(zahl.rechen, M.rechen, 'Rechenaufgaben');
+    bereich(zahl.richtung, M.richtung, 'Himmelsrichtungen');
     if (gatesSoll) bereich(zahl.gates, [3, 4], 'Gates (Nummer teilbar durch 3)');
     if (!gatesSoll && zahl.gates) befund('Fehler', 'Mengen', 'keine Gates auf anderen Blättern', 'Parcours', String(zahl.gates), '0');
     const kreise = besondere.filter((x) => x.art === 'Vollkreis');
@@ -591,13 +593,13 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
     bereich(zahl.rechen, M.rechen, 'Rechenaufgaben');
     bereich(zahl.richtung, M.richtung, 'Himmelsrichtungen');
     if (zahl.anl > 1) befund('Fehler', 'Mengen', 'anl. Kurs höchstens einmal je Blatt', 'Parcours', String(zahl.anl), 'höchstens 1');
-    // Gates, Vollkreise und Kurven: nie am ersten oder letzten Segment, mindestens ein Segment dazwischen
-    besondere.forEach((x, j) => {
-      if (x.nachSeg < 2) befund('Fehler', 'Mengen', `${x.art} nicht am ersten Segment`, `${x.art} nach Segment ${x.nachSeg}`, 'am ersten Segment', 'mindestens zwei Segmente davor');
-      if (zahl.segmente - x.nachSeg < 2) befund('Fehler', 'Mengen', `${x.art} nicht am letzten Segment`, `${x.art} nach Segment ${x.nachSeg}`, `von ${zahl.segmente}`, 'mindestens zwei Segmente danach');
-      if (j > 0 && besondere[j - 1].nachSeg === x.nachSeg) befund('Fehler', 'Mengen', 'Gates, Vollkreise und Kurven nicht direkt hintereinander', `${besondere[j - 1].art} und ${x.art} nach Segment ${x.nachSeg}`, 'direkt hintereinander', 'mindestens ein Segment dazwischen');
-    });
   }
+  // Beide Stufen: Gates, Vollkreise und Kurven nie am ersten oder letzten Segment, mindestens ein Segment dazwischen
+  besondere.forEach((x, j) => {
+    if (x.nachSeg < 2) befund('Fehler', 'Mengen', `${x.art} nicht am ersten Segment`, `${x.art} nach Segment ${x.nachSeg}`, 'am ersten Segment', 'mindestens zwei Segmente davor');
+    if (zahl.segmente - x.nachSeg < 2) befund('Fehler', 'Mengen', `${x.art} nicht am letzten Segment`, `${x.art} nach Segment ${x.nachSeg}`, `von ${zahl.segmente}`, 'mindestens zwei Segmente danach');
+    if (j > 0 && besondere[j - 1].nachSeg === x.nachSeg) befund('Fehler', 'Mengen', 'Gates, Vollkreise und Kurven nicht direkt hintereinander', `${besondere[j - 1].art} und ${x.art} nach Segment ${x.nachSeg}`, 'direkt hintereinander', 'mindestens ein Segment dazwischen');
+  });
   for (let j = 3; j < profile.length; j++) {
     if (profile.slice(j - 3, j + 1).every((p) => p === profile[j])) befund('Fehler', 'Mengen', 'kein Profil viermal hintereinander (Parcours)', `Profil ${j - 2} bis ${j + 1}`, profile[j], 'höchstens dreimal');
   }

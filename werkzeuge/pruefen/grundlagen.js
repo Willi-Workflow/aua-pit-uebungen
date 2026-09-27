@@ -11,8 +11,23 @@ export const KURVENRATE = 3; // Grad je Sekunde bei Gradzahl-Kurven
 
 // Mengen und Zeiten je Stufe, wie im Entwurf
 export const MENGEN = {
-  2: { dauern: [10, 15, 20, 30], gateDauern: [10, 15, 20] },
+  2: {
+    dauern: [10, 15, 20, 30],
+    gateDauern: [10, 15, 20],
+    segmente: [18, 22],
+    segmenteMitGates: [15, 19],
+    kurven: [5, 7],
+    kurvenMitGates: [4, 6],
+    relativ: [3, 4],
+    kursberechnungen: [8, 11],
+    rechen: [5, 7],
+    richtung: [3, 4],
+    rechenBetrag: [100, 490],
+    kurveWinkel: [30, 350],
+  },
   3: {
+    rechenBetrag: [100, 350],
+    kurveWinkel: [40, 340],
     dauern: [10, 15, 20, 25],
     gateDauern: [10, 15, 20, 25],
     segmente: [18, 24],
