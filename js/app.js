@@ -1,9 +1,13 @@
 // Oberfläche: Adressanker auf Ansichten abbilden, Blatt anzeigen, drucken.
-// Adressen: #/  #/stufe2  #/stufe2/blatt/7  #/stufe3  #/stufe3/blatt/7  #/stufe2/endlos  #/blitzrechnen
+// Adressen: #/  #/stufe2  #/stufe2/blatt/7  #/stufe3  #/stufe3/blatt/7  #/stufe2/endlos
+// Blitzrechnen: #/blitzrechnen  #/blitzrechnen/einstellungen  #/blitzrechnen/kopfrechnen
+// #/blitzrechnen/stufe2  #/blitzrechnen/stufe3, Inhalt aus blitzansicht.js, Ablauf aus blitzlauf.js
 
 import { erzeugeBlatt, hatGates, BLAETTER_JE_STUFE, STUFEN } from './blatt.js';
 import { zeichneParcours } from './zeichnung.js';
 import { kursText } from './kurs.js';
+import { blitzInhalt } from './blitzansicht.js';
+import { blitzLaufen } from './blitzlauf.js';
 
 const NAME = 'AUA PIT Übungsblätter';
 
@@ -156,10 +160,18 @@ ${LEGENDE}
 </article></main>`;
 }
 
+function blitzseite(teile, abfrage) {
+  const seite = blitzInhalt(teile, abfrage);
+  if (!seite) return platzhalter('Nicht gefunden', '#/blitzrechnen', 'Diese Seite gibt es nicht.');
+  return kopf(seite.ort, seite.zurueck) + seite.inhalt;
+}
+
+// Adressen dürfen nach einem "?" Werte tragen (Prüfmodus des Blitzrechnens)
 export function ansichtFuer(hash) {
-  const teile = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  const [pfad, abfrage = ''] = hash.split('?');
+  const teile = pfad.replace(/^#\/?/, '').split('/').filter(Boolean);
   if (teile.length === 0) return startseite();
-  if (teile[0] === 'blitzrechnen') return platzhalter('Blitzrechnen', '#/', 'Blitzrechnen kommt in einem späteren Abschnitt.');
+  if (teile[0] === 'blitzrechnen') return blitzseite(teile.slice(1), Object.fromEntries(new URLSearchParams(abfrage)));
   const stufe = Number((teile[0].match(/^stufe(\d)$/) || [])[1]);
   if (!STUFEN.includes(stufe)) return platzhalter('Nicht gefunden', '#/', 'Diese Seite gibt es nicht.');
   if (teile.length === 1) return stufenseite(stufe);
@@ -174,10 +186,14 @@ export function ansichtFuer(hash) {
 // Nur im Browser: In Node gibt es kein document, dort wird ansichtFuer allein geprüft
 if (typeof document !== 'undefined') {
   const wurzel = document.querySelector('#app');
+  // Beendet Zeitgeber und Ton einer laufenden Übung, bevor die nächste Ansicht kommt
+  let blitzStoppen = () => {};
 
   const anzeigen = () => {
+    blitzStoppen();
     wurzel.innerHTML = ansichtFuer(location.hash);
     window.scrollTo(0, 0);
+    blitzStoppen = blitzLaufen(wurzel);
   };
 
   window.addEventListener('hashchange', anzeigen);

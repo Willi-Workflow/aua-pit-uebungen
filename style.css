@@ -747,3 +747,524 @@ button:focus-visible {
     height: 0;
   }
 }
+
+/* Blitzrechnen: Auswahl, Einstellungen und Übungen. Aufgaben, Zähler und
+   Lösungen in Condensed, Karten und Knöpfe wie auf der Startseite, der
+   Zeitbalken 4 px in Akzent. Richtig steht in Akzent, falsch in Orange. */
+
+.blitzauswahl,
+.einstellungsseite,
+.blitzseite {
+  padding-top: 48px;
+  padding-bottom: 80px;
+}
+
+.bereiche {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 28px;
+}
+
+a.knopf {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.knopf.haupt {
+  color: var(--flaeche);
+  background: var(--akzent);
+}
+
+.knopf.haupt:hover,
+.knopf.haupt:active {
+  background: var(--akzent-dunkel);
+  border-color: var(--akzent-dunkel);
+}
+
+.knopf.gross {
+  padding: 12px 44px;
+  font-size: 1.25rem;
+}
+
+.knopf[aria-pressed="true"] {
+  color: var(--flaeche);
+  background: var(--akzent);
+}
+
+.knopf:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.knopf:disabled:hover {
+  color: var(--akzent);
+  background: var(--flaeche);
+}
+
+.knopf[aria-pressed="true"]:disabled,
+.knopf[aria-pressed="true"]:disabled:hover {
+  color: var(--flaeche);
+  background: var(--akzent);
+  opacity: 1;
+}
+
+.einstellungszeile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-top: 28px;
+}
+
+.einstellungen-kurz {
+  margin: 0;
+  color: var(--zweittext);
+}
+
+/* Einstellungen: je Gruppe eine Zeile Knöpfe, genau einer gedrückt */
+
+.gruppen {
+  display: grid;
+  gap: 12px;
+  max-width: 40rem;
+  margin-top: 28px;
+}
+
+.gruppe {
+  padding: 18px 20px;
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: 4px;
+}
+
+.gruppe-titel {
+  margin: 0 0 10px;
+  font-family: var(--schrift-schmal);
+  font-weight: 600;
+  font-size: 1.15rem;
+  line-height: 1.25;
+}
+
+.wahl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gruppe-text {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+  color: var(--zweittext);
+}
+
+.meldung {
+  min-height: 1.55em;
+  margin: 16px 0 8px;
+  color: var(--zweittext);
+}
+
+/* Übung */
+
+.blitzseite.laeuft .blitz-kopf .unterzeile {
+  display: none;
+}
+
+.buehne {
+  margin-top: 24px;
+}
+
+.startflaeche,
+.blitz-aufgabe {
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: 4px;
+}
+
+.startflaeche {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 40rem;
+  padding: 28px 24px;
+}
+
+.blitz-aufgabe {
+  padding: 14px 20px 24px;
+}
+
+.zaehlerleiste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  font-family: var(--schrift-schmal);
+  font-weight: 500;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.zaehler strong {
+  font-weight: 600;
+}
+
+.serie {
+  color: var(--zweittext);
+}
+
+.zaehlerleiste .knopf {
+  margin-left: auto;
+}
+
+.zeitbalken {
+  height: 4px;
+  margin: 12px 0 20px;
+  overflow: hidden;
+  background: var(--grund);
+}
+
+.zeitbalken.leer {
+  background: transparent;
+}
+
+.zeitbalken span {
+  display: block;
+  height: 100%;
+  background: var(--akzent);
+  transform-origin: left center;
+}
+
+.zeitbalken.laeuft span {
+  animation-name: ablauf;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+
+.zeitbalken.angehalten span {
+  animation-play-state: paused;
+}
+
+@keyframes ablauf {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.kopfaufgabe,
+.ausschnitt-seite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.aufgabe-text {
+  margin: 4px 0;
+  font-family: var(--schrift-schmal);
+  font-weight: 600;
+  font-size: clamp(2.2rem, 8vw, 3.4rem);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.aufgabe-text.lang {
+  font-size: clamp(1.7rem, 6vw, 2.6rem);
+}
+
+.aufgabe-text.klein {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--zweittext);
+}
+
+.aufgabe-ton {
+  margin: 0;
+  font-family: var(--schrift-schmal);
+  font-weight: 600;
+  font-size: 1.6rem;
+  color: var(--zweittext);
+}
+
+.tonzeile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.feldname {
+  display: block;
+  margin: 0 0 6px;
+  font-family: var(--schrift-schmal);
+  font-weight: 500;
+  font-size: 1.05rem;
+}
+
+.antwortform {
+  width: 100%;
+}
+
+.feldzeile {
+  display: flex;
+  gap: 8px;
+}
+
+.eingabe {
+  width: 6.5em;
+  min-width: 0;
+  padding: 4px 10px;
+  font-family: var(--schrift-schmal);
+  font-weight: 600;
+  font-size: 1.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinte);
+  background: var(--flaeche);
+  border: 1px solid var(--zweittext);
+  border-radius: 3px;
+}
+
+.eingabe:focus {
+  outline: 2px solid var(--akzent);
+  outline-offset: 1px;
+  border-color: var(--akzent);
+}
+
+.feldzeile .knopf {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+/* Die 16 Himmelsrichtungen in zwei Reihen zu acht, neben dem Ausschnitt und
+   auf dem Handy in vier Reihen zu vier */
+.richtungen {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  max-width: 40rem;
+}
+
+.ausschnitt-seite .richtungen {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.knopf.richtung {
+  padding: 10px 0;
+  font-weight: 600;
+}
+
+.drehsinn,
+.selbst {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.drehsinn .knopf {
+  min-width: 6.5rem;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.urteil {
+  margin: 0;
+  font-family: var(--schrift-schmal);
+  font-weight: 600;
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+
+.urteil.richtig {
+  color: var(--akzent);
+}
+
+.urteil.falsch {
+  color: var(--marke);
+}
+
+.loesung-zeile {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.loesung-zeile strong {
+  font-family: var(--schrift-schmal);
+  font-weight: 600;
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.phase {
+  margin: 0;
+  font-family: var(--schrift-schmal);
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+
+.phase-text,
+.hinweis {
+  margin: 0;
+  color: var(--zweittext);
+}
+
+/* Ausschnitt links, Fragen und Lösungen daneben */
+
+.ausschnitt-flaeche {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 22rem);
+  gap: 24px;
+  align-items: start;
+}
+
+.ausschnitt {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  padding: 12px 12px 16px;
+  border: 1px solid var(--linie);
+  border-radius: 4px;
+}
+
+.ankunft {
+  margin-bottom: 8px;
+  font-family: var(--schrift-schmal);
+  font-weight: 600;
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ausschnitt-bild {
+  margin: 0 auto;
+}
+
+.ausschnitt-bild .parcours {
+  max-height: 60vh;
+}
+
+.ausschnitt.ausgeblendet .ankunft,
+.ausschnitt.ausgeblendet .ausschnitt-bild {
+  visibility: hidden;
+}
+
+.abdeckung {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  font-family: var(--schrift-schmal);
+  font-weight: 500;
+  font-size: 1.1rem;
+  color: var(--zweittext);
+  background: #e4e8ee;
+  border-radius: 4px;
+}
+
+.erledigt,
+.fragenliste,
+.loesungen {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.erledigt li,
+.fragenliste li {
+  padding: 4px 0;
+  color: var(--zweittext);
+}
+
+.erledigt .wert {
+  font-family: var(--schrift-schmal);
+  font-weight: 600;
+  color: var(--tinte);
+  font-variant-numeric: tabular-nums;
+}
+
+.loesungen li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  margin-bottom: 6px;
+  padding: 6px 0 6px 12px;
+  border-left: 3px solid var(--linie);
+}
+
+.loesungen li.richtig {
+  border-left-color: var(--akzent);
+}
+
+.loesungen li.falsch {
+  border-left-color: var(--marke);
+}
+
+.loesung-wert {
+  font-family: var(--schrift-schmal);
+  font-weight: 600;
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.loesungen .deine {
+  grid-column: 1 / -1;
+  font-size: 0.9rem;
+  color: var(--zweittext);
+}
+
+.loesungen li.richtig .deine {
+  color: var(--akzent);
+}
+
+.loesungen li.falsch .deine {
+  color: var(--marke);
+}
+
+@media (max-width: 719px) {
+  .bereiche,
+  .ausschnitt-flaeche {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ausschnitt-bild .parcours {
+    max-height: 50vh;
+  }
+
+  /* Untereinander wäre die volle graue Fläche so hoch, dass das Antwortfeld
+     unter den Rand rutscht; ausgeblendet bleibt deshalb nur ein grauer Streifen */
+  .ausschnitt.ausgeblendet {
+    min-height: 88px;
+    padding: 0;
+  }
+
+  .ausschnitt.ausgeblendet .ankunft,
+  .ausschnitt.ausgeblendet .ausschnitt-bild {
+    display: none;
+  }
+}
+
+@media (max-width: 599px) {
+  .blitzauswahl,
+  .einstellungsseite,
+  .blitzseite {
+    padding-top: 32px;
+    padding-bottom: 48px;
+  }
+
+  .blitz-aufgabe {
+    padding: 12px 14px 20px;
+  }
+
+  .richtungen {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .startflaeche {
+    padding: 22px 18px;
+  }
+}

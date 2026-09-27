@@ -57,13 +57,15 @@ test('Kopfleiste nennt den Ort ohne Mittelpunkte und Pfeile', () => {
   }
 });
 
-test('Startseite hat unter der Kursrose den Knopf Blitzrechnen, die Seite ist ein Platzhalter', () => {
+test('Startseite hat unter der Kursrose den Knopf Blitzrechnen, er führt zur Auswahlseite', () => {
   const start = ansichtFuer('#/');
   const rose = start.indexOf('class="kursrose"');
   const knopf = start.indexOf('href="#/blitzrechnen"');
   assert.ok(rose >= 0 && knopf > rose, 'Knopf fehlt oder steht nicht nach der Kursrose');
   assert.ok(start.includes('class="blitz-zeichen"') && start.includes('>Blitzrechnen</span></a>'));
-  assert.ok(ansichtFuer('#/blitzrechnen').includes('Blitzrechnen kommt'));
+  const auswahl = ansichtFuer('#/blitzrechnen');
+  assert.ok(!auswahl.includes('Blitzrechnen kommt'), 'Blitzrechnen ist kein Platzhalter mehr');
+  assert.ok(auswahl.includes('href="#/blitzrechnen/kopfrechnen"'));
 });
 
 test('Startseite: Stufe 3 ist eine aktive Karte mit Unterzeile', () => {
