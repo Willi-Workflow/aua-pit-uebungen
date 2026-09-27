@@ -5,7 +5,7 @@ import {
   erzeugeElemente, STUFE3, STUFE3_START, KURVE_WINKEL, KURVENRATE, hrAbstand, anschlussPasst, anschlussMoeglich, anschlussDrehung,
 } from '../js/elemente.js';
 import {
-  geometrie, bahn, gateTexte, schrittpruefer, zaehleKreuzungen, kleinsterAbstand, KURVENRADIUS, KURVENSCHLEIFE, KEHRENRADIUS,
+  geometrie, bahn, gateTexte, schrittpruefer, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, KURVENRADIUS, KURVENSCHLEIFE, KEHRENRADIUS,
   LINIENBREITE_ABSTAND, FLUGZEUG_RADIUS,
 } from '../js/geometrie.js';
 import { normieren, differenz, naechsteHimmelsrichtung, himmelsrichtungGrad } from '../js/kurs.js';
@@ -388,6 +388,58 @@ test('Schleife: Ein- und Ausfahrt nur als saubere Kreuzung, nie ein Ende im Stri
     assert.equal(zaehleKreuzungen(stuecke), 0);
     assert.equal(kleinsterAbstand(stuecke), Infinity);
   }
+});
+
+// Zuordnung (Stufe 3): Eine Beschriftung steht ihrem eigenen Stück mindestens
+// um den Faktor 1,5 näher als jedem fremden, gemessen von der Achse ihrer Kapsel
+// zur Mittellinie. "zuordnung" nennt das eigene Stück; Stufe 2 hat das Feld nicht.
+const strecke = (a, b) => ({ art: 'strecke', profil: 'horizontal', pfad: '', punkte: [a, b], schleife: false });
+
+test('Zuordnung: Segmentbeschriftung zwischen zwei parallelen Strecken nur mit deutlichem Abstand zur fremden', () => {
+  // Eigene Strecke nach Norden, Beschriftung 12 rechts davon, fremde parallele Strecke 26 oder 40 rechts
+  const eigene = strecke({ x: 0, y: 0 }, { x: 0, y: -100 });
+  const text = { zeilen: ['000°/20"'], x: 12, y: -50, winkel: -90, mitte: { x: 0, y: -50 }, kurs: 0, eigeneStuecke: [0], zuordnung: 0 };
+  const nah = strecke({ x: 26, y: -100 }, { x: 26, y: 0 });
+  const fern = strecke({ x: 40, y: -100 }, { x: 40, y: 0 });
+  assert.equal(beschriftungFrei({ stuecke: [eigene, nah], beschriftungen: [text] }), false, 'fremd 14, eigen 12');
+  assert.equal(beschriftungFrei({ stuecke: [eigene, fern], beschriftungen: [text] }), true, 'fremd 28, eigen 12');
+  // 15° geneigt zählt noch als parallel, quer (hier 60°) nicht, nur die Berührung
+  const geneigt = strecke({ x: 26, y: -50 }, { x: 26 + 50 * Math.sin((15 * Math.PI) / 180), y: -50 + 50 * Math.cos((15 * Math.PI) / 180) });
+  assert.equal(beschriftungFrei({ stuecke: [eigene, geneigt], beschriftungen: [text] }), false, '15° geneigt');
+  const quer = strecke({ x: 26, y: -50 }, { x: 26 + 50 * Math.sin((60 * Math.PI) / 180), y: -50 + 50 * Math.cos((60 * Math.PI) / 180) });
+  assert.equal(beschriftungFrei({ stuecke: [eigene, quer], beschriftungen: [text] }), true, 'quer');
+  // Ohne "zuordnung" (Stufe 2) zählt nur die Berührung
+  const { zuordnung, ...stufe2 } = text;
+  assert.equal(zuordnung, 0);
+  assert.equal(beschriftungFrei({ stuecke: [eigene, nah], beschriftungen: [stufe2] }), true);
+});
+
+test('Zuordnung: Bogenangabe näher an ihrem Bogen als an jedem fremden', () => {
+  // Angabe waagerecht bei y = 25 (Achse von x = -5 bis 15), eigener Bogen darüber
+  // mit den Enden bei y = 10 (15 von der Achse), fremder Bogen darunter mit dem
+  // Scheitel bei y = 45 (20) oder y = 60 (35)
+  const bogen = (y, scheitel) => ({ art: 'bogen', profil: 'horizontal', pfad: '', punkte: [{ x: 0, y }, { x: 5, y: scheitel }, { x: 10, y }], schleife: false });
+  const eigen = bogen(10, 5);
+  const text = { zeilen: ['+120°'], x: 5, y: 25, winkel: 0, mitte: null, kurs: null, eigeneStuecke: [0], zuordnung: 0 };
+  assert.equal(beschriftungFrei({ stuecke: [eigen, bogen(50, 45)], beschriftungen: [text] }), false, 'fremd 20, eigen 15');
+  assert.equal(beschriftungFrei({ stuecke: [eigen, bogen(65, 60)], beschriftungen: [text] }), true, 'fremd 35, eigen 15');
+  // Eine Vollkreishälfte trägt nie eine Angabe und zählt nicht, eine Kurve schon
+  const kreishaelfte = { ...bogen(50, 45), kreis: { mitte: { x: 5, y: 80 }, radius: 35 } };
+  assert.equal(beschriftungFrei({ stuecke: [eigen, kreishaelfte], beschriftungen: [text] }), true, 'Vollkreishälfte');
+  assert.equal(beschriftungFrei({ stuecke: [eigen, { ...kreishaelfte, kurve: true }], beschriftungen: [text] }), false, 'Kurve');
+});
+
+test('Zuordnung: Stufe 3 nennt das eigene Stück jeder Segment-, Eck- und Kurvenbeschriftung, Stufe 2 nicht', () => {
+  const elemente = [
+    segment(90, 20), segment(210, 20, { anzeige: 'keine', relativ: 120 }),
+    { art: 'kurve', winkel: 90, richtung: 'links', profil: 'horizontal' }, segment(120, 20, { anzeige: 'keine' }),
+  ];
+  const geo = geometrie(elemente, 0, true);
+  for (const b of geo.beschriftungen) {
+    if (b.fett) assert.equal(b.zuordnung, undefined);
+    else assert.equal(geo.stuecke[b.zuordnung].art, b.zeilen[0].includes('/') ? 'strecke' : 'bogen', b.zeilen[0]);
+  }
+  assert.ok(geometrie(elemente).beschriftungen.every((b) => !('zuordnung' in b)));
 });
 
 test('GK: Kehre von 180° mit Radius 20 in der gewählten Richtung, HR mit kleiner Ecke, Beschriftungen HR und GK', () => {

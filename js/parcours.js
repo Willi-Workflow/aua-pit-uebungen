@@ -67,7 +67,10 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
     const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity), stufe3);
     let geo = null;
     if (kreuzungen === 0 && kleinsterAbstand(roh.stuecke, LINIENBREITE_ABSTAND, roh.flugzeug, stufe3) >= LINIENBREITE_ABSTAND) {
-      geo = vollenden(roh);
+      // Mit einem zulässigen Sieger zählt nur noch ein zulässiger Kandidat: Die
+      // Beschriftung bricht ab, sobald eine keine freie Lage findet
+      geo = vollenden(roh, bester !== null);
+      if (!geo) continue;
       const fuellung = fuellungBerechnen(geo);
       if (seitenverhaeltnisPasst(geo.umriss) && startOben(geo) && (!bester || fuellung > bester.fuellung) && beschriftungFrei(geo)) {
         bester = { elemente, geometrie: geo, kreuzungen: 0, kandidat, fuellung };

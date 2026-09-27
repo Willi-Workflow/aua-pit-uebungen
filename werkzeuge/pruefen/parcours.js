@@ -191,14 +191,22 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
   // relative Angaben an Ecken vor Segmenten ohne Kurs, Gradzahlen an Kurven, so
   // dass die Summe der Abstände (Tinte zu Bogen) am kleinsten ist. Danach wird
   // geprüft, ob eine Angabe näher an einem anderen Bogen steht und ob eine
-  // Vertauschung ähnlich gut passte.
+  // Vertauschung ähnlich gut passte. Vollkreise tragen nie eine Angabe und sind
+  // keine Mitbewerber; steht eine Angabe näher an einem Vollkreis als an ihrem
+  // Bogen, ist das nur ein Hinweis.
+  const kreisStuecke = new Set(kette.filter((e) => e.art === 'vollkreis').flatMap((e) => e.stuecke));
   const perms = (arr) => (arr.length <= 1 ? [arr] : arr.flatMap((x, j) => perms([...arr.slice(0, j), ...arr.slice(j + 1)]).map((r) => [x, ...r])));
   const verteilen = (angaben, boegen, name) => {
     for (const t of angaben) {
       t.abstaende = new Map(boegen.map((e) => [e, zugPolygon(e.stueck.punkte, t.tinte[0])]));
-      let naechster = null; let nd = Infinity;
-      for (const st of stuecke) if (st.art === 'bogen') { const d = zugPolygon(st.punkte, t.tinte[0]); if (d < nd) { nd = d; naechster = st; } }
-      t.naechsterBogen = naechster; t.naechsterAbstand = nd;
+      let naechster = null; let nd = Infinity; let kreisD = Infinity;
+      for (const st of stuecke) {
+        if (st.art !== 'bogen') continue;
+        const d = zugPolygon(st.punkte, t.tinte[0]);
+        if (kreisStuecke.has(st)) kreisD = Math.min(kreisD, d);
+        else if (d < nd) { nd = d; naechster = st; }
+      }
+      t.naechsterBogen = naechster; t.naechsterAbstand = nd; t.kreisAbstand = kreisD;
     }
     if (angaben.length !== boegen.length) {
       befund('Fehler', 'Parcours', `je ${name} genau eine Angabe`, 'Parcours', `${angaben.length} Angaben, ${boegen.length} Stellen`, 'gleich viele');
@@ -215,8 +223,11 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
     }
     for (const t of angaben) {
       if (t.naechsterBogen !== t.ecke.stueck && t.naechsterAbstand < t.eckAbstand) {
-        const art = istKreisRadius(t.naechsterBogen.r) ? 'Vollkreis oder Schleife' : 'anderer Bogen';
+        const art = istKreisRadius(t.naechsterBogen.r) ? 'Schleife' : 'anderer Bogen';
         befund('Unschärfe', 'Parcours', `${name}: Angabe steht an ihrem Bogen`, t.zeilen[0], `${art} ${t.naechsterAbstand.toFixed(1)} entfernt, eigener Bogen ${t.eckAbstand.toFixed(1)}`, 'eigener Bogen am nächsten', { x: t.t.x, y: t.t.y });
+      }
+      if (t.kreisAbstand < t.eckAbstand) {
+        befund('Hinweis', 'Parcours', `${name}: Angabe näher an einem Vollkreis als an ihrem Bogen (Vollkreise tragen nie eine Angabe)`, t.zeilen[0], `Vollkreis ${t.kreisAbstand.toFixed(1)} entfernt, eigener Bogen ${t.eckAbstand.toFixed(1)}`, 'eigener Bogen am nächsten', { x: t.t.x, y: t.t.y });
       }
     }
   };

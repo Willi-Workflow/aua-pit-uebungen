@@ -4,7 +4,9 @@ import { createHash } from 'node:crypto';
 import { erzeugeBlatt, BLAETTER_JE_STUFE, STUFEN, hatGates } from '../js/blatt.js';
 import { differenz } from '../js/kurs.js';
 import { STUFE3 } from '../js/elemente.js';
-import { beschriftungFrei, kleinsterAbstand, zaehleKreuzungen, startOben, LINIENBREITE_ABSTAND } from '../js/geometrie.js';
+import {
+  beschriftungFrei, beschriftungsAbstand, kleinsterAbstand, zaehleKreuzungen, startOben, LINIENBREITE_ABSTAND,
+} from '../js/geometrie.js';
 
 // Alle Blätter beider Stufen einmal erzeugen, die Prüfungen unten teilen sie sich
 const beginn = Date.now();
@@ -184,6 +186,44 @@ test('Stufe 3: Schleifen kreuzen Ein- und Ausfahrt sauber, kein Segment endet im
     }
   }
   assert.ok(sauber > 100, `nur ${sauber} Schleifen mit Kreuzung`);
+});
+
+// Jede Beschriftung an einem Segment, einer Ecke oder einer Kurve steht ihrem
+// eigenen Stück deutlich näher als jedem fremden, dem man sie zuordnen könnte:
+// Das nächste ist mindestens 1,5-mal so weit weg (Achse der Kapsel zur
+// Mittellinie). Eigen sind das beschriftete Stück und die angrenzenden seiner
+// Figur. Mitbewerber einer Bogenangabe sind alle fremden Bögen außer
+// Vollkreishälften (Vollkreise tragen nie eine Angabe), einer Segmentbeschriftung
+// alle fremden Strecken, die höchstens 20° gegen die eigene geneigt sind. Vorher
+// standen Bogenangaben näher an fremden Bögen (Blatt 2, 51, 63, 74) und
+// Segmentbeschriftungen zwischen parallelen Strecken (Blatt 56, 97).
+function mitbewerber(eigenes, fremd) {
+  if (fremd.art !== eigenes.art) return false;
+  if (fremd.art === 'bogen') return !(fremd.kreis && !fremd.schleife && !fremd.kurve);
+  const richtung = (s) => Math.atan2(s.punkte[1].y - s.punkte[0].y, s.punkte[1].x - s.punkte[0].x);
+  const neigung = Math.abs(Math.sin(richtung(eigenes) - richtung(fremd)));
+  return neigung <= Math.sin((20 * Math.PI) / 180) + 1e-9;
+}
+
+test('Stufe 3: Beschriftungen stehen ihrem Stück deutlich näher als jedem fremden', () => {
+  let geprueft = 0;
+  for (const blatt of blaetter3) {
+    if (!blatt.parcours.zulaessig) continue;
+    const { stuecke, beschriftungen } = blatt.parcours.geometrie;
+    for (const b of beschriftungen) {
+      if (b.gate || b.fett) continue;
+      const art = b.zeilen[0].includes('/') ? 'strecke' : 'bogen';
+      const eigenes = b.eigeneStuecke.find((i) => stuecke[i].art === art);
+      const eigen = beschriftungsAbstand(b, stuecke[eigenes].punkte);
+      let fremd = Infinity;
+      stuecke.forEach((s, i) => {
+        if (!b.eigeneStuecke.includes(i) && mitbewerber(stuecke[eigenes], s)) fremd = Math.min(fremd, beschriftungsAbstand(b, s.punkte));
+      });
+      assert.ok(fremd >= 1.5 * eigen, `Blatt ${blatt.nummer}, ${b.zeilen.join(' | ')}: eigen ${eigen.toFixed(1)}, fremd ${fremd.toFixed(1)}`);
+      geprueft += 1;
+    }
+  }
+  assert.ok(geprueft > 2500, `nur ${geprueft} Beschriftungen`);
 });
 
 test('Stufe 3: Mengen je Blatt, Start und Ende beschriftet, alle Elemente der Vorlagen kommen vor', () => {

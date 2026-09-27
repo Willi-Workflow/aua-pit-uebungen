@@ -20,6 +20,15 @@ export const LINIENBREITE_ABSTAND = 9;
 export const ZEILENABSTAND = 9;
 // Halbe Länge eines Querstrichs, er ragt so weit zu beiden Seiten der Mittellinie
 export const MARKENLAENGE = 7;
+// Stufe 3: Das nächste fremde Stück, dem man eine Beschriftung zuordnen könnte,
+// ist mindestens so viel weiter von ihr entfernt als ihr eigenes; für eine
+// Segmentbeschriftung zählen fremde Strecken, die höchstens PARALLEL_WINKEL
+// gegen die eigene geneigt sind (siehe zuordnungUnklar)
+export const ZUORDNUNG_FAKTOR = 1.5;
+export const PARALLEL_WINKEL = 20;
+// Kurse sind ganzzahlig, genau 20° kommen oft vor; der Zuschlag hält sie trotz
+// Rundung der Gleitkommarechnung sicher auf der Seite "höchstens"
+const PARALLEL_SINUS = Math.sin((PARALLEL_WINKEL * Math.PI) / 180) + 1e-9;
 
 // Flugzeugsymbol am Anfang: Mittelpunkt so weit hinter dem Start, entgegen der
 // Richtung des ersten Segments, Radius eines Kreises, der das Symbol umschließt
@@ -435,11 +444,14 @@ export function wegbauer(drehung = 0, startEnde = false) {
     // Eigene Stücke einer Beschriftung: ihr Stück und die angrenzenden, bei einem
     // Segment die Bögen davor und danach, bei einer Ecke und einem Gate die Strecken
     // davor und danach. Die Strecken enden am Kastenrand, der Kasten deckt sie dort ab.
+    // Stufe 3 merkt sich das beschriftete Stück selbst ("zuordnung") für die
+    // Regel, dass die Beschriftung ihm deutlich näher steht als jedem fremden.
     for (const b of beschriftungen) {
       const eigenes = b.eigeneStuecke[0];
       const nachbarArt = stuecke[eigenes].art === 'strecke' ? 'bogen' : 'strecke';
       b.eigeneStuecke = [eigenes - 1, eigenes, eigenes + 1]
         .filter((i) => i === eigenes || (i >= 0 && i < stuecke.length && stuecke[i].art === nachbarArt));
+      if (startEnde && stuecke[eigenes].art !== 'gate') b.zuordnung = eigenes;
     }
 
     marken.push({ punkt, kurs, gezeichnet: gezeichnet(kurs) });
@@ -477,11 +489,15 @@ function flugzeugLage(start) {
   };
 }
 
-// Schreibt die SVG-Pfade aus, setzt die Beschriftungen und bestimmt den Umriss
-export function vollenden(roh) {
+// Schreibt die SVG-Pfade aus, setzt die Beschriftungen und bestimmt den Umriss.
+// Mit "abbrechen" liefert es null, sobald eine Beschriftung keine freie Lage
+// findet: Dann ist der Kandidat nicht zulässig, und die Kandidatensuche braucht
+// ihn nicht mehr, sobald sie einen zulässigen hat.
+export function vollenden(roh, abbrechen = false) {
   const stuecke = roh.stuecke.map((s) => ({ ...s, pfad: s.pfad() }));
-  const entwuerfe = roh.entwuerfe.map((e) => ({ eigeneStuecke: e.eigeneStuecke, varianten: e.varianten() }));
-  const beschriftungen = beschriftungenSetzen(stuecke, entwuerfe, roh.flugzeug);
+  const entwuerfe = roh.entwuerfe.map((e) => ({ eigeneStuecke: e.eigeneStuecke, zuordnung: e.zuordnung, varianten: e.varianten() }));
+  const beschriftungen = beschriftungenSetzen(stuecke, entwuerfe, roh.flugzeug, abbrechen);
+  if (!beschriftungen) return null;
   return {
     stuecke,
     marken: roh.marken,
@@ -507,27 +523,34 @@ export function startOben(geo) {
 // Segmente links, dann rechts der Mitte, dann ebenso bei 30 und 70 Prozent der
 // Länge; Ecken außen an der Bogenmitte, dann bei einem und drei Vierteln des
 // Bogens. Frei heißt: kein fremdes Stück und keine schon gesetzte Beschriftung
-// stört. Ist keine Lage frei, bleibt die erste; das verwirft dann die Auswahl.
+// stört. Ist keine Lage frei, bleibt die erste; das verwirft dann die Auswahl
+// (mit "abbrechen" gleich null, siehe vollenden).
 // So hält es auch die Vorlage: die Beschriftung steht dort, wo Platz ist.
 // Gate-Texte stehen fest in ihrem Kasten; die übrigen weichen ihnen und dem
 // Flugzeugsymbol von Anfang an aus.
-function beschriftungenSetzen(stuecke, entwuerfe, flugzeug) {
+function beschriftungenSetzen(stuecke, entwuerfe, flugzeug, abbrechen = false) {
   const kaesten = stuecke.map((s) => kasten(s.punkte));
   const gesetzt = [];
   const kapseln = entwuerfe.filter((e) => e.varianten[0].gate).map((e) => beschriftungKapsel(e.varianten[0]));
   if (flugzeug) kapseln.push(flugzeugKapsel(flugzeug));
   for (const entwurf of entwuerfe) {
-    const varianten = entwurf.varianten.map((v) => ({ ...v, eigeneStuecke: entwurf.eigeneStuecke }));
+    // "zuordnung" nur, wo es sie gibt (Stufe 3), damit Stufe 2 kein neues Feld bekommt
+    const zuordnung = entwurf.zuordnung === undefined ? {} : { zuordnung: entwurf.zuordnung };
+    const varianten = entwurf.varianten.map((v) => ({ ...v, eigeneStuecke: entwurf.eigeneStuecke, ...zuordnung }));
     if (varianten[0].gate) {
       gesetzt.push(varianten[0]);
       continue;
     }
-    let wahl = varianten[0];
+    let wahl = null;
     for (const v of varianten) {
       if (!beschriftungStoert(v, beschriftungKapsel(v), stuecke, kaesten, kapseln)) {
         wahl = v;
         break;
       }
+    }
+    if (!wahl) {
+      if (abbrechen) return null;
+      wahl = varianten[0];
     }
     gesetzt.push(wahl);
     kapseln.push(beschriftungKapsel(wahl));
@@ -829,11 +852,56 @@ function beschriftungKapsel(b) {
   return { a, e, radius, umfang };
 }
 
+// Abstand einer Beschriftung zu einem Stück mit dem Polygonzug "punkte": von der
+// Achse ihrer Kapsel zur Mittellinie
+export function beschriftungsAbstand(b, punkte) {
+  const k = beschriftungKapsel(b);
+  return zugAbstand([k.a, k.e], punkte);
+}
+
 // Das Flugzeugsymbol als Kapsel ohne Länge, damit Beschriftungen ihm ausweichen
 // wie einer anderen Beschriftung
 function flugzeugKapsel(flugzeug) {
   const { mitte, radius } = flugzeug;
   return { a: mitte, e: mitte, radius, umfang: { minX: mitte.x - radius, minY: mitte.y - radius, maxX: mitte.x + radius, maxY: mitte.y + radius } };
+}
+
+// Könnte man eine Beschriftung des Stücks "eigenes" auch dem fremden Stück
+// "fremd" zuordnen? Eine Bogenangabe jedem Bogen (Ecke, Kurve, Schleife) außer
+// einer Vollkreishälfte, weil Vollkreise nie eine Angabe tragen; eine
+// Segmentbeschriftung, die längs ihrer Strecke steht, jeder Strecke, die
+// höchstens PARALLEL_WINKEL gegen die eigene geneigt ist. Quer laufende Strecken
+// und Gate-Kästen kommen nicht in Frage.
+function mitbewerber(eigenes, fremd) {
+  if (fremd.art !== eigenes.art) return false;
+  if (fremd.art === 'bogen') return !(fremd.kreis && !fremd.schleife && !fremd.kurve);
+  const [a1, a2] = eigenes.punkte;
+  const [b1, b2] = fremd.punkte;
+  const ax = a2.x - a1.x;
+  const ay = a2.y - a1.y;
+  const bx = b2.x - b1.x;
+  const by = b2.y - b1.y;
+  return Math.abs(kreuzprodukt(ax, ay, bx, by)) <= PARALLEL_SINUS * Math.hypot(ax, ay) * Math.hypot(bx, by);
+}
+
+// Stufe 3: Steht die Beschriftung ihrem Stück "b.zuordnung" nicht deutlich
+// näher als jedem fremden Mitbewerber (siehe mitbewerber)? Gemessen von der
+// Achse der Kapsel "k" zur Mittellinie; der nächste muss mindestens
+// ZUORDNUNG_FAKTOR mal so weit weg sein wie das eigene Stück. Die eigenen
+// Stücke (das Stück selbst und die angrenzenden seiner Figur) zählen nicht. So
+// steht eine Bogenangabe nie näher an einem fremden Bogen (Blatt 2, 51, 63, 74)
+// und eine Segmentbeschriftung nie zwischen zwei parallelen Strecken (Blatt 56,
+// 97).
+function zuordnungUnklar(b, k, stuecke, kaesten) {
+  const eigenes = stuecke[b.zuordnung];
+  const grenze = ZUORDNUNG_FAKTOR * zugAbstand([k.a, k.e], eigenes.punkte);
+  const achse = { minX: Math.min(k.a.x, k.e.x), minY: Math.min(k.a.y, k.e.y), maxX: Math.max(k.a.x, k.e.x), maxY: Math.max(k.a.y, k.e.y) };
+  for (let s = 0; s < stuecke.length; s++) {
+    if (b.eigeneStuecke.includes(s) || !mitbewerber(eigenes, stuecke[s])) continue;
+    if (kastenAbstand(achse, kaesten[s]) >= grenze) continue;
+    if (zugNaeherAls([k.a, k.e], stuecke[s].punkte, grenze)) return true;
+  }
+  return false;
 }
 
 // Stört ein fremdes Stück oder eine der "andere" Kapseln die Beschriftung? Fremd
@@ -842,7 +910,8 @@ function flugzeugKapsel(flugzeug) {
 // laufen sonst durch die Beschriftung des Segments daneben. Ein Strich muss
 // mindestens seine halbe Breite vom Text entfernt bleiben, zwei Beschriftungen
 // dürfen sich nicht berühren. Innerhalb eines Vollkreises oder einer Schleife
-// steht keine Beschriftung, sonst läse man sie als Teil der Figur.
+// steht keine Beschriftung, sonst läse man sie als Teil der Figur. In Stufe 3
+// steht sie zudem ihrem eigenen Stück deutlich näher als jedem fremden.
 function beschriftungStoert(b, k, stuecke, kaesten, andere) {
   const noetig = k.radius + HALBE_STRICHBREITE;
   for (let s = 0; s < stuecke.length; s++) {
@@ -850,13 +919,13 @@ function beschriftungStoert(b, k, stuecke, kaesten, andere) {
     if (kreis && punktStreckeAbstand(kreis.mitte, k.a, k.e) < kreis.radius) return true;
     if (b.eigeneStuecke.includes(s) && !kreis) continue;
     if (kastenAbstand(k.umfang, kaesten[s]) >= noetig) continue;
-    if (zugAbstand([k.a, k.e], stuecke[s].punkte) < noetig) return true;
+    if (zugNaeherAls([k.a, k.e], stuecke[s].punkte, noetig)) return true;
   }
   for (const o of andere) {
     if (kastenAbstand(k.umfang, o.umfang) > 0) continue;
     if (streckenAbstand(k.a, k.e, o.a, o.e) < k.radius + o.radius) return true;
   }
-  return false;
+  return b.zuordnung !== undefined && zuordnungUnklar(b, k, stuecke, kaesten);
 }
 
 // Zählt Beschriftungen, die ein fremdes Stück, eine andere Beschriftung oder das
