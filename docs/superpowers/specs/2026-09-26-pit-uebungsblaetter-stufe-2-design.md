@@ -15,7 +15,7 @@ Dieser erste Bauabschnitt umfasst:
 
 Nicht in diesem Abschnitt, aber in der Adressstruktur schon vorgesehen:
 
-- Stufe 3 (die Kürzel `HR`, `GK`, `K`, `anl. Kurs` sind noch ungeklärt)
+- Stufe 3 (seit 27.09.2026 umgesetzt, siehe Abschnitt "Stufe 3" am Ende)
 - Endlosmodus je Stufe
 - zufällig gemischte Schreibweise der Himmelsrichtungen
 
@@ -210,7 +210,8 @@ Eine Seite mit drei Ansichten, umgeschaltet über den Adressanker:
 | `#/` | Startseite: Titel, zwei große Knöpfe "Stufe 2" und "Stufe 3" |
 | `#/stufe2` | Stufenseite: Zurück, Titel, Liste der Blätter 1 bis 100 als Zahlenraster |
 | `#/stufe2/blatt/7` | Blattansicht |
-| `#/stufe3` | Platzhalter "Stufe 3 kommt in einem späteren Abschnitt" |
+| `#/stufe3` | Stufenseite der Stufe 3, Blattliste ohne Gate-Marke (seit 27.09.2026) |
+| `#/stufe3/blatt/7` | Blattansicht der Stufe 3, ohne Textteil |
 | `#/stufe2/endlos` | reserviert für den Endlosmodus, vorerst Platzhalter |
 
 **Blattansicht**: Kopfleiste mit Zurück, "Stufe 2 · Blatt 7" und "Drucken". Darunter das Blatt: Titel "AUA PIT Stufe 2, Blatt 7", Zeile "Ausgangskurs 090°, 2000 ft", die 12 Textzeilen, der Parcours als SVG, darunter eine kleine Legende der drei Linienarten. Auf dem Handy skaliert das SVG auf Bildschirmbreite.
@@ -234,7 +235,9 @@ js/app.js                   Adressen, Ansichten, Navigation, Blattanzahl
 js/zufall.js                Hash und mulberry32
 js/kurs.js                  Gradrechnung, Himmelsrichtungen, kürzester Weg, Drehrichtung
 js/textteil.js              Flugzustand und Satzschablonen
-js/parcours.js              Bausteine, Mengen, Geometrie, Kandidatensuche
+js/elemente.js              Bausteine und Mengen je Stufe
+js/geometrie.js             Weg, Querstriche, Beschriftungen, Maße der Passform
+js/parcours.js              Kandidatensuche
 js/zeichnung.js             SVG aus einem Parcours
 test/*.test.js              eine Prüfdatei je Modul
 docs/superpowers/specs/     dieser Entwurf
@@ -266,7 +269,60 @@ Die Zeichnung selbst wird zusätzlich per Sichtprüfung headless geprüft (Bilds
 
 ## Offene Punkte für spätere Abschnitte
 
-- Stufe 3: Bedeutung von `HR`, `GK`, `K` ("über N auf K", "kürz. W. auf K"), `anl. Kurs`; Kästen mit drei Befehlen und Pfeilen; kein Textteil
 - Endlosmodus je Stufe, Auswahl zwischen nur Textteil, nur Parcours oder gemischt
 - Schreibweise der Himmelsrichtungen zufällig gemischt
 - Versionsnummer im Zufallsstartwert, falls Blattnummern stabil bleiben müssen
+
+## Stufe 3
+
+Stand: 27.09.2026. Vorlagen im Ordner `Stufe 3/` (bleibt außerhalb des Repositorys): `AUA PIT Stufe 3.pdf`, das Gegenkursbeispiel (`PHOTO-2026-07-29-10-05-34 3.jpg`) und die Handzeichnung mit START und ZIEL (`WhatsApp Image 2026-08-08 at 16.24.30.jpeg`). Alle drei sind Stufe 3; ihre Elemente kommen gemischt über die 100 Blätter vor. Stufe 2 bleibt Byte für Byte, wie sie war: Stufe 3 hat eigene Zufallsschlüssel (`stufe-3/blatt-7`) und eigene Erzeugungspfade, eine Prüfung vergleicht einen Fingerabdruck aller 100 Blätter der Stufe 2.
+
+### Fachliche Regeln (von Willi bestätigt)
+
+- **Kein Textteil.** Das Blatt ist nur der Parcours. Start auf 2000 ft mit dem Kurs des ersten Segments. In der Zeichnung steht "Start" am Flugzeugsymbol und "Ende" am letzten Segment.
+- **HR = Himmelsrichtung**, der nächstgelegene Strich der Kompassrose. `HR/20"`: vom aktuellen Kurs auf die nächste Himmelsrichtung drehen, 20 s halten (010° auf N, 015° auf NNE). `HR 111°/15"`: 111° auf die nächste Himmelsrichtung runden (ESE, 112,5°), 15 s fliegen. Die PDF schreibt auch `042°/20" HR`; die App nutzt die Form mit HR voran.
+- **GK = Gegenkurs.** `GK/15"` als Segment: Gegenkurs des aktuellen Kurses 15 s fliegen. In Gates: `GK` und `GK -19°` (Gegenkurs minus 19).
+- **anl. Kurs = anliegender Kurs**, der gerade geflogene: `anl. Kurs +98°` ist der aktuelle Kurs plus 98, `anl. Kurs +7×8` der aktuelle Kurs plus 56. Selten, höchstens eine Zeile je Blatt.
+- **K** in "über N auf K" ist der Kurs des nächsten gezeichneten Segments. Er wird über Norden (die Drehung geht durch 000°), über Süden (durch 180°) oder auf kürzestem Weg angesteuert.
+- **Nackte Gradzahlen an Kurven** (`300`, `145`): Drehwinkel der Kurve; ob rechts oder links, zeigt die gezeichnete Kurve.
+- **Rechenaufgaben** wie in Stufe 2 (`+95` an einem Segment, ohne Gradzeichen).
+- Himmelsrichtungen in der Zeichnung englisch (`SCHREIBWEISE.zeichnung`), auch in Gates.
+
+### Elemente
+
+Alle Elemente der Stufe 2 (Segment mit Grad, Himmelsrichtung oder ohne Kurs, Vollkreis mit zwei Profilen, Ecke mit relativer Kursänderung, Rechenaufgabe, Gate) und dazu:
+
+1. **Gradzahl-Kurve** (`{ art: 'kurve', winkel, richtung, profil }`): eigenes Element zwischen zwei Segmenten, Drehwinkel ganzzahlig 40 bis 340, nicht 180, links oder rechts, eigenes Profil, gezeichnet in dessen Linienart (Sprossen auch auf dem Bogen). Dauer für die Höhe: Winkel / 3 s. Die Gradzahl steht ohne Vorzeichen und Gradzeichen außen an der Bogenmitte, sonst bei einem oder drei Vierteln des Bogens. Radius 24, ab 180° eine Schleife mit Radius 35 wie ein Vollkreis. Querstriche an Anfang und Ende. Das folgende Segment trägt keine Kursangabe (`/10"`), sein Kurs ist der Kurs davor plus oder minus Winkel; es beginnt ohne Ecke am Ende des Bogens. In Kreuzungs- und Abstandsprüfung gilt die Schleifenausnahme wie bei Ecken über 180°.
+2. **Segmente mit HR oder GK** (`anzeige` `hr`, `hrKurs`, `gk`): `HR/…` nur, wenn der aktuelle Kurs mindestens 5° von der nächsten Himmelsrichtung entfernt liegt (nie genau 11,25°); die Ecke ist dann ein kleiner Bogen von 5° bis unter 11,25°. `HR 111°/…` mit einem Gradkurs 1° bis 10° neben einer Himmelsrichtung; die Ecke dreht 20° bis 160° auf kürzestem Weg. `GK/…` hat eine Kehre von 180° mit Radius 20, die Richtung (`gkRichtung`) ist zufällig und nur in der Zeichnung zu sehen, die beiden Strecken liegen 40 auseinander. HR und GK folgen nie auf ein Gate, eine Kurve oder den Start.
+3. **Gates in drei Formen** (`{ art: 'gate', form, zeilen, anschluss }`), je Gate zufällig:
+   - **Form A (PDF):** drei Zeilen `Wert Pfeil Zeit` (`+127° → 15"`, `SSW ↗ 15"`, `123° → 15"`), Relativwerte mit Gradzeichen und Betrag 20 bis 160, so dass Vorzeichen und kürzester Weg übereinstimmen. Dazu die **Anschlusszeile** als letzte Zeile: `über N auf K`, `über S auf K` oder `kürz. W. auf K`. "über N" nur, wenn weder der letzte Gate-Kurs noch K auf 000° liegen und die Drehung nicht 180° ist, "über S" ebenso mit 180°; "kürz. W." bei 20° bis 160°. Bei "über N/S" ist die lange Seite erlaubt, K liegt aber mindestens 20° vom letzten Gate-Kurs.
+   - **Form B (Gegenkursbeispiel):** vier Zeilen wie in Stufe 2 (`-322 ↗ 15"`, `ENE → 10"`, `083° → 10"`), Relativwerte ohne Gradzeichen mit Betrag 20 bis 490, der Kurs danach 20° bis 160° vom Kurs davor. Keine Anschlusszeile, das nächste Segment liegt 20° bis 160° vom letzten Gate-Kurs.
+   - **Form C (Handzeichnung):** drei bis vier Zeilen `Pfeil Ausdruck Zeit` (`↗ NNE +102° 15"`, `→ WSW 15"`, `→ GK 25"`, `↗ GK -19° 20"`, `→ anl. Kurs +98° 25"`, `↘ anl. Kurs +7×8 20"`). Ausdrücke: Himmelsrichtung, Himmelsrichtung ± 10 bis 130, GK, GK ± 10 bis 60, selten `anl. Kurs +n` oder `anl. Kurs +a×b` (a, b einstellig ab 2, Ergebnis 20 bis 160). Jeder Ausdruck außer dem reinen GK ergibt einen Kurs 20° bis 160° vom Kurs davor; zwei reine GK folgen nie aufeinander.
+   - Alle Formen: Ankunft mit dem Kurs davor, jede Zeile rechnet vom Kurs der Zeile davor, Zeiten 10, 15, 20 oder 25 s, Profile aus der gemeinsamen Profilwahl mit Höhenrahmen. Der Kasten ist so breit wie die längste Zeile nach den gemessenen Zeichenbreiten der Schrift (plus 8 % und 10 Einheiten Rand), bis fünf Zeilen hoch.
+4. **Relative Ecken** wie in Stufe 2 (`-87°`, `+117°`), Radius 12, ab 180° Schleife mit 28.
+5. **Start und Ende:** "Start" hinter dem Flugzeugsymbol, "Ende" hinter dem Ende des letzten Segments, jeweils gerade dahinter oder 45° daneben, waagerecht, fett. Sie sind Beschriftungen und müssen frei stehen.
+
+### Mengen je Blatt
+
+- 18 bis 24 Segmente, Dauer 10, 15, 20 oder 25 s (25 s seltener)
+- 1 bis 2 Vollkreise, 2 bis 3 Gradzahl-Kurven, 3 bis 4 Gates, 2 bis 3 relative Ecken, 1 bis 3 Segmente mit HR oder GK, 3 bis 5 Rechenaufgaben, 3 bis 5 Himmelsrichtungen
+- Gates, Vollkreise und Kurven folgen auf Segment 2 bis Anzahl minus 2, je Stelle höchstens eines: nie am ersten oder letzten Segment, immer mindestens ein Segment dazwischen
+- Höhe ab 2000 ft zwischen 1000 und 3000 ft (Segmente, Kreishälften 60 s, Kurven Winkel / 3 s, Gate-Zeilen), kein Profil viermal hintereinander
+- Norden oben, Start oben (`START_OBEN`), Zulässigkeit wie Stufe 2
+
+### Erzeugung
+
+`erzeugeElemente(zufall, einstellungen, start, pruefer)` bekommt je Stufe ein Einstellungsobjekt: `{ stufe: 2, mitGates }` zieht genau die Zufallszahlen wie bisher, `{ stufe: 3 }` den eigenen Pfad. Stufe 3 baut einen Kandidaten Schritt für Schritt (Segment und was ihm folgt) und prüft jeden Schritt sofort gegen den bisherigen Weg (`schrittpruefer` in `geometrie.js`: keine Kreuzung außer an Schleifen, Mittellinien mindestens 9 auseinander, Flugzeugsymbol frei, nichts mehr als 120 Einheiten über dem Start). Scheitert ein Schritt viermal, wird der Schritt davor wiederholt; nach 60 gescheiterten Schritten ist der Kandidat verworfen. Ohne diese Prüfung kreuzten sich 99,6 % der Kandidaten; mit ihr kommen gut 60 % durch, und 1300 Kandidaten je Blatt reichen (`KANDIDATEN_STUFE_3`). Danach dieselbe Auswahl wie in Stufe 2: zulässig und höchste Füllung.
+
+Gemessen über die 100 Blätter: alle 100 zulässig, CPU-Zeit je Blatt im Median 242 ms, höchstens 423 ms, Druckschrift im Median 8,1 pt, mindestens 6,1 pt.
+
+### Oberfläche und Druck
+
+Startseite mit aktiver Karte "Stufe 3, Nur Parcours, 100 Blätter, alle mit Gates", Blattliste mit Vorschaubildern aus `vorschau/stufe3/` und ohne Gate-Marke, Blattansicht ohne Textteil mit den Zeilen "Start 2000 ft, Kurs vom ersten Segment" und "HR = nächste Himmelsrichtung, GK = Gegenkurs, K = Kurs des nächsten Segments, nackte Gradzahl an einer Kurve = Drehwinkel in gezeichneter Richtung", dazu der Gate-Hinweis und die Legende. Im Druck nimmt die Zeichnung die ganze Höhe, die ohne Textteil frei wird.
+
+### Prüfung
+
+`test/stufe3.test.js` prüft je Element (Kurve: Winkel, Richtung, Profil, Folgekurs, Radius, Querstriche, Gradzahl; HR: Rundung; GK: Gegenkurs und Kehre; Gates A, B, C: Zeilenmuster, Werte, Anschlusszeile eindeutig; Start und Ende), Mengen, Höhe, Bestimmtheit. `test/blaetter.test.js` erzeugt alle 100 Blätter beider Stufen: Stufe 2 unverändert (Fingerabdruck), Stufe 3 mindestens 90 zulässig und jedes Blatt unter 500 ms CPU-Zeit.
+
+Das Logik-Prüfwerkzeug `werkzeuge/pruefen.js` (`node werkzeuge/pruefen.js 2` oder `3`) rechnet jedes Blatt nur aus Sätzen und SVG nach, wie eine Pilotin, und gleicht am Ende mit dem Erzeuger ab. Beide Stufen: 0 Fehler.
+
