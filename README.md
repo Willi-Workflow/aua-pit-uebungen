@@ -10,6 +10,7 @@ Die App speichert nichts außer den Einstellungen des Blitzrechnens, und die nur
 
 - Stufe 2 vollständig: Textteil und Parcours, 100 nummerierte Blätter, Druck auf A4
 - Stufe 3 vollständig: Textteil wie Stufe 2 und Parcours nach den drei Vorlagen (PDF, Gegenkursbeispiel, Handzeichnung), 100 nummerierte Blätter, alle mit Gates, Druck auf A4
+- Übungsmodus in der Blattansicht beider Stufen: Vollbild, Lösungen des Parcours Schritt für Schritt
 - Blitzrechnen vollständig: Kopfrechnen mit Kursen (geschrieben, per Ton oder beides) und Ausschnitte für Stufe 2 und Stufe 3, jeweils leicht, normal oder schwer
 - Endlosmodus folgt
 
@@ -39,6 +40,30 @@ Stufe 3 hat alle Zeichen der Stufe 2 und dazu:
 - **Gates in drei Formen:** wie in der PDF drei Zeilen mit Gradzeichen am Relativwert (`+127° → 15"`, bis `+190°`, das Vorzeichen nennt die Richtung), höchstens eine davon mit Gegenkurs (`GK → 15"`, `GK -19° ↘ 20"`), und der Zeile mit K; wie im Gegenkursbeispiel vier Zeilen wie in Stufe 2 (`-322 ↗ 15"`), ohne Gegenkurs; wie in der Handzeichnung mit dem Pfeil voran (`↗ NNE +102° 15"`, `→ GK 25"`), mit mindestens einer Zeile Gegenkurs.
 
 Jede Beschriftung steht deutlich näher an ihrem eigenen Strich als an jedem anderen, zu dem sie passen könnte, und Schleifen kreuzen Ein- und Ausfahrt sauber. Norden ist oben, der Start liegt oben; der Pfeil zeigt nach Norden. Das Flugzeug steht am Start und zeigt in die erste Flugrichtung. In beiden Stufen beginnt der Parcours 20° bis 160° vom Endkurs des Textteils und hält wie der Textteil die Höhe zwischen 1000 und 3000 ft, ab der Höhe nach dem letzten Satz.
+
+## Übungsmodus
+
+In der Blattansicht beider Stufen steht neben "Drucken" der Knopf **Start**. Er legt das Blatt über den ganzen Bildschirm: Textteil oben, darunter der Parcours so groß, wie die übrige Höhe erlaubt (der Textteil wird dafür kleiner und im Querformat ab 700 px Breite zweispaltig). Das Vollbild kommt über die Fullscreen-API (mit webkit-Rückfall); zusätzlich legt die Klasse `vollbild` das Blatt als feste Fläche über alles, damit es auch ohne die API geht, etwa auf dem iPhone.
+
+Im Vollbild zeigt jeder Druck auf die **Leertaste**, jedes **Tippen** oder **Klicken** an der nächsten Rechenstelle die Lösung, rot und fett mit weißem Umriss, der Reihe nach vom Start bis zum Ende. **Rücktaste** und **Pfeil links** blenden die letzte wieder aus, **Escape**, "Beenden" oder das Verlassen des Vollbilds über den Browser beenden den Modus, und alle Lösungen verschwinden. Oben rechts zählt "3 / 11" mit. Der Textteil bleibt ohne Lösungen, der Druck zeigt weder Lösungen noch Start-Knopf.
+
+Rechenstellen (`js/loesungen.js`, ohne DOM):
+
+| Stelle | Lösung |
+|---|---|
+| Segment ohne Kurs nach einer relativen Ecke (`+117°`) oder Gradzahl-Kurve (`139`) | Kurs, `247°` |
+| Rechenaufgabe (`+230`) | Kurs des Segments plus Zahl, `= 117` |
+| jede Zeile eines Gates | Kurs nach der Zeile, `202,5°` |
+| Stufe 3: Kursangabe als Gegenkurs (`GK 247°/15"`) | `067°` |
+| Stufe 3: `HR/20"`, `HR 111°/15"` | Himmelsrichtung wie auf dem Blatt, `ESE` |
+| Stufe 3: `GK/15"` | Kurs |
+| Stufe 3: Anschlusszeile (`über N auf K`) | `K = 048°` |
+
+Himmelsrichtungen und Gradkurse als Angabe ohne GK sind keine Rechenstelle, Vollkreise auch nicht. Je Blatt sind es im Mittel 18,6 Stellen in Stufe 2 und 32,4 in Stufe 3.
+
+Jede Lösung steht an ihrer Beschriftung: bei Segmenten rechts neben der Zeile, als eigene Zeile außen über oder unter der Angabe oder links davon, bei Gates rechts neben der Zeile außerhalb des Kastens, sonst links. Gewählt wird die Lage, die die eigene Beschriftung frei lässt, im Zeichenfeld bleibt und am wenigsten fremde Beschriftungen, Kästen, Symbole und schon gesetzte Lösungen verdeckt, dann am wenigsten Linien; gesetzt werden erst die Gates, dann die Segmente. Linien darf eine Lösung überdecken; fremde Beschriftungen, Kästen oder andere Lösungen berühren nach der gemessenen Tinte 29 von 1860 Lösungen der Stufe 2 und 52 von 3240 der Stufe 3. `zeichneParcours` zeichnet die Lösungen mit der Option `loesungen` als verborgene Gruppe obenauf, erst alle weißen Umrisse, dann alle roten Texte; ohne die Option bleibt das SVG Zeichen für Zeichen, wie es war.
+
+**Prüfmodus** für Bildschirmfotos: `#/stufe3/blatt/6?probe=vollbild&schritt=8` zeigt das Blatt im Vollbildzustand mit den ersten 8 Lösungen, ohne Fullscreen-API und ohne Ablauf.
 
 ## Blitzrechnen
 
@@ -78,7 +103,7 @@ Dann http://127.0.0.1:8765/ öffnen.
 
     node --test
 
-Braucht Node 20 oder neuer, keine Abhängigkeiten. Die Prüfungen erzeugen alle 100 Blätter beider Stufen und dauern gut eine Minute; eine davon stellt sicher, dass die Textteile der Stufe 2 Byte für Byte gleich bleiben, eine andere hält den Fingerabdruck aller 200 Blätter fest (Textteil, Zeichnung, Vorschaubild). Für das Blitzrechnen rechnen sie je Stufe 200 Ausschnitte und je Stufe und Schwierigkeit 100 weitere aus den gezeichneten Beschriftungen nach und lesen dort auch die Wertebereiche ab; beim Kopfrechnen erzeugen sie je Schwierigkeit 500 Aufgaben je Art und prüfen Wertebereiche, Lösung und Tonfolge gegen den Aufgabentext und die Dateien unter `klaenge/`.
+Braucht Node 20 oder neuer, keine Abhängigkeiten. Die Prüfungen erzeugen alle 100 Blätter beider Stufen und dauern gut eine Minute; eine davon stellt sicher, dass die Textteile der Stufe 2 Byte für Byte gleich bleiben, eine andere hält den Fingerabdruck aller 200 Blätter fest (Textteil, Zeichnung, Vorschaubild). Für den Übungsmodus rechnen sie jede Lösung aller 200 Blätter mit dem Prüfwerkzeug aus dem gedruckten SVG nach (Anzahl, Art, Wert, Reihenfolge) und prüfen ihre Lage an der eigenen Beschriftung (`werkzeuge/pruefen/loesungen.js`). Für das Blitzrechnen rechnen sie je Stufe 200 Ausschnitte und je Stufe und Schwierigkeit 100 weitere aus den gezeichneten Beschriftungen nach und lesen dort auch die Wertebereiche ab; beim Kopfrechnen erzeugen sie je Schwierigkeit 500 Aufgaben je Art und prüfen Wertebereiche, Lösung und Tonfolge gegen den Aufgabentext und die Dateien unter `klaenge/`.
 
 ## Logikprüfung
 
@@ -100,6 +125,8 @@ oder `npm run pruefen -- 3`. Das Werkzeug erzeugt alle 100 Blätter einer Stufe 
 | `js/zeichnung.js` | SVG aus dem Parcours, für Ausschnitte ohne Nordpfeil |
 | `js/blatt.js` | Blatt aus Stufe und Nummer |
 | `js/app.js` | Adressen und Ansichten |
+| `js/loesungen.js` | Übungsmodus: Rechenstellen mit Lösung und Lage, Tastenlogik |
+| `js/uebungsmodus.js` | Übungsmodus: Vollbild, Tasten und Tippen im Browser |
 | `js/schwierigkeit.js` | Blitzrechnen: Wertebereiche und Vorgabezeiten je Schwierigkeit |
 | `js/kopfrechnen.js` | Blitzrechnen: Kopfaufgaben mit Text, Lösung und Tonfolge |
 | `js/ausschnitt.js` | Blitzrechnen: Ausschnitte aus der Blatterzeugung, Fragen und Lösungen |
