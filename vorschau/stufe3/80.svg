@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-124.2 -59.2 560.4 495.9" preserveAspectRatio="xMidYMid meet">
+<g fill="none" stroke="#000" stroke-width="11" stroke-linecap="round">
+<path d="M 0 0 L 92.4 -38.3"/>
+<path d="M 92.4 -38.3 A 12 12 0 0 1 109 -27"/>
+<path d="M 109 -27 L 108.1 23"/>
+<path d="M 108.1 23 A 35 35 0 0 1 38.1 21.8"/>
+<path d="M 38.1 21.8 A 35 35 0 0 1 108.1 23"/>
+<path d="M 108.1 23 A 12 12 0 0 0 117 34.8"/>
+<path d="M 117 34.8 L 237.7 67.2"/>
+<path d="M 237.7 67.2 A 12 12 0 0 1 239.2 89.8"/>
+<path d="M 239.2 89.8 L 146.8 128.1"/>
+<path d="M 146.8 128.1 A 12 12 0 0 0 142.9 130.7"/>
+<path d="M 142.9 130.7 L 72.2 201.4"/>
+<path d="M 72.2 201.4 A 12 12 0 0 0 77.8 221.6"/>
+<path d="M 77.8 221.6 L 174.8 245.8"/>
+<path d="M 174.8 245.8 A 35 35 0 1 0 160.3 185.4"/>
+<path d="M 160.3 185.4 L 84.9 251"/>
+<path d="M 84.9 251 A 28 28 0 1 0 96.5 244.9"/>
+<path d="M 96.5 244.9 L -0.6 269.1"/>
+<path d="M -0.6 269.1 A 24 24 0 0 1 -19.1 225.5"/>
+<path d="M -19.1 225.5 L 65.7 172.5"/>
+<path d="M 65.7 172.5 A 35 35 0 1 0 13.7 132.6"/>
+<path d="M 13.7 132.6 L -8.2 204.3"/>
+<path d="M -8.2 204.3 A 12 12 0 0 1 -31 204.9"/>
+<path d="M -31 204.9 L -48.1 157.9"/>
+<path d="M -48.1 157.9 A 12 12 0 0 0 -70.1 156.8"/>
+<path d="M -70.1 156.8 L -103 224.2"/>
+<path d="M -103 224.2 A 12 12 0 0 0 -100.7 237.9"/>
+<path d="M -100.7 237.9 L -30 308.6"/>
+<path d="M 30.7 352.1 L 74.4 376.3"/>
+<path d="M 141 395.9 L 216 398.6"/>
+<path d="M 216 398.6 A 12 12 0 0 0 222.9 376.5"/>
+<path d="M 222.9 376.5 L 181 349.3"/>
+<path d="M 181 349.3 A 12 12 0 0 1 181 329.1"/>
+<path d="M 181 329.1 L 264.9 274.7"/>
+<path d="M 302.8 231.1 L 318.4 157.7"/>
+<path d="M 339.6 122.7 L 410.4 52"/>
+<path d="M 410.4 52 A 20 20 0 0 0 382.1 23.7"/>
+<path d="M 382.1 23.7 L 311.4 94.4"/>
+</g>
+<rect x="-46.7" y="308.6" width="77.4" height="44" fill="#fff" stroke="#000" stroke-width="4"/>
+<rect x="74.4" y="372.8" width="66.6" height="44" fill="#fff" stroke="#000" stroke-width="4"/>
+<rect x="264.9" y="231.1" width="66.6" height="44" fill="#fff" stroke="#000" stroke-width="4"/>
+<rect x="281.6" y="122.7" width="81.2" height="35" fill="#fff" stroke="#000" stroke-width="4"/>
+<path class="nordpfeil" d="M 426.1 -21.2 L 426.1 -31.2 M 426.1 -37.2 L 429.6 -31.2 L 422.6 -31.2 Z" fill="#000" stroke="#000" stroke-width="3" stroke-linejoin="round"/>
+</svg>

@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { erzeugeBlatt, BLAETTER_JE_STUFE } from '../js/blatt.js';
+import { erzeugeBlatt, BLAETTER_JE_STUFE, STUFEN } from '../js/blatt.js';
 import { zeichneVorschau } from '../js/zeichnung.js';
 
-const ordner = new URL('../vorschau/stufe2/', import.meta.url);
+const ordnerFuer = (stufe) => new URL(`../vorschau/stufe${stufe}/`, import.meta.url);
 const HINWEIS = 'Vorschaubilder fehlen oder sind veraltet, bitte "npm run vorschauen" ausführen';
 
 const blatt = erzeugeBlatt(2, 1);
@@ -66,22 +66,35 @@ test('Vorschau: Gate als weißes Rechteck mit schwarzem Rand über den Linien', 
   assert.ok(bild.indexOf('<rect') > bild.indexOf('</g>'), 'der Kasten liegt über den Linien');
 });
 
-test('für jedes Blatt der Stufe 2 liegt ein Vorschaubild unter 6 KB vor', () => {
-  const fehlend = [];
-  const zuGross = [];
-  for (let nummer = 1; nummer <= BLAETTER_JE_STUFE; nummer++) {
-    const datei = new URL(`${nummer}.svg`, ordner);
-    if (!existsSync(datei)) fehlend.push(nummer);
-    else if (readFileSync(datei).length >= 6 * 1024) zuGross.push(nummer);
-  }
-  assert.ok(fehlend.length === 0, `${HINWEIS}; fehlend: ${fehlend.join(', ')}`);
-  assert.ok(zuGross.length === 0, `Vorschaubilder ab 6 KB: ${zuGross.join(', ')}`);
-});
+const GRENZE_KB = 6;
 
-test('Stichprobe: Vorschaubilder passen zum aktuellen Erzeuger', () => {
-  for (let nummer = 1; nummer <= 91; nummer += 10) {
-    const datei = new URL(`${nummer}.svg`, ordner);
-    const inhalt = existsSync(datei) ? readFileSync(datei, 'utf8') : '';
-    assert.ok(inhalt === zeichneVorschau(erzeugeBlatt(2, nummer).parcours), `Blatt ${nummer}: ${HINWEIS}`);
-  }
+for (const stufe of STUFEN) {
+  test(`für jedes Blatt der Stufe ${stufe} liegt ein Vorschaubild unter ${GRENZE_KB} KB vor`, () => {
+    const fehlend = [];
+    const zuGross = [];
+    for (let nummer = 1; nummer <= BLAETTER_JE_STUFE; nummer++) {
+      const datei = new URL(`${nummer}.svg`, ordnerFuer(stufe));
+      if (!existsSync(datei)) fehlend.push(nummer);
+      else if (readFileSync(datei).length >= GRENZE_KB * 1024) zuGross.push(nummer);
+    }
+    assert.ok(fehlend.length === 0, `${HINWEIS}; fehlend: ${fehlend.join(', ')}`);
+    assert.ok(zuGross.length === 0, `Vorschaubilder ab ${GRENZE_KB} KB: ${zuGross.join(', ')}`);
+  });
+
+  test(`Stichprobe: Vorschaubilder der Stufe ${stufe} passen zum aktuellen Erzeuger`, () => {
+    for (let nummer = 1; nummer <= 91; nummer += 10) {
+      const datei = new URL(`${nummer}.svg`, ordnerFuer(stufe));
+      const inhalt = existsSync(datei) ? readFileSync(datei, 'utf8') : '';
+      assert.ok(inhalt === zeichneVorschau(erzeugeBlatt(stufe, nummer).parcours), `Stufe ${stufe}, Blatt ${nummer}: ${HINWEIS}`);
+    }
+  });
+}
+
+test('Vorschau der Stufe 3: Kurven als Linien, Gates als Kästen, keine Beschriftung', () => {
+  const parcours = erzeugeBlatt(3, 1).parcours;
+  const bild = zeichneVorschau(parcours);
+  const linien = parcours.geometrie.stuecke.filter((s) => s.art !== 'gate');
+  assert.equal((bild.match(/<path d=/g) || []).length, linien.length);
+  assert.equal((bild.match(/<rect /g) || []).length, parcours.geometrie.stuecke.length - linien.length);
+  assert.ok(!bild.includes('<text'));
 });
