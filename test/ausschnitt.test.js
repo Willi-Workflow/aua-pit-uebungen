@@ -20,11 +20,14 @@ const ausschnitte = {
   3: Array.from({ length: ANZAHL }, (_, i) => erzeugeAusschnitt(new Zufall(`ausschnitt-3-${i}`), 3)),
 };
 
-// Kurs einer Segmentbeschriftung ("123°/15"", "SSE/10"") oder null ("/15"", "HR/20"")
+// Kurs einer Segmentbeschriftung ("123°/15"", "SSE/10"", als Gegenkurs-Angabe
+// "GK 303°/15"" für 123°, "GK NNW/10"" für SSE) oder null ("/15"", "HR/20"")
 function segmentKurs(zeile) {
   let m;
   if ((m = zeile.match(/^(\d{3})°\/\d+"$/))) return Number(m[1]);
   if ((m = zeile.match(/^([A-Z]{1,3})\/\d+"$/)) && !['HR', 'GK'].includes(m[1])) return RICHTUNGEN.indexOf(m[1]) * 22.5;
+  if ((m = zeile.match(/^GK (\d{3})°\/\d+"$/))) return norm(Number(m[1]) + 180);
+  if ((m = zeile.match(/^GK ([A-Z]{1,3})\/\d+"$/))) return norm(RICHTUNGEN.indexOf(m[1]) * 22.5 + 180);
   return null;
 }
 
@@ -85,6 +88,10 @@ function nachrechnen(svgText, art) {
   }
   if (art === 'himmelsrichtung') {
     assert.match(mitte.zeilen[0], /^[A-Z]{1,3}\/\d+"$/);
+    return { ankunft, loesungen: [segmentKurs(mitte.zeilen[0])] };
+  }
+  if (art === 'gkAngabe') {
+    assert.match(mitte.zeilen[0], /^GK (\d{3}°|[A-Z]{1,3})\/\d+"$/);
     return { ankunft, loesungen: [segmentKurs(mitte.zeilen[0])] };
   }
   if (art === 'hr') {
@@ -198,6 +205,30 @@ test('Ausschnitte Stufe 3: Gates in allen drei Formen, Form A mit Frage nach dem
   assert.deepEqual(formen, new Set(['a', 'b', 'c']));
 });
 
+// Gegenkurs-Angabe wie im Gegenkursbeispiel: Die Beschriftung nennt den
+// Gegenkurs, gezeichnet ist der tatsächliche Kurs, und der ist die Antwort
+test('Ausschnitte Stufe 3: Angabe als Gegenkurs, gezeichnet und gefragt ist der tatsächliche Kurs', () => {
+  let mitGk = 0;
+  for (let i = 0; i < 40; i++) {
+    const a = erzeugeAusschnitt(new Zufall(`gk-angabe-${i}`), 3, 'gkAngabe');
+    const segment = a.elemente[1];
+    assert.equal(segment.alsGegenkurs, true);
+    assert.equal(a.fragen[0].loesung, segment.kurs);
+    const svg = svgLesen(zeichneAusschnitt(a));
+    const text = svg.texte.find((t) => /^GK (\d{3}°|[A-Z]{1,3})\//.test(t.zeilen[0]));
+    assert.ok(text, 'Beschriftung mit GK');
+    assert.equal(segmentKurs(text.zeilen[0]), segment.kurs);
+    // Die zweite Strecke ist das Aufgabensegment, gezeichnet in seinem tatsächlichen Kurs
+    const strecke = svg.stuecke.filter((st) => st.art === 'strecke')[1];
+    assert.ok(abstand(strecke.kurs, segment.kurs) < 0.5, `gezeichnet ${strecke.kurs}, Kurs ${segment.kurs}`);
+  }
+  // Auch als Folgesegment oder mit Rechenaufgabe kommen Angaben als Gegenkurs vor
+  for (const a of ausschnitte[3]) if (a.art !== 'gkAngabe' && a.elemente.some((e) => e.alsGegenkurs)) mitGk += 1;
+  assert.ok(mitGk > 20, `nur ${mitGk} weitere Ausschnitte mit GK-Angabe`);
+  assert.ok(!ausschnitte[3][0].elemente[0].alsGegenkurs && ausschnitte[3].every((a) => !a.elemente[0].alsGegenkurs), 'Startsegment ohne GK-Angabe');
+  assert.ok(ausschnitte[2].every((a) => a.elemente.every((e) => !('alsGegenkurs' in e))), 'Stufe 2 ohne GK-Angabe');
+});
+
 test('Ausschnitte: jede Art lässt sich gezielt erzeugen, gleicher Startwert gibt gleichen Ausschnitt', () => {
   for (const stufe of [2, 3]) {
     for (const art of AUSSCHNITT_ARTEN[stufe]) {
@@ -214,5 +245,5 @@ test('Ausschnitte: jede Art lässt sich gezielt erzeugen, gleicher Startwert gib
   assert.equal(zeichneAusschnitt(erzeugeAusschnitt(new Zufall('gleich'), 3)), eins);
   // Stufe 2 kennt die Gradzahl-Kurve, aber kein HR, GK und anl. Kurs
   assert.equal(erzeugeAusschnitt(new Zufall('x'), 2, 'kurve').art, 'kurve');
-  for (const art of ['hr', 'hrKurs', 'gk', 'anl']) assert.throws(() => erzeugeAusschnitt(new Zufall('x'), 2, art));
+  for (const art of ['hr', 'hrKurs', 'gk', 'anl', 'gkAngabe']) assert.throws(() => erzeugeAusschnitt(new Zufall('x'), 2, art));
 });

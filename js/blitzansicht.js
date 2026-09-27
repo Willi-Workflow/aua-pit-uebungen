@@ -34,8 +34,8 @@ export const BEREICHE = {
     titel: 'Blitzrechnen Stufe 3',
     ort: 'Stufe 3',
     stufe: 3,
-    karte: 'Dazu HR, GK, Gates in drei Formen und anl. Kurs',
-    text: 'Wie Stufe 2, dazu HR, GK, Gates in drei Formen mit dem Drehsinn zum nächsten Kurs und anl. Kurs.',
+    karte: 'Dazu HR, GK, Kurse als Gegenkurs, Gates in drei Formen und anl. Kurs',
+    text: 'Wie Stufe 2, dazu HR, GK, Kurse als Gegenkurs angegeben, Gates in drei Formen mit dem Drehsinn zum nächsten Kurs und anl. Kurs.',
   },
 };
 

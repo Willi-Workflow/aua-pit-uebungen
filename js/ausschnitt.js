@@ -16,10 +16,13 @@ import { normieren } from './kurs.js';
 // Aufgabenelemente je Stufe. "gate" ist in Stufe 2 ein Gate mit drei Zeilen,
 // in Stufe 3 eines der Formen A, B oder C; "anl" ist ein Gate der Form C mit
 // einer Zeile "anl. Kurs". "kurve" ist die Gradzahl-Kurve mit dem Segment ohne
-// Kurs danach, in beiden Stufen wie auf den Blättern.
+// Kurs danach, in beiden Stufen wie auf den Blättern. "gkAngabe" (Stufe 3) ist
+// ein Segment, dessen Angabe den Gegenkurs nennt ("GK 247°/15""); gefragt ist
+// der tatsächliche Kurs. Solche Segmente können auch als Folgesegment oder mit
+// einer Rechenaufgabe vorkommen.
 export const AUSSCHNITT_ARTEN = {
   2: ['relativ', 'rechen', 'himmelsrichtung', 'kurve', 'gate'],
-  3: ['relativ', 'rechen', 'himmelsrichtung', 'hr', 'hrKurs', 'gk', 'kurve', 'gate', 'anl'],
+  3: ['relativ', 'rechen', 'himmelsrichtung', 'gkAngabe', 'hr', 'hrKurs', 'gk', 'kurve', 'gate', 'anl'],
 };
 
 // Ketten, die höchstens gezogen werden, bevor die Erzeugung aufgibt; gebraucht
@@ -53,6 +56,9 @@ function stueckFuer(elemente, i, art, stufe) {
     if (art === 'relativ' && element.relativ === null) return null;
     if (art === 'rechen' && (element.rechenaufgabe === null || !['grad', 'himmelsrichtung'].includes(element.anzeige))) return null;
     if (['himmelsrichtung', 'hr', 'hrKurs', 'gk'].includes(art) && element.anzeige !== art) return null;
+    // Himmelsrichtung in Grad nur ohne Gegenkurs-Angabe, dafür gibt es "gkAngabe"
+    if (art === 'himmelsrichtung' && element.alsGegenkurs) return null;
+    if (art === 'gkAngabe' && !element.alsGegenkurs) return null;
     letzter = i + 1;
   }
   const folge = elemente[letzter];
@@ -65,6 +71,8 @@ function stueckFuer(elemente, i, art, stufe) {
 function ketteBauen(elemente, [erster, letzter], art) {
   const kette = elemente.slice(erster, letzter + 1).map((e) => (e.art === 'segment' ? { ...e } : e));
   Object.assign(kette[0], { anzeige: 'grad', himmelsrichtung: null, relativ: null, rechenaufgabe: null, hrGrad: null, gkRichtung: null });
+  // Das Startsegment nennt seinen Kurs wie die Ankunft, nie als Gegenkurs
+  if ('alsGegenkurs' in kette[0]) kette[0].alsGegenkurs = false;
   kette.forEach((e, j) => {
     if (j > 0 && e.art === 'segment' && !(art === 'rechen' && j === 1)) e.rechenaufgabe = null;
   });
@@ -96,6 +104,7 @@ function fragenFuer(kette, art) {
   if (art === 'relativ') return [{ text: 'Kurs nach der Ecke', antwort: 'kurs', loesung: segment.kurs }];
   if (art === 'rechen') return [{ text: 'Ergebnis der Rechenaufgabe', antwort: 'kurs', loesung: normieren(segment.kurs + segment.rechenaufgabe) }];
   if (art === 'himmelsrichtung') return [{ text: 'Himmelsrichtung in Grad', antwort: 'kurs', loesung: segment.kurs }];
+  if (art === 'gkAngabe') return [{ text: 'Kurs nach der GK-Angabe', antwort: 'kurs', loesung: segment.kurs }];
   if (art === 'hr' || art === 'hrKurs') return [{ text: 'HR: welche Himmelsrichtung?', antwort: 'richtung', loesung: segment.himmelsrichtung }];
   if (art === 'gk') return [{ text: 'Kurs nach GK', antwort: 'kurs', loesung: segment.kurs }];
   return [{ text: 'Kurs nach der Kurve', antwort: 'kurs', loesung: segment.kurs }];
