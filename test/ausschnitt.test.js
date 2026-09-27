@@ -39,7 +39,7 @@ function gateZeile(zeile, kurs) {
     if (a === 'GK') return norm(kurs + 180);
     if ((m = a.match(/^GK ([+-]\d+)°$/))) return norm(kurs + 180 + Number(m[1]));
     if ((m = a.match(/^anl\. Kurs \+(\d+)°$/))) return norm(kurs + Number(m[1]));
-    if ((m = a.match(/^anl\. Kurs \+(\d)×(\d)$/))) return norm(kurs + Number(m[1]) * Number(m[2]));
+    if ((m = a.match(/^anl\. Kurs \+(\d)×(\d{1,2})$/))) return norm(kurs + Number(m[1]) * Number(m[2]));
     throw new Error(`Gate-Zeile nicht lesbar: ${zeile}`);
   }
   m = zeile.match(/^([+-]\d+°?|[A-Z]{1,3}|\d{3}°) [→↗↘] \d+"$/);

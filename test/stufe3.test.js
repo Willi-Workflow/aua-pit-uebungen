@@ -163,7 +163,7 @@ test('Stufe 3: Segmente mit eigenem Kurs 20 bis 160 Grad nach einer Ecke oder ei
 
 const GATE_A = /^([+-]\d+°|[NESW]{1,3}|\d{3}°) [→↗↘] (10|15|20|25)"$/;
 const GATE_B = /^([+-]\d+|[NESW]{1,3}|\d{3}°) [→↗↘] (10|15|20|25)"$/;
-const GATE_C = /^[→↗↘] ([NESW]{1,3}|[NESW]{1,3} [+-]\d+°|GK|GK [+-]\d+°|anl\. Kurs \+\d+°|anl\. Kurs \+\d×\d) (10|15|20|25)"$/;
+const GATE_C = /^[→↗↘] ([NESW]{1,3}|[NESW]{1,3} [+-]\d+°|GK|GK [+-]\d+°|anl\. Kurs \+\d+°|anl\. Kurs \+\d×\d{1,2}) (10|15|20|25)"$/;
 const ANSCHLUSS = /^(über N|über S|kürz\. W\.) auf K$/;
 
 test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf', () => {
@@ -171,6 +171,8 @@ test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf
   const typenC = {};
   // Form A wie in der PDF (+182°): Relativwerte bis 190, auch über 160
   let formAUeber160 = 0;
+  // anl. Kurs a×b wie in der Handzeichnung (9×13): zweiter Faktor bis 13
+  let zweiterUeber9 = 0;
   for (const elemente of alle) {
     let anl = 0;
     elemente.forEach((gate, k) => {
@@ -223,7 +225,8 @@ test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf
           } else {
             assert.equal(typ, 'anlProdukt');
             anl += 1;
-            assert.ok(z.kurs.a >= 2 && z.kurs.a <= 9 && z.kurs.b >= 2 && z.kurs.b <= 9);
+            assert.ok(z.kurs.a >= 2 && z.kurs.a <= 9 && z.kurs.b >= 2 && z.kurs.b <= 13, `${z.kurs.a}×${z.kurs.b}`);
+            if (z.kurs.b > 9) zweiterUeber9 += 1;
             assert.equal(z.kurs.wert, z.kurs.a * z.kurs.b);
             assert.ok(z.kurs.wert >= 20 && z.kurs.wert <= 160);
             ziel = normieren(kurs + z.kurs.wert);
@@ -245,6 +248,7 @@ test('Stufe 3: Gates in drei Formen mit Zeilenmuster und Werten nach dem Entwurf
   for (const f of ['a', 'b', 'c']) assert.ok(formen[f] / summe > 0.28 && formen[f] / summe < 0.39, JSON.stringify(formen));
   for (const typ of ['hrPlus', 'gk', 'gkPlus', 'anl', 'anlProdukt']) assert.ok(typenC[typ] > 0, `${typ} kommt nicht vor: ${JSON.stringify(typenC)}`);
   assert.ok(formAUeber160 > 0, 'Form A ohne Relativwert über 160');
+  assert.ok(zweiterUeber9 > 0, 'anl. Kurs a×b ohne zweiten Faktor über 9');
 });
 
 test('Stufe 3: Anschlusszeile nur bei Form A, eindeutig, das Segment danach trägt den Kurs K', () => {

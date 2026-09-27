@@ -25,7 +25,7 @@ function gateZeileLesen(z) {
     if (a === 'GK') return { ...zeile, typ: 'gk' };
     if ((m = a.match(/^GK ([+-]\d+)°$/))) return { ...zeile, typ: 'gkPlus', wert: Number(m[1]) };
     if ((m = a.match(/^anl\. Kurs \+(\d+)°$/))) return { ...zeile, typ: 'anl', wert: Number(m[1]) };
-    if ((m = a.match(/^anl\. Kurs \+(\d)×(\d)$/))) return { ...zeile, typ: 'anlProdukt', a: Number(m[1]), b: Number(m[2]), wert: Number(m[1]) * Number(m[2]) };
+    if ((m = a.match(/^anl\. Kurs \+(\d+)×(\d+)$/))) return { ...zeile, typ: 'anlProdukt', a: Number(m[1]), b: Number(m[2]), wert: Number(m[1]) * Number(m[2]) };
     return null;
   }
   const m = z.match(/^([+-]\d+°?|[A-Z]{1,3}|\d{3}°) ([→↗↘]) (\d+)"$/);
@@ -489,7 +489,7 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
             neu = norm(kurs + 180 + z.wert);
           } else {
             zahl.anl += 1;
-            if (z.typ === 'anlProdukt' && (z.a < 2 || z.b < 2)) befund('Fehler', 'Gate', 'anl. Kurs +a×b mit a, b einstellig ab 2', st, `${z.a}×${z.b}`, 'ab 2');
+            if (z.typ === 'anlProdukt' && (z.a < 2 || z.a > 9 || z.b < 2 || z.b > 13)) befund('Fehler', 'Gate', 'anl. Kurs +a×b mit a von 2 bis 9, b von 2 bis 13 (wie 9×13)', st, `${z.a}×${z.b}`, 'a 2 bis 9, b 2 bis 13');
             if (z.wert < 20 || z.wert > 160) befund('Fehler', 'Gate', 'anl. Kurs: Ergebnis 20 bis 160', st, String(z.wert), '20 bis 160');
             neu = norm(kurs + z.wert);
           }

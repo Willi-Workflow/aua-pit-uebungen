@@ -372,7 +372,8 @@ function mitVorzeichen(zufall, von, bis) {
 //   Vorzeichen nennt die Richtung, der Kurs danach ist nie genau der Gegenkurs.
 //   Form B: relativ wie Stufe 2, Betrag 20 bis 490.
 // Form C: Himmelsrichtung, Himmelsrichtung ± 10 bis 130, GK, GK ± 10 bis 60,
-//   anl. Kurs + n oder + a×b (a, b einstellig ab 2, Ergebnis 20 bis 160).
+//   anl. Kurs + n oder + a×b (a von 2 bis 9, b von 2 bis 13 wie "9×13" in der
+//   Handzeichnung, Ergebnis 20 bis 160).
 function gateZeileStufe3(zufall, form, typ, kursDavor, verlauf, bilanz, hoehe) {
   let kurs;
   let kursDanach;
@@ -421,7 +422,7 @@ function gateZeileStufe3(zufall, form, typ, kursDavor, verlauf, bilanz, hoehe) {
       let b;
       do {
         a = zufall.ganzzahl(2, 9);
-        b = zufall.ganzzahl(2, 9);
+        b = zufall.ganzzahl(2, 13);
       } while (a * b < 20 || a * b > 160);
       kurs = { typ: 'anlProdukt', a, b, wert: a * b };
     }
