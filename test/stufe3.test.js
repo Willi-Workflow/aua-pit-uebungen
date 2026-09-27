@@ -464,7 +464,8 @@ test('Start und Ende: fett, waagerecht, hinter dem Flugzeugsymbol und hinter dem
   const ohne = geometrie(elemente);
   assert.ok(!ohne.beschriftungen.some((b) => b.fett), 'Stufe 2 ohne Start und Ende');
   const geo = geometrie(elemente, 0, true);
-  const start = geo.beschriftungen.find((b) => b.zeilen[0] === 'Start');
+  // Wie in der PDF mit der Anfangshöhe
+  const start = geo.beschriftungen.find((b) => b.zeilen[0] === 'Start 2000 ft');
   const ende = geo.beschriftungen.find((b) => b.zeilen[0] === 'Ende');
   assert.ok(start && ende);
   for (const b of [start, ende]) {

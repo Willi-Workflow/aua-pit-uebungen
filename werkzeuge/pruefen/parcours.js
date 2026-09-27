@@ -604,12 +604,12 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
   const fzSoll = { x: erstes.start.x - vek(erstes.kurs).x * 19, y: erstes.start.y - vek(erstes.kurs).y * 19 };
   if (dist(fzSoll, fz.t) > 0.2) befund('Unschärfe', 'Parcours', 'Flugzeugsymbol am Start', 'Flugzeug', `Abstand ${dist(fzSoll, fz.t).toFixed(1)} von der Sollage`, '19 hinter dem Start');
 
-  // Start und Ende (Stufe 3): fett, waagerecht, "Start" hinter dem Flugzeugsymbol,
-  // "Ende" hinter dem Ende des letzten Segments
+  // Start und Ende (Stufe 3): fett, waagerecht, "Start 2000 ft" wie in der PDF
+  // hinter dem Flugzeugsymbol, "Ende" hinter dem Ende des letzten Segments
   if (stufe === 3) {
-    const start = fettTexte.filter((t) => t.zeilen.join() === 'Start');
+    const start = fettTexte.filter((t) => t.zeilen.join() === 'Start 2000 ft');
     const ende = fettTexte.filter((t) => t.zeilen.join() === 'Ende');
-    if (start.length !== 1 || ende.length !== 1 || fettTexte.length !== 2) befund('Fehler', 'Parcours', 'Start und Ende je einmal beschriftet, fett', 'Start/Ende', fettTexte.map((t) => t.zeilen.join(' ')).join(', ') || 'keine', 'Start, Ende');
+    if (start.length !== 1 || ende.length !== 1 || fettTexte.length !== 2) befund('Fehler', 'Parcours', 'Start und Ende je einmal beschriftet, fett', 'Start/Ende', fettTexte.map((t) => t.zeilen.join(' ')).join(', ') || 'keine', 'Start 2000 ft, Ende');
     if (!/\.parcours text\.fett \{[^}]*font-weight: 700/.test(svg.stil)) befund('Fehler', 'Sicht', 'Start und Ende fett', 'Stil', 'keine Regel für fett', 'font-weight: 700');
     const lage = (t, anker, richtung, name, maxAbstand) => {
       if (!t) return;
@@ -618,7 +618,8 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
       const winkel = abst(peilung(t.t.x - anker.x, t.t.y - anker.y), richtung);
       if (d > maxAbstand || winkel > 50) befund('Unschärfe', 'Parcours', `${name} an seiner Stelle`, name, `Abstand ${d.toFixed(1)}, ${winkel.toFixed(0)}° neben der Richtung`, `höchstens ${maxAbstand}, höchstens 50°`);
     };
-    lage(start[0], fz.t, norm(erstes.kurs + 180), 'Start', 60);
+    // Mitte 23 hinter dem Symbol plus höchstens die halbe Textbreite (rund 38)
+    lage(start[0], fz.t, norm(erstes.kurs + 180), 'Start', 75);
     const letzteStrecke = segmente[segmente.length - 1].stueck;
     lage(ende[0], letzteStrecke.ende, letzteStrecke.kurs, 'Ende', 45);
   }

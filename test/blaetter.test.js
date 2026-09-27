@@ -244,7 +244,8 @@ test('Stufe 3: Mengen je Blatt, Start und Ende beschriftet, alle Elemente der Vo
     bereich(segmente.filter((e) => e.rechenaufgabe !== null).length, STUFE3.rechenaufgaben, 'Rechenaufgaben');
     bereich(segmente.filter((e) => e.anzeige === 'himmelsrichtung').length, STUFE3.himmelsrichtungen, 'Himmelsrichtungen');
     const texte = geometrie.beschriftungen.map((b) => b.zeilen.join(' | '));
-    assert.equal(texte.filter((z) => z === 'Start').length, 1, `Blatt ${blatt.nummer}: Start`);
+    // Wie in der PDF steht die Anfangshöhe am Start
+    assert.equal(texte.filter((z) => z === 'Start 2000 ft').length, 1, `Blatt ${blatt.nummer}: Start 2000 ft`);
     assert.equal(texte.filter((z) => z === 'Ende').length, 1, `Blatt ${blatt.nummer}: Ende`);
     let anl = 0;
     for (const e of elemente) {

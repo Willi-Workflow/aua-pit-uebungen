@@ -52,6 +52,9 @@ const HALBE_STRICHBREITE = 4.5;
 // Textbreite, der in Richtung der Versetzung zeigt
 const START_ABSTAND = FLUGZEUG_RADIUS + 9;
 const ENDE_ABSTAND = BESCHRIFTUNGSABSTAND;
+// Stufe 3 beginnt immer auf 2000 ft (STUFE3_START); die PDF schreibt die Höhe
+// an den Start ("Start 2000'")
+const START_TEXT = 'Start 2000 ft';
 
 // Vorschub der Zeichen in Schrift 9 (system-ui), in Chrome auf macOS gemessen und
 // auf eine Stelle aufgerundet; San Francisco ist unter den gängigen Systemschriften
@@ -456,14 +459,14 @@ export function wegbauer(drehung = 0, startEnde = false) {
 
     marken.push({ punkt, kurs, gezeichnet: gezeichnet(kurs) });
     const flugzeug = flugzeugLage(marken[0]);
-    // "Start" hinter dem Flugzeugsymbol, "Ende" hinter dem Ende des letzten
+    // "Start 2000 ft" hinter dem Flugzeugsymbol, "Ende" hinter dem Ende des letzten
     // Segments, jeweils gerade dahinter oder 45° daneben. Sie stehen vorn, damit
     // sie ihren Platz vor den übrigen Beschriftungen bekommen.
     if (startEnde) {
       const hinten = marken[0].gezeichnet + 180;
       const vorn = gezeichnet(kurs);
       beschriftungen.unshift(
-        { eigeneStuecke: [0], varianten: () => [0, 45, -45].map((w) => fettBeschriftung('Start', flugzeug.mitte, hinten + w, START_ABSTAND)) },
+        { eigeneStuecke: [0], varianten: () => [0, 45, -45].map((w) => fettBeschriftung(START_TEXT, flugzeug.mitte, hinten + w, START_ABSTAND)) },
         { eigeneStuecke: [stuecke.length - 1], varianten: () => [0, 45, -45].map((w) => fettBeschriftung('Ende', punkt, vorn + w, ENDE_ABSTAND)) },
       );
     }
