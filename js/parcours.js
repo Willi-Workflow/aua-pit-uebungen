@@ -13,7 +13,7 @@ export const SEKUNDE_LAENGE = 5;
 export const ECKENRADIUS = 12;
 export const SCHLEIFENRADIUS = 28;
 export const KREISRADIUS = 35;
-export const KANDIDATEN = 3000;
+export const KANDIDATEN = 4000;
 export const SEITENVERHAELTNIS = { min: 0.7, max: 1.25 };
 // Der Start liegt im oberen Teil des gedrehten Umrisses, höchstens bei diesem
 // Anteil der Höhe von oben gemessen
@@ -566,17 +566,6 @@ export function geometrie(elemente, drehung = 0) {
   return vollenden(bahn(elemente, drehung));
 }
 
-// Zeichenwinkel, bei dem der Start oben liegt: der Kurs vom Mittelpunkt M des
-// ungedrehten Wegs zum Start S, auf ganze Grad gerundet. Um diesen Winkel
-// gedreht liegt S in der Zeichnung über M.
-function drehungBestimmen(elemente) {
-  const roh = bahn(elemente, 0);
-  const k = kasten(roh.stuecke.flatMap((s) => s.punkte));
-  const m = { x: (k.minX + k.maxX) / 2, y: (k.minY + k.maxY) / 2 };
-  const s = roh.marken[0].punkt;
-  return normieren(Math.round((Math.atan2(s.x - m.x, -(s.y - m.y)) * 180) / Math.PI));
-}
-
 // Liegt der Start im oberen Teil des Umrisses, höchstens START_OBEN von oben?
 export function startOben(geo) {
   const { minY, maxY } = geo.umriss;
@@ -879,21 +868,23 @@ function besserErsatz(roh, geoHolen, kreuzungen, ersatz) {
   return { kreuzungen, abstand, verdeckt, oben, abweichung };
 }
 
-// Zieht KANDIDATEN Parcours aus dem Zufallsstrom und dreht jeden so, dass sein
-// Start oben liegt; alle Prüfungen laufen auf der gedrehten Geometrie.
-// Zulässig ist ein Kandidat ohne Kreuzung, mit Strichen, die sich höchstens
-// berühren und das Flugzeugsymbol frei lassen, im Seitenverhältnis, mit dem
-// Start im oberen Drittel und mit freien Beschriftungen. Unter den
-// zulässigen gewinnt die höchste Füllung, bei Gleichstand der frühere. Die
-// Prüfungen laufen billig zuerst und nur so weit, wie sie das Ergebnis noch
-// ändern können; es ist dasselbe wie bei voller Prüfung aller. "start" ist der
-// Flugzustand am Ende des Textteils, siehe erzeugeElemente.
+// Zieht KANDIDATEN Parcours aus dem Zufallsstrom. Norden zeigt immer nach oben,
+// wie in der Vorlage; die Geometrie bleibt ungedreht (Drehung 0). Der Start
+// liegt trotzdem oben, weil unter den probierten Kandidaten nur die mit dem
+// Start im oberen Teil zulässig sind. Zulässig ist ein Kandidat ohne Kreuzung,
+// mit Strichen, die sich höchstens berühren und das Flugzeugsymbol frei lassen,
+// im Seitenverhältnis, mit dem Start im oberen Teil (siehe START_OBEN) und mit
+// freien Beschriftungen. Unter den zulässigen gewinnt die höchste Füllung, bei
+// Gleichstand der frühere. Die Prüfungen laufen billig zuerst und nur so weit,
+// wie sie das Ergebnis noch ändern können; es ist dasselbe wie bei voller
+// Prüfung aller. "start" ist der Flugzustand am Ende des Textteils, siehe
+// erzeugeElemente.
 export function erzeugeParcours(zufall, mitGates = false, start = null) {
   let bester = null;
   let ersatz = null;
   for (let kandidat = 1; kandidat <= KANDIDATEN; kandidat++) {
     const elemente = erzeugeElemente(zufall, mitGates, start);
-    const roh = bahn(elemente, drehungBestimmen(elemente));
+    const roh = bahn(elemente, 0);
     if (bester && fuellungObergrenze(roh.stuecke) <= bester.fuellung) continue;
     const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity));
     let geo = null;

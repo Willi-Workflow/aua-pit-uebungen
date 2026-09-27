@@ -114,7 +114,6 @@ test('Gate-Blatt 3: je Gate ein weißer Kasten nach den Linien und vor Marken un
 
 test('Flugzeugsymbol am Anfang des Parcours, in gezeichneter Richtung des ersten Segments', () => {
   const start = parcours.geometrie.marken[0];
-  assert.notEqual(parcours.drehung, 0, 'Blatt ungedreht, die Prüfung wäre schwach');
   const m = svg.match(/<path class="flugzeug" transform="translate\(([-\d.]+) ([-\d.]+)\) rotate\(([-\d.]+)\) scale\([\d.]+\)"/);
   assert.ok(m, 'Flugzeugsymbol fehlt');
   const [x, y, winkel] = m.slice(1).map(Number);
@@ -175,13 +174,13 @@ function nordpfeilLesen(parcours) {
   return { x0, y0, x1, y1, xs, ys, xl, yl, xr, yr, nx, ny, maxX: Math.max(umriss.maxX, flugzeug.mitte.x + 14), minY: Math.min(umriss.minY, flugzeug.mitte.y - 14) };
 }
 
-test('Nordpfeil auf Blättern 1 bis 100 in Richtung vektor(-drehung)', () => {
+test('Nordpfeil auf Blättern 1 bis 100 zeigt nach oben, Drehung ist 0', () => {
   for (let nummer = 1; nummer <= 100; nummer += 11) {
     const blatt = erzeugeBlatt(2, nummer);
+    assert.equal(blatt.parcours.drehung, 0, `Blatt ${nummer}`);
     const { x0, y0, x1, y1 } = nordpfeilLesen(blatt.parcours);
-    const r = (-blatt.parcours.drehung * Math.PI) / 180;
     const l = Math.hypot(x1 - x0, y1 - y0);
-    assert.ok(Math.abs((x1 - x0) / l - Math.sin(r)) < 0.01 && Math.abs((y1 - y0) / l + Math.cos(r)) < 0.01, `Blatt ${nummer}`);
+    assert.ok(Math.abs((x1 - x0) / l) < 0.01 && Math.abs((y1 - y0) / l + 1) < 0.01, `Blatt ${nummer}`);
   }
 });
 

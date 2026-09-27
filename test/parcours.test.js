@@ -4,7 +4,7 @@ import { Zufall } from '../js/zufall.js';
 import {
   erzeugeElemente, gateStellenWaehlen, geometrie, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, erzeugeParcours,
   seitenverhaeltnisPasst, SEKUNDE_LAENGE, KANDIDATEN, ZEILENABSTAND, LINIENBREITE_ABSTAND, MARKENLAENGE,
-  FLUGZEUG_ABSTAND, FLUGZEUG_RADIUS,
+  FLUGZEUG_ABSTAND, FLUGZEUG_RADIUS, START_OBEN,
 } from '../js/parcours.js';
 import { erzeugeBlatt, BLAETTER_JE_STUFE, hatGates } from '../js/blatt.js';
 import { normieren, differenz } from '../js/kurs.js';
@@ -817,31 +817,26 @@ test('Drehung: Gate-Kästen bleiben achsenparallel, Ankunft und Austritt auf dem
   for (const drehung of [37, 90, 200, 333]) {
     assert.equal(pruefen(geometrie([segment(90, 20), BEISPIEL_GATE, segment(180)], drehung), `Beispiel, Drehung ${drehung}`), 1);
   }
-  let gedreht = 0;
   for (const blatt of blaetter.filter((b) => hatGates(2, b.nummer))) {
     pruefen(blatt.parcours.geometrie, `Blatt ${blatt.nummer}`);
-    if (blatt.parcours.drehung > 0) gedreht += 1;
+    assert.equal(blatt.parcours.drehung, 0, `Blatt ${blatt.nummer}`);
   }
-  assert.ok(gedreht >= 30, `nur ${gedreht} Gate-Blätter gedreht`);
 });
 
-test('Blätter 1 bis 100: Drehung ganzzahlig in [0, 360), Start im oberen Drittel, Beschriftungswinkel in [-90, 90]', () => {
-  const drehungen = new Set();
+test('Blätter 1 bis 100: Drehung 0, gezeichnete Richtung gleich Kurs, Start höchstens START_OBEN von der Oberkante, Beschriftungswinkel in [-90, 90]', () => {
   for (const blatt of blaetter) {
     const { drehung, geometrie: geo } = blatt.parcours;
-    assert.ok(Number.isInteger(drehung) && drehung >= 0 && drehung < 360, `Blatt ${blatt.nummer}: Drehung ${drehung}`);
-    assert.equal(geo.drehung, drehung);
-    drehungen.add(drehung);
+    assert.equal(drehung, 0, `Blatt ${blatt.nummer}: Drehung ${drehung}`);
+    assert.equal(geo.drehung, 0, `Blatt ${blatt.nummer}`);
     const start = geo.marken[0].punkt;
     const { minY, maxY } = geo.umriss;
     const lage = (start.y - minY) / (maxY - minY);
-    assert.ok(lage <= 0.34, `Blatt ${blatt.nummer}: Start bei ${lage.toFixed(2)} der Höhe`);
+    assert.ok(lage <= START_OBEN, `Blatt ${blatt.nummer}: Start bei ${lage.toFixed(2)} der Höhe`);
     for (const b of geo.beschriftungen) assert.ok(b.winkel >= -90 && b.winkel <= 90, `Blatt ${blatt.nummer}: Winkel ${b.winkel}`);
-    // Jede Strecke läuft in Kurs minus Drehung
+    // Norden zeigt nach oben: Jede Strecke läuft in ihrer Kursrichtung, ungedreht
     const kurse = blatt.parcours.elemente.filter((e) => e.art === 'segment').map((e) => e.kurs);
     geo.stuecke.filter((s) => s.art === 'strecke').forEach((s, i) => {
-      assert.ok(Math.abs(differenz(streckenRichtung(s), kurse[i] - drehung)) < 0.01, `Blatt ${blatt.nummer}, Segment ${i + 1}`);
+      assert.ok(Math.abs(differenz(streckenRichtung(s), kurse[i])) < 0.01, `Blatt ${blatt.nummer}, Segment ${i + 1}`);
     });
   }
-  assert.ok(drehungen.size >= 50, `nur ${drehungen.size} verschiedene Drehungen`);
 });
