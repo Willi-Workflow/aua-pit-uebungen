@@ -1,4 +1,4 @@
-// Textteil der Stufe 2: jeder Satz muss einem der zehn Muster entsprechen, Kurs und Höhe werden mitgeführt
+// Textteil beider Stufen: jeder Satz muss einem der zehn Muster entsprechen, Kurs und Höhe werden mitgeführt
 
 import { DEUTSCH, ENGLISCH, RATE, HMIN, HMAX, norm, abst, inDir, kursName } from './grundlagen.js';
 import { befund } from './befunde.js';

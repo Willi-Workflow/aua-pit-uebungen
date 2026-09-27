@@ -70,7 +70,8 @@ test('Startseite hat unter der Kursrose den Knopf Blitzrechnen, er führt zur Au
 
 test('Startseite: Stufe 3 ist eine aktive Karte mit Unterzeile', () => {
   const html = ansichtFuer('#/');
-  assert.ok(html.includes('<a class="karte" href="#/stufe3"><span class="karte-titel">Stufe 3</span><span class="karte-text">Nur Parcours, 100 Blätter, alle mit Gates</span></a>'));
+  assert.ok(html.includes('<a class="karte" href="#/stufe3"><span class="karte-titel">Stufe 3</span><span class="karte-text">Textteil und Parcours, 100 Blätter, alle mit Gates</span></a>'));
+  assert.ok(!html.includes('Nur Parcours') && !html.includes('nur den Parcours'), 'Stufe 3 hat jetzt einen Textteil');
   assert.ok(!html.includes('spaeter'), 'keine Karte mehr als Platzhalter');
 });
 
@@ -79,22 +80,40 @@ test('Blattliste der Stufe 3: 100 Vorschaubilder aus vorschau/stufe3, ohne Gate-
   assert.equal((html.match(/<img src="vorschau\/stufe3\/\d+\.svg" alt="" loading="lazy"/g) || []).length, 100);
   assert.ok(html.includes('href="#/stufe3/blatt/7"'));
   assert.ok(!html.includes('class="gatemarke"'));
-  assert.ok(html.includes('Nur Parcours, alle mit Gates.'));
+  assert.ok(html.includes('Textteil und Parcours, alle mit Gates.'));
+  assert.ok(!html.includes('Nur Parcours'));
   assert.ok(!html.includes('Jedes dritte Blatt'));
 });
 
-test('Blattansicht der Stufe 3: kein Textteil, Start und Kürzel über dem Parcours, Start und Ende in der Zeichnung', () => {
+// Stufe 3 wie Stufe 2: Titel, Ausgangskurs, zwölf Sätze, Parcours, Legende.
+// Die früheren Zeilen über dem Parcours (Start, Kürzel, Gate-Hinweis) entfallen.
+test('Blattansicht der Stufe 3: wie Stufe 2 mit Ausgangskurs und zwölf Sätzen, ohne Erklärzeile und Gate-Hinweis', () => {
   const html = ansichtFuer('#/stufe3/blatt/3');
   assert.ok(html.includes('<h1>AUA PIT Stufe 3, Blatt 3</h1>'));
-  assert.ok(html.includes('<article class="blatt ohne-textteil">'));
-  assert.ok(html.includes('<p class="ausgang">Start 2000 ft, Kurs vom ersten Segment</p>'));
-  assert.ok(html.includes('<p class="erklaerung">HR = nächste Himmelsrichtung, GK = Gegenkurs, K = Kurs des nächsten Segments, nackte Gradzahl an einer Kurve = Drehwinkel in gezeichneter Richtung</p>'));
-  assert.ok(html.includes('Mit Gates:'));
-  assert.ok(!html.includes('class="textteil"'));
-  assert.ok(!html.includes('Ausgangskurs'));
-  assert.ok(html.includes('<svg xmlns="http://www.w3.org/2000/svg" class="parcours"'));
-  assert.ok(/<text class="fett" [^>]*><tspan x="0" dy="0">Start 2000 ft<\/tspan><\/text>/.test(html));
+  assert.ok(html.includes('<article class="blatt">'));
+  assert.ok(!html.includes('ohne-textteil'));
+  const teile = ['<h1>', '<p class="ausgang">Ausgangskurs 090°, 2000 ft</p>', '<ol class="textteil">', '<svg xmlns="http://www.w3.org/2000/svg" class="parcours"', 'class="legende"'];
+  const stellen = teile.map((t) => html.indexOf(t));
+  assert.ok(stellen.every((x, j) => x >= 0 && (j === 0 || x > stellen[j - 1])), `Reihenfolge ${stellen.join(', ')}`);
+  const textteil = html.slice(html.indexOf('<ol class="textteil">'), html.indexOf('</ol>', html.indexOf('<ol class="textteil">')));
+  assert.equal((textteil.match(/<li>/g) || []).length, 12);
+  // Zwischen Ausgangskurs und Textteil steht nichts mehr
+  assert.equal(html.slice(stellen[1] + teile[1].length, stellen[2]).trim(), '');
+  assert.ok(!html.includes('class="erklaerung"') && !html.includes('HR = nächste Himmelsrichtung'), 'Erklärzeile');
+  assert.ok(!html.includes('Mit Gates:') && !html.includes('class="gatehinweis"'), 'Gate-Hinweis');
+  assert.ok(!html.includes('Kurs vom ersten Segment') && !html.includes('2000 ft,'), 'Startzeile');
+  // In der Zeichnung nur "Start", die Höhe kommt vom Ende des Textteils
+  assert.ok(/<text class="fett" [^>]*><tspan x="0" dy="0">Start<\/tspan><\/text>/.test(html));
+  assert.ok(!html.includes('Start 2000 ft'));
   assert.ok(/<text class="fett" [^>]*><tspan x="0" dy="0">Ende<\/tspan><\/text>/.test(html));
-  assert.ok(html.includes('class="legende"'));
   assert.ok(ansichtFuer('#/stufe3/blatt/101').includes('Nicht gefunden'));
+});
+
+test('Blattansicht der Stufe 2 bleibt: Gate-Hinweis auf Gate-Blättern zwischen Ausgangskurs und Textteil', () => {
+  const html = ansichtFuer('#/stufe2/blatt/3');
+  const ausgang = html.indexOf('<p class="ausgang">Ausgangskurs 090°, 2000 ft</p>');
+  const hinweis = html.indexOf('<p class="gatehinweis"><strong>Mit Gates:</strong>');
+  assert.ok(ausgang >= 0 && hinweis > ausgang && html.indexOf('<ol class="textteil">') > hinweis);
+  assert.ok(html.includes('<article class="blatt">'));
+  assert.ok(!html.includes('<text class="fett"'), 'Stufe 2 ohne Start und Ende');
 });

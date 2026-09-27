@@ -152,8 +152,9 @@ function gateErzeugen(zufall, kursDavor, verlauf, bilanz, hoehe) {
 // Elemente eines Kandidaten je Stufe. "einstellungen" ist { stufe: 2, mitGates }
 // oder { stufe: 3 }; "pruefer" nur in Stufe 3, siehe elementeStufe3. Stufe 2 zieht genau die Zufallszahlen wie bisher, damit ihre
 // Blätter gleich bleiben.
-// "start" ist der Flugzustand am Anfang des Parcours ({ kurs, hoehe }), in Stufe 2
-// das Ende des Textteils, in Stufe 3 ohne Kurs auf 2000 ft.
+// "start" ist der Flugzustand am Anfang des Parcours ({ kurs, hoehe }), auf den
+// Blättern beider Stufen das Ende des Textteils. Ohne "start" beginnt Stufe 3
+// ohne Kurs auf 2000 ft (STUFE3_START).
 export function erzeugeElemente(zufall, einstellungen, start = null, pruefer = null) {
   if (einstellungen.stufe === 2) return elementeStufe2(zufall, einstellungen.mitGates, start);
   if (einstellungen.stufe === 3) return elementeStufe3(zufall, start, pruefer);
@@ -244,10 +245,12 @@ function elementeStufe2(zufall, mitGates, start) {
 
 // ---------------------------------------------------------------- Stufe 3
 //
-// Stufe 3 nach den drei Vorlagen (PDF, Gegenkursbeispiel, Handzeichnung): nur
-// Parcours, Start auf 2000 ft mit dem Kurs des ersten Segments. Zu den Elementen
-// der Stufe 2 kommen Gradzahl-Kurven, Segmente mit HR und GK und Gates in drei
-// Formen. Eigener Zufallsstrom (stufe-3/blatt-n), deshalb frei im Aufbau.
+// Stufe 3 nach den drei Vorlagen (PDF, Gegenkursbeispiel, Handzeichnung). Auf
+// dem Blatt schließt der Parcours wie in Stufe 2 an den Textteil an; ohne
+// "start" (Ausschnitte des Blitzrechnens, Prüfungen) beginnt er auf 2000 ft
+// ohne Kurs. Zu den Elementen der Stufe 2 kommen Gradzahl-Kurven, Segmente mit
+// HR und GK und Gates in drei Formen. Eigener Zufallsstrom (stufe-3/blatt-n),
+// deshalb frei im Aufbau.
 
 // Mengen je Blatt, jeweils von bis
 export const STUFE3 = {

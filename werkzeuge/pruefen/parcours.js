@@ -305,10 +305,9 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
             if (soll > 359) befund('Fehler', 'Parcours', 'Kurs 000 bis 359', stelle, String(soll), '000 bis 359');
           }
           if (segNr === 1) {
-            if (stufe === 2) {
-              const a = abst(textEnde.kurs, soll);
-              if (a < 20 || a > 160) befund('Fehler', 'Übergang', 'erstes Segment 20 bis 160° vom Endkurs des Textteils', stelle, `${kursName(textEnde.kurs)} nach ${kursName(soll)}: ${a}°`, '20 bis 160°');
-            }
+            // Beide Stufen schließen an den Textteil an
+            const a = abst(textEnde.kurs, soll);
+            if (a < 20 || a > 160) befund('Fehler', 'Übergang', 'erstes Segment 20 bis 160° vom Endkurs des Textteils', stelle, `${kursName(textEnde.kurs)} nach ${kursName(soll)}: ${a}°`, '20 bis 160°');
           } else if (vorigesElement && vorigesElement.art === 'gate') {
             const a = abst(kurs, soll);
             if (offenerAnschluss) {
@@ -452,9 +451,10 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
             if (Math.abs(z.wert) < min || Math.abs(z.wert) > max) befund('Fehler', 'Gate', `Relativwert Betrag ${min} bis ${max}`, st, String(z.wert), `${min} bis ${max}`);
             neu = norm(kurs + z.wert);
             const d = diff(kurs, neu); const a = Math.abs(d);
-            // Über dem Blatt steht "Relative Werte mit dem aktuellen Kurs verrechnen,
-            // gedreht wird auf kürzestem Weg". Zeigt das Vorzeichen in die andere
-            // Richtung, ist das nach dieser Regel eindeutig (Hinweis). Unscharf ist
+            // Über den Gate-Blättern der Stufe 2 steht "Relative Werte mit dem
+            // aktuellen Kurs verrechnen, gedreht wird auf kürzestem Weg"; Stufe 3
+            // setzt die Regel ohne diese Zeile voraus. Zeigt das Vorzeichen in die
+            // andere Richtung, ist das nach dieser Regel eindeutig (Hinweis). Unscharf ist
             // der kürzeste Weg über 160° und genau 180°: Dann bleibt nur das
             // Vorzeichen als Richtung, der Kurs danach ist in jeder Lesart derselbe.
             // Form A nimmt wie die PDF (+182°) Werte bis 190; über 160° zeigt dort
@@ -469,7 +469,7 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
             } else if (a > 160) {
               befund('Unschärfe', 'Gate', 'Drehrichtung bei Relativwert (kürzester Weg über 160°)', st, `${text}; kürzester Weg ${d > 0 ? 'rechts' : 'links'} ${Math.round(a * 10) / 10}°`, 'kürzester Weg höchstens 160°');
             } else if (a >= 20 && (z.wert > 0) !== (d > 0)) {
-              befund('Hinweis', 'Gate', 'Vorzeichen gegen kürzesten Weg (Regel steht über dem Blatt)', st, `${text}; kürzester Weg ${d > 0 ? 'rechts' : 'links'} ${Math.round(a * 10) / 10}°, Vorzeichen deutet ${z.wert > 0 ? 'rechts' : 'links'}`, 'kürzester Weg');
+              befund('Hinweis', 'Gate', `Vorzeichen gegen kürzesten Weg (${stufe === 2 ? 'Regel steht über dem Blatt' : 'Regel aus Stufe 2, nicht auf dem Blatt'})`, st, `${text}; kürzester Weg ${d > 0 ? 'rechts' : 'links'} ${Math.round(a * 10) / 10}°, Vorzeichen deutet ${z.wert > 0 ? 'rechts' : 'links'}`, 'kürzester Weg');
             }
             if (!Number.isInteger(kurs)) befund('Hinweis', 'Gate', 'Relativwert ab ganzzahligem Kurs', st, `ab ${kursName(kurs)}`, 'ganzzahliger Kurs');
           } else if (z.typ === 'richtung' || z.typ === 'richtungPlus') {
@@ -612,12 +612,13 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
   const fzSoll = { x: erstes.start.x - vek(erstes.kurs).x * 19, y: erstes.start.y - vek(erstes.kurs).y * 19 };
   if (dist(fzSoll, fz.t) > 0.2) befund('Unschärfe', 'Parcours', 'Flugzeugsymbol am Start', 'Flugzeug', `Abstand ${dist(fzSoll, fz.t).toFixed(1)} von der Sollage`, '19 hinter dem Start');
 
-  // Start und Ende (Stufe 3): fett, waagerecht, "Start 2000 ft" wie in der PDF
-  // hinter dem Flugzeugsymbol, "Ende" hinter dem Ende des letzten Segments
+  // Start und Ende (Stufe 3): fett, waagerecht, "Start" hinter dem
+  // Flugzeugsymbol, "Ende" hinter dem Ende des letzten Segments. Die Höhe steht
+  // nicht am Start, sie kommt vom Ende des Textteils.
   if (stufe === 3) {
-    const start = fettTexte.filter((t) => t.zeilen.join() === 'Start 2000 ft');
+    const start = fettTexte.filter((t) => t.zeilen.join() === 'Start');
     const ende = fettTexte.filter((t) => t.zeilen.join() === 'Ende');
-    if (start.length !== 1 || ende.length !== 1 || fettTexte.length !== 2) befund('Fehler', 'Parcours', 'Start und Ende je einmal beschriftet, fett', 'Start/Ende', fettTexte.map((t) => t.zeilen.join(' ')).join(', ') || 'keine', 'Start 2000 ft, Ende');
+    if (start.length !== 1 || ende.length !== 1 || fettTexte.length !== 2) befund('Fehler', 'Parcours', 'Start und Ende je einmal beschriftet, fett', 'Start/Ende', fettTexte.map((t) => t.zeilen.join(' ')).join(', ') || 'keine', 'Start, Ende');
     if (!/\.parcours text\.fett \{[^}]*font-weight: 700/.test(svg.stil)) befund('Fehler', 'Sicht', 'Start und Ende fett', 'Stil', 'keine Regel für fett', 'font-weight: 700');
     const lage = (t, anker, richtung, name, maxAbstand) => {
       if (!t) return;
@@ -626,11 +627,11 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
       const winkel = abst(peilung(t.t.x - anker.x, t.t.y - anker.y), richtung);
       if (d > maxAbstand || winkel > 50) befund('Unschärfe', 'Parcours', `${name} an seiner Stelle`, name, `Abstand ${d.toFixed(1)}, ${winkel.toFixed(0)}° neben der Richtung`, `höchstens ${maxAbstand}, höchstens 50°`);
     };
-    // Mitte 23 hinter dem Symbol plus höchstens die halbe Textbreite (rund 38)
+    // Mitte 23 hinter dem Symbol plus höchstens die halbe Textbreite
     lage(start[0], fz.t, norm(erstes.kurs + 180), 'Start', 75);
     const letzteStrecke = segmente[segmente.length - 1].stueck;
     lage(ende[0], letzteStrecke.ende, letzteStrecke.kurs, 'Ende', 45);
-    // "Start 2000 ft" gehört sichtbar zum Flugzeugsymbol, "Ende" zum Ende des Wegs:
+    // "Start" gehört sichtbar zum Flugzeugsymbol, "Ende" zum Ende des Wegs:
     // Die Tinte steht dem eigenen Punkt näher als dem anderen (Blatt 92 hatte
     // "Start 2000 ft" direkt unter "Ende")
     const naeher = (t, eigen, fremd, name, fremdName) => {

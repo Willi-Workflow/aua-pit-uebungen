@@ -52,9 +52,9 @@ const HALBE_STRICHBREITE = 4.5;
 // Textbreite, der in Richtung der Versetzung zeigt
 const START_ABSTAND = FLUGZEUG_RADIUS + 9;
 const ENDE_ABSTAND = BESCHRIFTUNGSABSTAND;
-// Stufe 3 beginnt immer auf 2000 ft (STUFE3_START); die PDF schreibt die Höhe
-// an den Start ("Start 2000'")
-const START_TEXT = 'Start 2000 ft';
+// Nur "Start": Die Höhe am Start kommt in Stufe 3 wie in Stufe 2 vom Ende des
+// Textteils, die PDF-Vorlage ohne Textteil schrieb "Start 2000'"
+const START_TEXT = 'Start';
 
 // Vorschub der Zeichen in Schrift 9 (system-ui), in Chrome auf macOS gemessen und
 // auf eine Stelle aufgerundet; San Francisco ist unter den gängigen Systemschriften
@@ -459,7 +459,7 @@ export function wegbauer(drehung = 0, startEnde = false) {
 
     marken.push({ punkt, kurs, gezeichnet: gezeichnet(kurs) });
     const flugzeug = flugzeugLage(marken[0]);
-    // "Start 2000 ft" hinter dem Flugzeugsymbol, "Ende" hinter dem Ende des letzten
+    // "Start" hinter dem Flugzeugsymbol, "Ende" hinter dem Ende des letzten
     // Segments, jeweils gerade dahinter oder 45° daneben. Sie stehen vorn, damit
     // sie ihren Platz vor den übrigen Beschriftungen bekommen. "anker" ist ihr
     // Punkt, "gegenanker" der andere (siehe ankerUnklar).
@@ -918,10 +918,10 @@ function zuordnungUnklar(b, k, stuecke, kaesten) {
   return false;
 }
 
-// Stufe 3: "Start 2000 ft" gehört zum Flugzeugsymbol, "Ende" zum Ende des Wegs.
+// Stufe 3: "Start" gehört zum Flugzeugsymbol, "Ende" zum Ende des Wegs.
 // Steht die Beschriftung ihrem Punkt "b.anker" nicht mindestens ZUORDNUNG_FAKTOR
 // mal näher als dem anderen, "b.gegenanker"? Gemessen von der Achse der Kapsel.
-// Sonst läse man "Start 2000 ft" direkt unter "Ende" als ein Paar am Ende des
+// Sonst läse man "Start" direkt unter "Ende" als ein Paar am Ende des
 // Wegs (Blatt 92).
 function ankerUnklar(b, k) {
   return punktStreckeAbstand(b.gegenanker, k.a, k.e) < ZUORDNUNG_FAKTOR * punktStreckeAbstand(b.anker, k.a, k.e);
@@ -934,8 +934,8 @@ function ankerUnklar(b, k) {
 // mindestens seine halbe Breite vom Text entfernt bleiben, zwei Beschriftungen
 // dürfen sich nicht berühren. Innerhalb eines Vollkreises oder einer Schleife
 // steht keine Beschriftung, sonst läse man sie als Teil der Figur. In Stufe 3
-// steht sie zudem ihrem eigenen Stück deutlich näher als jedem fremden, "Start
-// 2000 ft" und "Ende" ihrem eigenen Punkt deutlich näher als dem anderen.
+// steht sie zudem ihrem eigenen Stück deutlich näher als jedem fremden, "Start"
+// und "Ende" ihrem eigenen Punkt deutlich näher als dem anderen.
 function beschriftungStoert(b, k, stuecke, kaesten, andere) {
   const noetig = k.radius + HALBE_STRICHBREITE;
   for (let s = 0; s < stuecke.length; s++) {

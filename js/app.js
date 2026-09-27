@@ -17,11 +17,8 @@ const LEGENDE = `<div class="legende">
 <span><svg viewBox="0 0 40 12"><line x1="0" y1="6" x2="40" y2="6" stroke="#000" stroke-width="9"/><line x1="0" y1="6" x2="40" y2="6" stroke="#fff" stroke-width="6"/></svg> sinken</span>
 </div>`;
 
+// Nur auf den Gate-Blättern der Stufe 2; Stufe 3 hat über dem Parcours nur den Textteil
 const GATEHINWEIS = '<p class="gatehinweis"><strong>Mit Gates:</strong> Kästchen am Parcours aus dem Gedächtnis fliegen. Relative Werte mit dem aktuellen Kurs verrechnen, gedreht wird auf kürzestem Weg.</p>';
-
-// Stufe 3 hat keinen Textteil: Start und die Kürzel der Vorlagen stehen über dem Parcours
-const STUFE3_START = '<p class="ausgang">Start 2000 ft, Kurs vom ersten Segment</p>';
-const STUFE3_KUERZEL = '<p class="erklaerung">HR = nächste Himmelsrichtung, GK = Gegenkurs, K = Kurs des nächsten Segments, nackte Gradzahl an einer Kurve = Drehwinkel in gezeichneter Richtung</p>';
 
 // Kursrose wie auf der Kursanzeige im Flug auf dem Ausgangskurs aller Blätter:
 // Die Skala ist so gedreht, dass 090 oben unter dem festen Zeiger steht, die
@@ -90,12 +87,12 @@ function startseite() {
     + `<main class="rahmen startseite">
 <div class="start-text">
 <h1 class="titel-gross">Übungsblätter für die PIT-Übungen</h1>
-<p class="einleitung">In Stufe 2 hat jedes Blatt zwölf Anweisungen im Textteil und einen gezeichneten Parcours, der daran anschließt, in Stufe 3 nur den Parcours. Wähle eine Stufe und ein Blatt, übe am Bildschirm oder drucke es auf A4 aus.</p>
+<p class="einleitung">Jedes Blatt hat zwölf Anweisungen im Textteil und einen gezeichneten Parcours, der daran anschließt. Wähle eine Stufe und ein Blatt, übe am Bildschirm oder drucke es auf A4 aus.</p>
 </div>
 <figure class="start-rose">${kursrose(280, true)}<figcaption>Ausgangskurs 090°, 2000 ft</figcaption><a class="karte blitz" href="#/blitzrechnen">${BLITZ}<span class="karte-titel">Blitzrechnen</span></a></figure>
 <nav class="stufen" aria-label="Stufen">
 <a class="karte" href="#/stufe2"><span class="karte-titel">Stufe 2</span><span class="karte-text">Textteil und Parcours, ${BLAETTER_JE_STUFE} Blätter, jedes dritte mit Gates</span></a>
-<a class="karte" href="#/stufe3"><span class="karte-titel">Stufe 3</span><span class="karte-text">Nur Parcours, ${BLAETTER_JE_STUFE} Blätter, alle mit Gates</span></a>
+<a class="karte" href="#/stufe3"><span class="karte-titel">Stufe 3</span><span class="karte-text">Textteil und Parcours, ${BLAETTER_JE_STUFE} Blätter, alle mit Gates</span></a>
 </nav>
 </main>`;
 }
@@ -115,7 +112,7 @@ function stufenseite(stufe) {
   return kopf(`Stufe ${stufe}`, '#/')
     + `<main class="rahmen liste">
 <h1 class="titel">Stufe ${stufe}</h1>
-<p class="unterzeile">${BLAETTER_JE_STUFE} Blätter. ${stufe === 2 ? 'Jedes dritte Blatt hat Gates.' : 'Nur Parcours, alle mit Gates.'}</p>
+<p class="unterzeile">${BLAETTER_JE_STUFE} Blätter. ${stufe === 2 ? 'Jedes dritte Blatt hat Gates.' : 'Textteil und Parcours, alle mit Gates.'}</p>
 <ol class="raster">
 ${karten}
 </ol>
@@ -136,24 +133,13 @@ function blattseite(stufe, nummer) {
     return platzhalter('Fehler', `#/stufe${stufe}`, `Dieses Blatt konnte nicht erzeugt werden: ${fehler.message}`);
   }
   const drucken = '<button type="button" class="knopf" data-aktion="drucken">Drucken</button>';
-  if (!blatt.textteil) {
-    return kopf(`Stufe ${stufe}, Blatt ${nummer}`, `#/stufe${stufe}`, drucken)
-      + `<main class="rahmen blattseite"><article class="blatt ohne-textteil">
-<h1>AUA PIT Stufe ${stufe}, Blatt ${nummer}</h1>
-${STUFE3_START}
-${STUFE3_KUERZEL}
-${GATEHINWEIS}
-${zeichneParcours(blatt.parcours)}
-${LEGENDE}
-</article></main>`;
-  }
   // Zahl und Einheit nicht trennen, sonst steht auf dem Handy "15" am Zeilenende und "s" darunter
   const zeilen = blatt.textteil.zeilen.map((z) => `<li>${z.satz.replace(/(\d) (s|ft)\b/g, '$1\u00a0$2')}</li>`).join('');
   return kopf(`Stufe ${stufe}, Blatt ${nummer}`, `#/stufe${stufe}`, drucken)
     + `<main class="rahmen blattseite"><article class="blatt">
 <h1>AUA PIT Stufe ${stufe}, Blatt ${nummer}</h1>
 <p class="ausgang">Ausgangskurs ${kursText(blatt.textteil.ausgangskurs)}°, ${blatt.textteil.ausgangshoehe} ft</p>
-${hatGates(stufe, nummer) ? GATEHINWEIS : ''}
+${stufe === 2 && hatGates(stufe, nummer) ? GATEHINWEIS : ''}
 <ol class="textteil">${zeilen}</ol>
 ${zeichneParcours(blatt.parcours)}
 ${LEGENDE}

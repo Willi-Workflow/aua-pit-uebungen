@@ -1,11 +1,10 @@
 // Ein Blatt ist Textteil plus Parcours aus einem Zufallsstrom je Stufe und Nummer,
-// in Stufe 3 nur der Parcours. Kein DOM, damit ganze Blätter ohne Browser geprüft
-// werden können.
+// in beiden Stufen. Kein DOM, damit ganze Blätter ohne Browser geprüft werden
+// können.
 
 import { Zufall, blattSchluessel } from './zufall.js';
 import { erzeugeTextteil } from './textteil.js';
 import { erzeugeParcours } from './parcours.js';
-import { STUFE3_START } from './elemente.js';
 
 export const BLAETTER_JE_STUFE = 100;
 export const STUFEN = [2, 3];
@@ -22,11 +21,12 @@ export function erzeugeBlatt(stufe, nummer) {
     throw new Error(`Blatt ${nummer} gibt es nicht`);
   }
   const zufall = new Zufall(blattSchluessel(stufe, nummer));
-  // Stufe 3: kein Textteil, Start auf 2000 ft mit dem Kurs des ersten Segments
-  if (stufe === 3) return { stufe, nummer, textteil: null, parcours: erzeugeParcours(zufall, { stufe: 3 }, STUFE3_START) };
   const textteil = erzeugeTextteil(zufall);
-  // Der Parcours schließt an Kurs und Höhe nach der letzten Zeile an
+  // Der Parcours schließt an Kurs und Höhe nach der letzten Zeile an: erstes
+  // Segment 20° bis 160° vom Endkurs, Höhe ab der Endhöhe des Textteils
   const ende = textteil.zeilen[textteil.zeilen.length - 1];
-  const parcours = erzeugeParcours(zufall, { stufe: 2, mitGates: hatGates(stufe, nummer) }, { kurs: ende.kursDanach, hoehe: ende.hoeheDanach });
+  const start = { kurs: ende.kursDanach, hoehe: ende.hoeheDanach };
+  const einstellungen = stufe === 3 ? { stufe: 3 } : { stufe: 2, mitGates: hatGates(stufe, nummer) };
+  const parcours = erzeugeParcours(zufall, einstellungen, start);
   return { stufe, nummer, textteil, parcours };
 }

@@ -2,7 +2,7 @@
 // erweitert um Stufe 3.
 //
 // Erzeugt alle 100 Blätter einer Stufe und rechnet dann nur aus dem, was eine
-// Pilotin sieht: den Sätzen des Textteils (Stufe 2) und dem gezeichneten SVG
+// Pilotin sieht: den Sätzen des Textteils und dem gezeichneten SVG
 // (Pfade, Gate-Kästen, Querstriche, Flugzeugsymbol, Nordpfeil, Texte). Innere
 // Felder des Erzeugers werden nur am Ende zum Abgleich der eigenen Rechnung
 // gelesen. Die Tinte der Texte wird aus in Chrome gemessenen Zeichenmaßen der
@@ -13,8 +13,8 @@
 // Rückgabewert ist 1, sobald es einen Fehler gibt.
 //
 // Module unter werkzeuge/pruefen/: grundlagen.js (Maße, Geometrie, Bögen),
-// befunde.js, tinte.js (Zeichenmaße), svg.js (Blatt lesen), textteil.js (Stufe 2)
-// und parcours.js (Parcours beider Stufen).
+// befunde.js, tinte.js (Zeichenmaße), svg.js (Blatt lesen), textteil.js und
+// parcours.js (Textteil und Parcours beider Stufen).
 
 import { writeFileSync } from 'node:fs';
 import { erzeugeBlatt } from '../js/blatt.js';
@@ -45,22 +45,22 @@ for (let nummer = VON; nummer <= BIS; nummer++) {
   blattSetzen(nummer);
   const blatt = erzeugeBlatt(STUFE, nummer);
   const svgText = zeichneParcours(blatt.parcours);
-  let textEnde = { kurs: null, hoehe: 2000 };
-  let text = null;
-  if (STUFE === 2) {
-    if (blatt.textteil.ausgangskurs !== 90 || blatt.textteil.ausgangshoehe !== 2000) befund('Fehler', 'Textteil', 'Ausgangskurs 090°, 2000 ft', 'Kopf', `${blatt.textteil.ausgangskurs}/${blatt.textteil.ausgangshoehe}`, '090°, 2000 ft');
-    text = textteilPruefen(blatt.textteil.zeilen.map((z) => z.satz));
-    textEnde = { kurs: text.kurs, hoehe: text.hoehe };
-  } else if (blatt.textteil !== null) befund('Fehler', 'Textteil', 'Stufe 3 ohne Textteil', 'Blatt', 'Textteil vorhanden', 'keiner');
+  // Beide Stufen: Textteil ab 090°, 2000 ft, der Parcours schließt an Kurs und
+  // Höhe nach dem letzten Satz an
+  if (!blatt.textteil) {
+    befund('Fehler', 'Textteil', 'Textteil vorhanden', 'Blatt', 'keiner', 'zwölf Sätze');
+    continue;
+  }
+  if (blatt.textteil.ausgangskurs !== 90 || blatt.textteil.ausgangshoehe !== 2000) befund('Fehler', 'Textteil', 'Ausgangskurs 090°, 2000 ft', 'Kopf', `${blatt.textteil.ausgangskurs}/${blatt.textteil.ausgangshoehe}`, '090°, 2000 ft');
+  const text = textteilPruefen(blatt.textteil.zeilen.map((z) => z.satz));
+  const textEnde = { kurs: text.kurs, hoehe: text.hoehe };
   const svg = svgLesen(svgText);
   const erg = parcoursPruefen(blatt, svg, textEnde, STUFE);
   if (!erg) continue;
-  if (text) {
-    const grenze = [...text.profile.slice(-3), ...erg.profile.slice(0, 3)];
-    for (let j = 3; j < grenze.length; j++) {
-      const vier = grenze.slice(j - 3, j + 1);
-      if (vier.every((p) => p === vier[0])) { befund('Hinweis', 'Übergang', 'kein Profil viermal hintereinander über die Grenze Textteil/Parcours', 'Übergang', vier[0], 'höchstens dreimal'); break; }
-    }
+  const grenze = [...text.profile.slice(-3), ...erg.profile.slice(0, 3)];
+  for (let j = 3; j < grenze.length; j++) {
+    const vier = grenze.slice(j - 3, j + 1);
+    if (vier.every((p) => p === vier[0])) { befund('Hinweis', 'Übergang', 'kein Profil viermal hintereinander über die Grenze Textteil/Parcours', 'Übergang', vier[0], 'höchstens dreimal'); break; }
   }
   for (const x of erg.sichtBefunde) {
     let kat; let regel;

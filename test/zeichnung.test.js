@@ -218,6 +218,9 @@ test('Stufe 3: Kurven im Profilstil, Gates mit allen Zeilen im Kasten, Start und
   assert.equal(anzahl(bild, /<text (?!class="nord")/g), beschriftungen.length);
   for (const b of beschriftungen) for (const zeile of b.zeilen) assert.ok(bild.includes(`>${zeile}</tspan>`), `${zeile} fehlt`);
   assert.equal(anzahl(bild, /<text class="fett" /g), 2);
+  // Etikett nur "Start", die Höhe kommt vom Ende des Textteils
+  assert.ok(/<text class="fett" [^>]*><tspan x="0" dy="0">Start<\/tspan><\/text>/.test(bild));
+  assert.ok(!bild.includes('2000 ft'));
   assert.ok(bild.includes('.parcours text.fett { font-weight: 700; }'));
   assert.ok(!svg.includes('fett'), 'Stufe 2 ohne fett');
 });

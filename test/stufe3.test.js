@@ -439,10 +439,10 @@ test('Zuordnung: Bogenangabe näher an ihrem Bogen als an jedem fremden', () => 
   assert.equal(beschriftungFrei({ stuecke: [eigen, { ...kreishaelfte, kurve: true }], beschriftungen: [text] }), false, 'Kurve');
 });
 
-test('Zuordnung: "Start 2000 ft" steht dem Flugzeugsymbol deutlich näher als dem Ende des Wegs', () => {
-  // Beschriftung waagerecht bei y = 0 (Achse von x = -33,2 bis 33,2), Flugzeugsymbol 30 links der Achse;
+test('Zuordnung: "Start" steht dem Flugzeugsymbol deutlich näher als dem Ende des Wegs', () => {
+  // Beschriftung waagerecht bei y = 0 (Achse von x = -10 bis 10), Flugzeugsymbol 30 links der Achse;
   // Ende des Wegs 40 oder 50 über der Achse
-  const start = { zeilen: ['Start 2000 ft'], x: 0, y: 0, winkel: 0, mitte: null, kurs: null, fett: true, eigeneStuecke: [0], anker: { x: -63.2, y: 0 } };
+  const start = { zeilen: ['Start'], x: 0, y: 0, winkel: 0, mitte: null, kurs: null, fett: true, eigeneStuecke: [0], anker: { x: -40, y: 0 } };
   const weit = strecke({ x: 200, y: 200 }, { x: 300, y: 200 });
   assert.equal(beschriftungFrei({ stuecke: [weit], beschriftungen: [{ ...start, gegenanker: { x: 0, y: -40 } }] }), false, 'Ende 40, Symbol 30');
   assert.equal(beschriftungFrei({ stuecke: [weit], beschriftungen: [{ ...start, gegenanker: { x: 0, y: -50 } }] }), true, 'Ende 50, Symbol 30');
@@ -483,8 +483,9 @@ test('Start und Ende: fett, waagerecht, hinter dem Flugzeugsymbol und hinter dem
   const ohne = geometrie(elemente);
   assert.ok(!ohne.beschriftungen.some((b) => b.fett), 'Stufe 2 ohne Start und Ende');
   const geo = geometrie(elemente, 0, true);
-  // Wie in der PDF mit der Anfangshöhe
-  const start = geo.beschriftungen.find((b) => b.zeilen[0] === 'Start 2000 ft');
+  // Nur "Start", die Höhe kommt vom Ende des Textteils
+  const start = geo.beschriftungen.find((b) => b.zeilen[0] === 'Start');
+  assert.ok(!geo.beschriftungen.some((b) => b.zeilen[0].includes('2000')));
   const ende = geo.beschriftungen.find((b) => b.zeilen[0] === 'Ende');
   assert.ok(start && ende);
   for (const b of [start, ende]) {

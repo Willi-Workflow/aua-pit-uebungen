@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { erzeugeBlatt, BLAETTER_JE_STUFE, STUFEN, hatGates } from '../js/blatt.js';
 import { differenz } from '../js/kurs.js';
-import { STUFE3 } from '../js/elemente.js';
+import { STUFE3, KURVENRATE } from '../js/elemente.js';
 import {
   beschriftungFrei, beschriftungsAbstand, kleinsterAbstand, zaehleKreuzungen, startOben, LINIENBREITE_ABSTAND,
 } from '../js/geometrie.js';
@@ -94,13 +94,13 @@ test('alle 100 Blätter der Stufe 2 entstehen, Gates nur bei Nummern teilbar dur
   assert.ok(gruppen.mit.zulaessig >= 27, `nur ${gruppen.mit.zulaessig} von ${gruppen.mit.blaetter} Blättern mit Gates zulässig`);
 });
 
-test('der Parcours beginnt 20 bis 160 Grad vom Endkurs des Textteils', () => {
-  for (const blatt of blaetter) {
+test('der Parcours beginnt in beiden Stufen 20 bis 160 Grad vom Endkurs des Textteils', () => {
+  for (const blatt of [...blaetter, ...blaetter3]) {
     const endkurs = blatt.textteil.zeilen[blatt.textteil.zeilen.length - 1].kursDanach;
     const erstes = blatt.parcours.elemente[0];
     assert.equal(erstes.art, 'segment');
     const a = Math.abs(differenz(endkurs, erstes.kurs));
-    assert.ok(a >= 20 && a <= 160, `Blatt ${blatt.nummer}: ${endkurs} auf ${erstes.kurs}, ${a}°`);
+    assert.ok(a >= 20 && a <= 160, `Stufe ${blatt.stufe}, Blatt ${blatt.nummer}: ${endkurs} auf ${erstes.kurs}, ${a}°`);
   }
 });
 
@@ -123,13 +123,46 @@ test('Stufe 2: keine relative Gate-Zeile, deren Kurs danach genau der Gegenkurs 
   }
 });
 
-test('Stufe 3: gleiche Nummer, gleiches Blatt; kein Textteil', () => {
+test('Stufe 3: gleiche Nummer, gleiches Blatt; Textteil wie Stufe 2 mit zwölf Sätzen ab 090°, 2000 ft', () => {
   assert.deepEqual(erzeugeBlatt(3, 7), blaetter3[6]);
   assert.notDeepEqual(blaetter3[6].parcours.elemente, blaetter3[7].parcours.elemente);
+  assert.notDeepEqual(blaetter3[6].textteil, blaetter3[7].textteil);
   for (const blatt of blaetter3) {
     assert.equal(blatt.stufe, 3);
-    assert.equal(blatt.textteil, null);
+    assert.equal(blatt.textteil.ausgangskurs, 90);
+    assert.equal(blatt.textteil.ausgangshoehe, 2000);
+    assert.equal(blatt.textteil.zeilen.length, 12);
+    assert.ok(blatt.textteil.zeilen.every((z) => typeof z.satz === 'string' && z.satz.length > 0));
   }
+});
+
+// Höhen im Parcours der Stufe 3 in Flugreihenfolge ab "hoehe": Segmente,
+// Kreishälften (60 s), Kurven (Winkel / 3 s) und Gate-Zeilen, 8 ft je Sekunde
+function hoehenStufe3(elemente, hoehe) {
+  const verlauf = [];
+  const fliegen = (profil, sekunden) => {
+    if (profil === 'steigen') hoehe += 8 * sekunden;
+    if (profil === 'sinken') hoehe -= 8 * sekunden;
+    verlauf.push(hoehe);
+  };
+  for (const e of elemente) {
+    if (e.art === 'segment') fliegen(e.profil, e.dauer);
+    else if (e.art === 'vollkreis') e.profile.forEach((p) => fliegen(p, 60));
+    else if (e.art === 'kurve') fliegen(e.profil, e.winkel / KURVENRATE);
+    else e.zeilen.forEach((z) => fliegen(z.profil, z.dauer));
+  }
+  return verlauf;
+}
+
+test('Stufe 3: Höhe im Parcours ab dem Ende des Textteils zwischen 1000 und 3000 ft', () => {
+  const anfaenge = new Set();
+  for (const blatt of blaetter3) {
+    const ende = blatt.textteil.zeilen[blatt.textteil.zeilen.length - 1].hoeheDanach;
+    anfaenge.add(ende);
+    const verlauf = hoehenStufe3(blatt.parcours.elemente, ende);
+    assert.ok(verlauf.every((h) => h >= 1000 - 1e-9 && h <= 3000 + 1e-9), `Blatt ${blatt.nummer}: ${Math.min(...verlauf)} bis ${Math.max(...verlauf)} ft`);
+  }
+  assert.ok(anfaenge.size > 5, 'der Parcours beginnt nicht immer auf derselben Höhe');
 });
 
 test('Stufe 3: alle 100 Blätter entstehen, mindestens 90 zulässig, jedes unter 500 ms CPU-Zeit', () => {
@@ -230,9 +263,9 @@ test('Stufe 3: Beschriftungen stehen ihrem Stück deutlich näher als jedem frem
   assert.ok(geprueft > 2500, `nur ${geprueft} Beschriftungen`);
 });
 
-// "Start 2000 ft" gehört sichtbar zum Flugzeugsymbol, "Ende" zum Ende des Wegs:
-// Der eigene Punkt ist mindestens 1,5-mal näher als der andere (Achse der
-// Beschriftung zum Punkt). Auf Blatt 92 stand "Start 2000 ft" direkt unter "Ende".
+// "Start" gehört sichtbar zum Flugzeugsymbol, "Ende" zum Ende des Wegs: Der
+// eigene Punkt ist mindestens 1,5-mal näher als der andere (Achse der
+// Beschriftung zum Punkt). Auf Blatt 92 stand einmal "Start 2000 ft" direkt unter "Ende".
 test('Stufe 3: Start und Ende stehen deutlich näher an ihrem eigenen Punkt als am anderen', () => {
   for (const blatt of blaetter3) {
     const { beschriftungen, flugzeug, marken } = blatt.parcours.geometrie;
@@ -265,8 +298,9 @@ test('Stufe 3: Mengen je Blatt, Start und Ende beschriftet, alle Elemente der Vo
     bereich(segmente.filter((e) => e.rechenaufgabe !== null).length, STUFE3.rechenaufgaben, 'Rechenaufgaben');
     bereich(segmente.filter((e) => e.anzeige === 'himmelsrichtung').length, STUFE3.himmelsrichtungen, 'Himmelsrichtungen');
     const texte = geometrie.beschriftungen.map((b) => b.zeilen.join(' | '));
-    // Wie in der PDF steht die Anfangshöhe am Start
-    assert.equal(texte.filter((z) => z === 'Start 2000 ft').length, 1, `Blatt ${blatt.nummer}: Start 2000 ft`);
+    // Nur "Start": Die Höhe kommt vom Ende des Textteils
+    assert.equal(texte.filter((z) => z === 'Start').length, 1, `Blatt ${blatt.nummer}: Start`);
+    assert.ok(!texte.some((z) => z.includes('2000 ft')), `Blatt ${blatt.nummer}: Höhe am Start`);
     assert.equal(texte.filter((z) => z === 'Ende').length, 1, `Blatt ${blatt.nummer}: Ende`);
     let anl = 0;
     for (const e of elemente) {
