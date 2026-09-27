@@ -1,6 +1,6 @@
 # AUA PIT Übungsblätter
 
-Erzeugt Übungsblätter für die PIT-Übungen nach dem Vorbild der Vorlagen "AUA PIT Stufe 2" und "AUA PIT Stufe 3". Ein Blatt der Stufe 2 besteht aus einem Textteil (zwölf Anweisungen ab Ausgangskurs 090°, 2000 ft) und einem gezeichneten Parcours, der direkt anschließt. Ein Blatt der Stufe 3 ist nur der Parcours, Start auf 2000 ft mit dem Kurs des ersten Segments.
+Erzeugt Übungsblätter für die PIT-Übungen nach dem Vorbild der Vorlagen "AUA PIT Stufe 2" und "AUA PIT Stufe 3". Ein Blatt der Stufe 2 besteht aus einem Textteil (zwölf Anweisungen ab Ausgangskurs 090°, 2000 ft) und einem gezeichneten Parcours, der direkt anschließt. Ein Blatt der Stufe 3 ist genauso aufgebaut, Textteil und Parcours, der Parcours mit den zusätzlichen Zeichen der Stufe 3.
 
 Die App speichert nichts außer den Einstellungen des Blitzrechnens, und die nur auf dem Gerät. Blatt 7 der Stufe 2 ist immer dasselbe Blatt, weil die Nummer den Zufall festlegt.
 
@@ -9,7 +9,7 @@ Die App speichert nichts außer den Einstellungen des Blitzrechnens, und die nur
 ## Stand
 
 - Stufe 2 vollständig: Textteil und Parcours, 100 nummerierte Blätter, Druck auf A4
-- Stufe 3 vollständig: nur Parcours nach den drei Vorlagen (PDF, Gegenkursbeispiel, Handzeichnung), 100 nummerierte Blätter, alle mit Gates, Druck auf A4
+- Stufe 3 vollständig: Textteil wie Stufe 2 und Parcours nach den drei Vorlagen (PDF, Gegenkursbeispiel, Handzeichnung), 100 nummerierte Blätter, alle mit Gates, Druck auf A4
 - Blitzrechnen vollständig: Kopfrechnen mit Kursen (geschrieben, per Ton oder beides) und Ausschnitte für Stufe 2 und Stufe 3
 - Endlosmodus folgt
 
@@ -23,21 +23,21 @@ Die App speichert nichts außer den Einstellungen des Blitzrechnens, und die nur
 
 `250°/15"` Kurs und Sekunden. `SSE/10"` Kurs als Himmelsrichtung. `/30"` ohne Kurs: der Kurs ergibt sich aus der relativen Kursänderung an der Ecke davor (`+90°`, `-156°`). Eine Zahl ohne Gradzeichen an einem Segment (`+230`) ist eine Rechenaufgabe: Kursanzeige plus oder minus die Zahl, Ergebnis laut sagen. Rechenaufgaben können auch an Segmenten ohne Kurs stehen (`/30"` mit `+115`), dann gilt der Kurs, der sich aus der Ecke davor ergibt.
 
-Ein Kasten an der Strecke ist ein Gate: Seine drei bis vier Zeilen werden ohne gezeichnete Linie der Reihe nach aus dem Gedächtnis geflogen, je Zeile ein Kurs (`+72` oder `-400` zum aktuellen Kurs gerechnet und auf kürzestem Weg gedreht, `SSW` oder `123°` direkt), ein Pfeil für Horizontal-, Steig- oder Sinkflug (`→`, `↗`, `↘`) und die Sekunden. Gates stehen in Stufe 2 auf jedem Blatt mit einer Nummer teilbar durch 3, in Stufe 3 auf jedem Blatt; danach geht es vom Kurs der letzten Zeile auf kürzestem Weg zum Kurs des nächsten Segments.
+Ein Kasten an der Strecke ist ein Gate: Seine drei bis vier Zeilen werden ohne gezeichnete Linie der Reihe nach aus dem Gedächtnis geflogen, je Zeile ein Kurs (`+72` oder `-400` zum aktuellen Kurs gerechnet und auf kürzestem Weg gedreht, `SSW` oder `123°` direkt), ein Pfeil für Horizontal-, Steig- oder Sinkflug (`→`, `↗`, `↘`) und die Sekunden. Gates stehen in Stufe 2 auf jedem Blatt mit einer Nummer teilbar durch 3, in Stufe 3 auf jedem Blatt; danach geht es vom Kurs der letzten Zeile auf kürzestem Weg zum Kurs des nächsten Segments. Den Hinweis dazu ("Mit Gates: …") tragen nur die Gate-Blätter der Stufe 2; auf den Blättern der Stufe 3 steht über dem Parcours nur der Textteil, Kürzel und Regeln setzt sie voraus.
 
 ### Stufe 3
 
 Stufe 3 hat alle Zeichen der Stufe 2 und dazu:
 
-- **Start 2000 ft** und **Ende** stehen fett am Flugzeugsymbol und am Ende des letzten Segments.
+- **Start** und **Ende** stehen fett am Flugzeugsymbol und am Ende des letzten Segments. Die Höhe am Start ist die nach dem letzten Satz des Textteils.
 - **Gradzahl an einer Kurve** (`300`, `145`, ohne Vorzeichen und Gradzeichen): Die Kurve dreht um diesen Winkel in der gezeichneten Richtung, in ihrer eigenen Linienart; das Segment danach hat keinen Kurs (`/10"`), sein Kurs ist der Kurs davor plus oder minus der Winkel. Ab 180° ist die Kurve eine Schleife.
 - **HR** = nächste Himmelsrichtung. `HR/20"`: vom aktuellen Kurs auf die nächste Himmelsrichtung drehen (010° auf N), das ist eine kleine Ecke. `HR 111°/15"`: 111° auf die nächste Himmelsrichtung runden, hier ESE (112,5°).
-- **GK** = Gegenkurs. `GK/15"` fliegt den Gegenkurs des aktuellen Kurses; die Kehre davor ist gezeichnet. In Gates `GK` und `GK -19°` (Gegenkurs minus 19).
+- **GK** = Gegenkurs. `GK/15"` fliegt den Gegenkurs des aktuellen Kurses; die Kehre davor ist gezeichnet. In Gates `GK` und `GK -19°` (Gegenkurs minus 19). Wie in der Handzeichnung kommt Gegenkurs je Blatt drei- bis fünfmal vor: ein bis zwei Segmente `GK/…`, nie zwei direkt hintereinander, und zwei bis drei Gate-Zeilen.
 - **anl. Kurs** = anliegender, also gerade geflogener Kurs: `anl. Kurs +98°` ist der aktuelle Kurs plus 98, `anl. Kurs +7×8` plus 56, `anl. Kurs +9×13` plus 117. Selten, höchstens einmal je Blatt.
 - **K** in der letzten Zeile eines Gates ist der Kurs des nächsten gezeichneten Segments: `über N auf K` dreht so, dass die Drehung durch Norden (000°) geht, auch wenn das die lange Seite ist, `über S auf K` durch Süden, `kürz. W. auf K` auf kürzestem Weg.
-- **Gates in drei Formen:** wie in der PDF drei Zeilen mit Gradzeichen am Relativwert (`+127° → 15"`, bis `+190°`, das Vorzeichen nennt die Richtung) und der Zeile mit K; wie im Gegenkursbeispiel vier Zeilen wie in Stufe 2 (`-322 ↗ 15"`); wie in der Handzeichnung mit dem Pfeil voran (`↗ NNE +102° 15"`, `→ GK 25"`).
+- **Gates in drei Formen:** wie in der PDF drei Zeilen mit Gradzeichen am Relativwert (`+127° → 15"`, bis `+190°`, das Vorzeichen nennt die Richtung), höchstens eine davon mit Gegenkurs (`GK → 15"`, `GK -19° ↘ 20"`), und der Zeile mit K; wie im Gegenkursbeispiel vier Zeilen wie in Stufe 2 (`-322 ↗ 15"`), ohne Gegenkurs; wie in der Handzeichnung mit dem Pfeil voran (`↗ NNE +102° 15"`, `→ GK 25"`), mit mindestens einer Zeile Gegenkurs.
 
-Jede Beschriftung steht deutlich näher an ihrem eigenen Strich als an jedem anderen, zu dem sie passen könnte, und Schleifen kreuzen Ein- und Ausfahrt sauber. Norden ist oben, der Start liegt oben; der Pfeil zeigt nach Norden. Das Flugzeug steht am Start und zeigt in die erste Flugrichtung. In Stufe 2 beginnt der Parcours 20° bis 160° vom Endkurs des Textteils und hält wie der Textteil die Höhe zwischen 1000 und 3000 ft; in Stufe 3 gilt derselbe Höhenrahmen ab 2000 ft.
+Jede Beschriftung steht deutlich näher an ihrem eigenen Strich als an jedem anderen, zu dem sie passen könnte, und Schleifen kreuzen Ein- und Ausfahrt sauber. Norden ist oben, der Start liegt oben; der Pfeil zeigt nach Norden. Das Flugzeug steht am Start und zeigt in die erste Flugrichtung. In beiden Stufen beginnt der Parcours 20° bis 160° vom Endkurs des Textteils und hält wie der Textteil die Höhe zwischen 1000 und 3000 ft, ab der Höhe nach dem letzten Satz.
 
 ## Blitzrechnen
 
