@@ -7,8 +7,9 @@
 // Gerechnet wird immer der neue Kurs aus einer Basis (aktueller Kurs, Gegenkurs
 // oder Himmelsrichtung) und einer Zahl mit Vorzeichen, Ergebnis modulo 360.
 // Überlauf heißt: Basis plus Zahl erreicht 360 oder fällt unter 0.
-//   leicht: beliebige Kurse, Zahlen 20 bis 250 in Fünferschritten, acht
-//           Haupt- und Nebenrichtungen, Überlauf in etwa drei von zehn Fällen
+//   leicht: beliebige Kurse, Zahlen 20 bis 280, davon etwa ein Drittel in
+//           Fünferschritten, acht Haupt- und Nebenrichtungen, Überlauf in etwa
+//           einem von drei Fällen
 //   normal: Kurse 000 bis 359, Zahlen 20 bis 490, Überlauf in etwa der Hälfte
 //   schwer: wie normal, aber keine Zahl mit Endziffer 0 oder 5, ein Drittel der
 //           Zahlen über 360, Himmelsrichtungen mit halbem Grad
@@ -27,7 +28,9 @@ export const VORGABEZEITEN = {
 
 // Anteil der Aufgaben mit Überlauf, wo er möglich ist; bei schwer nur für die
 // Zahlen unter 360, die übrigen laufen immer über
-export const UEBERLAUF = { leicht: 0.3, normal: 0.5, schwer: 0.5 };
+export const UEBERLAUF = { leicht: 0.35, normal: 0.5, schwer: 0.5 };
+// Anteil der Zahlen in Fünferschritten bei leicht, der Rest ist beliebig ganzzahlig
+export const FUENFER_LEICHT = 1 / 3;
 // Anteil der Zahlen von 361 bis 490 bei schwer, nur bei Kurs plus oder minus Zahl
 export const UEBER_360 = 1 / 3;
 
@@ -38,18 +41,18 @@ export const UEBER_360 = 1 / 3;
 //   gk:    GK plus oder minus n
 //   hr:    Himmelsrichtung plus oder minus n
 export const BETRAEGE = {
-  leicht: { zahl: [20, 250], ecke: [20, 250], formA: [20, 150], gk: [10, 60], hr: [10, 130] },
+  leicht: { zahl: [20, 280], ecke: [20, 280], formA: [20, 150], gk: [10, 60], hr: [10, 130] },
   normal: { zahl: [20, 490], ecke: [20, 340], formA: [20, 190], gk: [10, 60], hr: [10, 130] },
   schwer: { zahl: [20, 490], ecke: [20, 340], formA: [20, 190], gk: [10, 60], hr: [10, 130] },
 };
 
 // Drehwinkel der Gradzahl-Kurven. Normal wie Stufe 2 mit rund einem Drittel
 // Schleifen über 180°.
-export const KURVENWINKEL = { leicht: [30, 250], normal: [30, 350], schwer: [150, 350] };
+export const KURVENWINKEL = { leicht: [30, 280], normal: [30, 350], schwer: [150, 350] };
 const SCHLEIFEN_ANTEIL = 0.37;
 
 // anl. Kurs: plus n oder plus a×b. Normal wie auf den Blättern (n und a×b von 20
-// bis 160, a von 2 bis 9, b von 2 bis 13); leicht nur plus n in Fünferschritten;
+// bis 160, a von 2 bis 9, b von 2 bis 13); leicht nur plus n, ein Drittel in Fünferschritten;
 // schwer nur a×b wie "9×13" ohne Faktor 5, 10 oder 15.
 export const ANL = {
   leicht: { n: [20, 150] },
@@ -82,7 +85,7 @@ export function betraege(schwierigkeit, zusammenhang) {
   if (!betraegeSpeicher.has(schluessel)) {
     const [von, bis] = BETRAEGE[schwierigkeit][zusammenhang];
     let werte;
-    if (schwierigkeit === 'leicht') werte = bereich(Math.ceil(von / 5) * 5, bis, 5);
+    if (schwierigkeit === 'leicht') werte = bereich(von, bis);
     else werte = bereich(von, bis).filter((n) => schwierigkeit === 'normal' || ohneFuenfer(n));
     // Eine Ecke von 180° hätte keine Richtung
     if (zusammenhang === 'ecke') werte = werte.filter((n) => n !== 180);
@@ -116,6 +119,10 @@ function nachUeberlauf(zufall, werte, basis, anteil, wertVon = (w) => w) {
 export function zahlWaehlen(zufall, schwierigkeit, zusammenhang, basis, gueltig = () => true) {
   const alle = mitVorzeichen(betraege(schwierigkeit, zusammenhang)).filter(gueltig);
   let werte = alle;
+  if (schwierigkeit === 'leicht') {
+    const fuenfer = alle.filter((w) => w % 5 === 0);
+    if (fuenfer.length && zufall.wuerfel(FUENFER_LEICHT)) werte = fuenfer;
+  }
   if (schwierigkeit === 'schwer' && zusammenhang === 'zahl') {
     const gross = alle.filter((w) => Math.abs(w) > 360);
     const klein = alle.filter((w) => Math.abs(w) < 360);
@@ -167,13 +174,14 @@ export function richtungPlusWaehlen(zufall, schwierigkeit, zusammenhang, gueltig
   return { index, wert: zahlWaehlen(zufall, schwierigkeit, zusammenhang, basis, (w) => gueltig(normieren(basis + w))) };
 }
 
-// Drehwinkel einer Gradzahl-Kurve: leicht 30 bis 250 in Fünferschritten ohne 180,
+// Drehwinkel einer Gradzahl-Kurve: leicht 30 bis 280 ohne 180, ein Drittel in Fünferschritten,
 // normal 30 bis 350 ohne 180, schwer ungerade von 151 bis 349
 export function kurvenWinkel(zufall, schwierigkeit) {
   const [von, bis] = KURVENWINKEL[schwierigkeit];
   if (schwierigkeit === 'leicht') {
     let winkel;
-    do { winkel = zufall.ganzzahl(von / 5, bis / 5) * 5; } while (winkel === 180);
+    const fuenfer = zufall.wuerfel(FUENFER_LEICHT);
+    do { winkel = fuenfer ? zufall.ganzzahl(von / 5, bis / 5) * 5 : zufall.ganzzahl(von, bis); } while (winkel === 180);
     return winkel;
   }
   if (schwierigkeit === 'schwer') return zufall.ganzzahl(Math.ceil((von - 1) / 2), Math.floor((bis - 1) / 2)) * 2 + 1;
@@ -186,7 +194,7 @@ const anlSpeicher = new Map();
 export function anlAngaben(schwierigkeit) {
   if (!anlSpeicher.has(schwierigkeit)) {
     const g = ANL[schwierigkeit];
-    const plus = g.n ? bereich(...g.n, schwierigkeit === 'leicht' ? 5 : 1).map((wert) => ({ typ: 'anl', wert })) : [];
+    const plus = g.n ? bereich(...g.n).map((wert) => ({ typ: 'anl', wert })) : [];
     const produkte = [];
     if (g.a) {
       for (const a of bereich(...g.a)) {
@@ -207,7 +215,10 @@ export function anlAngaben(schwierigkeit) {
 export function anlWaehlen(zufall, schwierigkeit, basis) {
   const { plus, produkte } = anlAngaben(schwierigkeit);
   let liste;
-  if (!produkte.length) liste = plus;
+  if (schwierigkeit === 'leicht') {
+    const fuenfer = plus.filter((angabe) => angabe.wert % 5 === 0);
+    liste = zufall.wuerfel(FUENFER_LEICHT) && fuenfer.length ? fuenfer : plus;
+  } else if (!produkte.length) liste = plus;
   else if (!plus.length) liste = produkte;
   else liste = zufall.wuerfel(0.5) ? plus : produkte;
   return nachUeberlauf(zufall, liste, basis, UEBERLAUF[schwierigkeit], (angabe) => angabe.wert);

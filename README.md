@@ -51,11 +51,11 @@ Unter `#/blitzrechnen` (Karte mit Blitz unter der Kursrose) drei Übungen, jede 
 
 | | leicht | normal | schwer |
 |---|---|---|---|
-| Kurs plus oder minus Zahl, Rechenaufgabe, relative Gate-Zeile | beliebiger Kurs, Zahl 20 bis 250 in Fünferschritten, Überlauf über 360 oder unter 0 in etwa drei von zehn Fällen | Kurs 000 bis 359, Zahl 20 bis 490, Überlauf etwa in der Hälfte | wie normal, keine Zahl mit Endziffer 0 oder 5, ein Drittel über 360 (361 bis 490) |
-| GK ± n, Himmelsrichtung ± n | 10 bis 60 und 10 bis 130 in Fünferschritten, die acht Haupt- und Nebenrichtungen | 10 bis 60 und 10 bis 130, alle 16 Richtungen | ohne Endziffer 0 oder 5, nur Richtungen mit halbem Grad (`SSW +41°` = 243,5; richtig sind 243, 244 und 243,5) |
-| relative Ecke | 20 bis 250 in Fünferschritten | 20 bis 340 | 20 bis 340 ohne Endziffer 0 oder 5 |
-| Gradzahl-Kurve | 30 bis 250 in Fünferschritten | 30 bis 350 | ungerade von 151 bis 349 |
-| anl. Kurs | plus n in Fünferschritten | plus n oder a×b wie auf den Blättern | nur a×b wie `+9×13` |
+| Kurs plus oder minus Zahl, Rechenaufgabe, relative Gate-Zeile | beliebiger Kurs, Zahl 20 bis 280, etwa ein Drittel in Fünferschritten, Überlauf über 360 oder unter 0 in etwa einem von drei Fällen | Kurs 000 bis 359, Zahl 20 bis 490, Überlauf etwa in der Hälfte | wie normal, keine Zahl mit Endziffer 0 oder 5, ein Drittel über 360 (361 bis 490) |
+| GK ± n, Himmelsrichtung ± n | 10 bis 60 und 10 bis 130, ein Drittel in Fünferschritten, die acht Haupt- und Nebenrichtungen | 10 bis 60 und 10 bis 130, alle 16 Richtungen | ohne Endziffer 0 oder 5, nur Richtungen mit halbem Grad (`SSW +41°` = 243,5; richtig sind 243, 244 und 243,5) |
+| relative Ecke | 20 bis 280, ein Drittel in Fünferschritten | 20 bis 340 | 20 bis 340 ohne Endziffer 0 oder 5 |
+| Gradzahl-Kurve | 30 bis 280, ein Drittel in Fünferschritten | 30 bis 350 | ungerade von 151 bis 349 |
+| anl. Kurs | plus n, ein Drittel in Fünferschritten | plus n oder a×b wie auf den Blättern | nur a×b wie `+9×13` |
 | Kopfrechnen, übrige Arten | seltener | wie bisher | ungerade Kurse, Himmelsrichtungen mit halbem Grad |
 
 Eine Ecke bleibt unter 360°, weil sie als Drehung gezeichnet wird; relative Gate-Zeilen mit Gradzeichen (Form A) gehen wie in der PDF bis 190. Bei leicht sind direkt geflogene Himmelsrichtungen in Gates die acht Haupt- und Nebenrichtungen, damit das Rechnen bei ganzen Graden bleibt.

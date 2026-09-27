@@ -130,25 +130,27 @@ test('Kopfrechnen: je Schwierigkeit Lösung und Tonfolge aus dem Aufgabentext na
   }
 });
 
-test('Kopfrechnen leicht: beliebige Kurse, Zahlen in Fünferschritten 20 bis 250, acht Richtungen, Überlauf in etwa drei von zehn Fällen', () => {
+test('Kopfrechnen leicht: beliebige Kurse, Zahlen 20 bis 280 mit etwa einem Drittel Fünferschritten, acht Richtungen, Überlauf in etwa einem von drei Fällen', () => {
   const s = 'leicht';
   for (const x of gelesen(s, 'kursPlusZahl')) {
-    assert.ok(imBereich(x.kurs, 0, 359) && fuenfer(x.zahl) && imBereich(Math.abs(x.zahl), 20, 250), `${x.kurs} ${x.zahl}`);
+    assert.ok(imBereich(x.kurs, 0, 359) && imBereich(Math.abs(x.zahl), 20, 280), `${x.kurs} ${x.zahl}`);
   }
-  for (const x of gelesen(s, 'gkPlus')) assert.ok(fuenfer(x.zahl) && imBereich(Math.abs(x.zahl), 10, 60));
+  const fuenferAnteil = anteil(gelesen(s, 'kursPlusZahl'), (x) => fuenfer(x.zahl));
+  assert.ok(fuenferAnteil >= 0.3 && fuenferAnteil <= 0.55, `Fünferschritte in ${fuenferAnteil}`);
+  for (const x of gelesen(s, 'gkPlus')) assert.ok(imBereich(Math.abs(x.zahl), 10, 60));
   for (const art of ['richtungPlus', 'gkRichtung']) {
     for (const x of gelesen(s, art)) {
       assert.ok(x.index % 2 === 0, `${art}: nur Haupt- und Nebenrichtungen`);
-      assert.ok(fuenfer(x.zahl) && imBereich(Math.abs(x.zahl), 10, art === 'gkRichtung' ? 60 : 130));
+      assert.ok(imBereich(Math.abs(x.zahl), 10, art === 'gkRichtung' ? 60 : 130));
     }
   }
-  for (const x of gelesen(s, 'anlKurs')) assert.ok(fuenfer(x.zahl) && imBereich(x.zahl, 20, 150) && x.a === undefined);
+  for (const x of gelesen(s, 'anlKurs')) assert.ok(imBereich(x.zahl, 20, 150) && x.a === undefined);
   // Ganze Grade als Ergebnis, und nicht mehr nur Zehnerschritte
   for (const art of RECHNEND) for (const a of jeArt[s][art]) assert.ok(Number.isInteger(a.loesung), a.text);
   assert.ok(gelesen(s, 'kursPlusZahl').some((x) => !zehner(x.kurs)), 'leicht nur mit Zehnerkursen');
   for (const art of RECHNEND) {
     const wert = anteil(gelesen(s, art), (x) => ueberlauf(x.basis, x.zahl));
-    assert.ok(wert <= 0.42, `${art}: Überlauf in ${wert}`);
+    assert.ok(wert <= 0.5, `${art}: Überlauf in ${wert}`);
   }
   assert.ok(anteil(gelesen(s, 'kursPlusZahl'), (x) => ueberlauf(x.basis, x.zahl)) > 0.1, 'leicht ganz ohne Überlauf');
 });
