@@ -10,8 +10,9 @@ import {
 
 export const KANDIDATEN = 12000;
 // Stufe 3 prüft schon beim Erzeugen jeden Schritt (siehe elementeStufe3), ein
-// Kandidat kostet mehr, kommt aber fast immer ohne Kreuzung durch
-export const KANDIDATEN_STUFE_3 = 1300;
+// Kandidat kostet mehr, kommt aber meist ohne Kreuzung durch. 1000 halten jedes
+// Blatt unter 250 ms und lassen alle 100 Blätter zulässig.
+export const KANDIDATEN_STUFE_3 = 1000;
 
 // Ausweichlösung, solange kein Kandidat zulässig ist: wenigste Kreuzungen, dann
 // größter kleinster Abstand, dann wenigste verdeckte Beschriftungen, dann der

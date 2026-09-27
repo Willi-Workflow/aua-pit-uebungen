@@ -312,9 +312,9 @@ Alle Elemente der Stufe 2 (Segment mit Grad, Himmelsrichtung oder ohne Kurs, Vol
 
 ### Erzeugung
 
-`erzeugeElemente(zufall, einstellungen, start, pruefer)` bekommt je Stufe ein Einstellungsobjekt: `{ stufe: 2, mitGates }` zieht genau die Zufallszahlen wie bisher, `{ stufe: 3 }` den eigenen Pfad. Stufe 3 baut einen Kandidaten Schritt für Schritt (Segment und was ihm folgt) und prüft jeden Schritt sofort gegen den bisherigen Weg (`schrittpruefer` in `geometrie.js`: keine Kreuzung außer an Schleifen, Mittellinien mindestens 9 auseinander, Flugzeugsymbol frei, nichts mehr als 120 Einheiten über dem Start). Scheitert ein Schritt viermal, wird der Schritt davor wiederholt; nach 60 gescheiterten Schritten ist der Kandidat verworfen. Ohne diese Prüfung kreuzten sich 99,6 % der Kandidaten; mit ihr kommen gut 60 % durch, und 1300 Kandidaten je Blatt reichen (`KANDIDATEN_STUFE_3`). Danach dieselbe Auswahl wie in Stufe 2: zulässig und höchste Füllung.
+`erzeugeElemente(zufall, einstellungen, start, pruefer)` bekommt je Stufe ein Einstellungsobjekt: `{ stufe: 2, mitGates }` zieht genau die Zufallszahlen wie bisher, `{ stufe: 3 }` den eigenen Pfad. Stufe 3 baut einen Kandidaten Schritt für Schritt (Segment und was ihm folgt) und prüft jeden Schritt sofort gegen den bisherigen Weg (`schrittpruefer` in `geometrie.js`: keine Kreuzung außer an Schleifen, Mittellinien mindestens 9 auseinander, Flugzeugsymbol frei, nichts mehr als 120 Einheiten über dem Start). Scheitert ein Schritt viermal, wird der Schritt davor wiederholt; nach 60 gescheiterten Schritten ist der Kandidat verworfen. Ohne diese Prüfung kreuzten sich 99,6 % der Kandidaten; mit ihr kommen gut 60 % durch, und 1000 Kandidaten je Blatt reichen (`KANDIDATEN_STUFE_3`). Mit 1300 lag ein Blatt unter der Last der parallel laufenden Prüfungen knapp über 500 ms. Danach dieselbe Auswahl wie in Stufe 2: zulässig und höchste Füllung.
 
-Gemessen über die 100 Blätter: alle 100 zulässig, CPU-Zeit je Blatt im Median 242 ms, höchstens 423 ms, Druckschrift im Median 8,1 pt, mindestens 6,1 pt.
+Gemessen über die 100 Blätter: alle 100 zulässig, Rechenzeit je Blatt allein im Median 185 ms, höchstens 230 ms (CPU-Zeit während der ganzen Prüfung im Median 202 ms, höchstens 365 ms), Druckschrift im Median 8,0 pt, mindestens 6,1 pt.
 
 ### Oberfläche und Druck
 
