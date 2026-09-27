@@ -39,17 +39,21 @@ function gateZeileLesen(z) {
 }
 
 // Kursbeschriftung eines Segments: "250°/15"", "SSE/10"", "/30"", in Stufe 3
-// auch "HR/20"", "HR 111°/15"", "GK/15"", darunter höchstens eine Rechenaufgabe
+// auch "HR/20"", "HR 111°/15"", "GK/15"" und als Gegenkurs-Angabe "GK 247°/15""
+// oder "GK SSW/15"" (geflogen wird der Gegenkurs der Angabe), darunter höchstens
+// eine Rechenaufgabe
 function beschriftungLesen(zeilen) {
-  const m = zeilen[0].match(/^(?:(\d{3})°|(HR)|HR (\d{3})°|(GK)|([A-Z]{1,3}))?\/(\d+)"$/);
+  const m = zeilen[0].match(/^(?:(\d{3})°|(HR)|HR (\d{3})°|(GK)|GK (\d{3})°|GK ([A-Z]{1,3})|([A-Z]{1,3}))?\/(\d+)"$/);
   if (!m) return null;
+  const gkAngabe = m[5] !== undefined || m[6] !== undefined;
   const r = {
-    grad: m[1] !== undefined ? Number(m[1]) : null,
+    grad: m[1] !== undefined ? Number(m[1]) : (m[5] !== undefined ? Number(m[5]) : null),
     hr: m[2] !== undefined,
     hrGrad: m[3] !== undefined ? Number(m[3]) : null,
     gk: m[4] !== undefined,
-    richtung: m[5] || null,
-    sek: Number(m[6]),
+    gkAngabe,
+    richtung: m[7] || m[6] || null,
+    sek: Number(m[8]),
     rechen: null,
     roh: zeilen.join(' | '),
   };
@@ -152,7 +156,7 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
     const l = beschriftungLesen(t.zeilen);
     if (!l) { befund('Fehler', 'Parcours', 'Beschriftung lesbar', 'Text', t.zeilen.join(' | '), 'Kurs/Sekunden, relative Angabe oder Gradzahl'); continue; }
     if (l.fehler) befund('Fehler', 'Parcours', 'Rechenaufgabe ohne Gradzeichen', l.roh, l.fehler, 'zweite Zeile wie +230');
-    if (stufe === 2 && l.hrgk) befund('Fehler', 'Parcours', 'HR und GK nur in Stufe 3', l.roh, 'HR oder GK', 'Kurs, Himmelsrichtung oder ohne');
+    if (stufe === 2 && (l.hrgk || l.gkAngabe)) befund('Fehler', 'Parcours', 'HR und GK nur in Stufe 3', l.roh, 'HR oder GK', 'Kurs, Himmelsrichtung oder ohne');
     t.lesung = l; segTexte.push(t);
     if (t.t.w < -90 || t.t.w > 90) befund('Fehler', 'Sicht', 'Beschriftung nicht auf dem Kopf', l.roh, `Drehung ${t.t.w}°`, '-90 bis 90°');
   }
@@ -240,7 +244,7 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
   // Flug nachrechnen
   let kurs = textEnde.kurs; let hoehe = textEnde.hoehe;
   const profile = [];
-  const zahl = { segmente: 0, vollkreise: 0, kurven: 0, relativ: 0, hr: 0, gk: 0, gkZeilen: 0, rechen: 0, richtung: 0, gates: 0, formen: { a: 0, b: 0, c: 0 }, anl: 0 };
+  const zahl = { segmente: 0, vollkreise: 0, kurven: 0, relativ: 0, hr: 0, gk: 0, gkZeilen: 0, gkAngabe: 0, absolut: 0, rechen: 0, richtung: 0, gates: 0, formen: { a: 0, b: 0, c: 0 }, anl: 0 };
   let gkSegDavor = null; // Nummer des letzten Segments mit GK
   const hoeheFliegen = (p, sek, stelle) => {
     profile.push(p);
@@ -312,6 +316,12 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
             soll = l.grad;
             if (soll > 359) befund('Fehler', 'Parcours', 'Kurs 000 bis 359', stelle, String(soll), '000 bis 359');
           }
+          // Angabe als Gegenkurs: geflogen und gezeichnet wird ihr Gegenkurs
+          if (l.gkAngabe) {
+            zahl.gkAngabe += 1;
+            soll = norm(soll + 180);
+          }
+          zahl.absolut += 1;
           if (segNr === 1) {
             // Beide Stufen schließen an den Textteil an
             const a = abst(textEnde.kurs, soll);
@@ -590,6 +600,8 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
     bereich(zahl.gk, M.gkSegmente, 'Segmente mit GK');
     bereich(zahl.gkZeilen, M.gkZeilen, 'Gate-Zeilen mit GK');
     bereich(zahl.gk + zahl.gkZeilen, M.gkGesamt, 'Gegenkurs-Aufgaben (Segmente und Gate-Zeilen)');
+    // Wie im Gegenkursbeispiel nennt ein großer Teil der Segmente mit eigenem Kurs den Gegenkurs
+    if (zahl.gkAngabe < M.gkAngabeAnteil * zahl.absolut) befund('Fehler', 'Mengen', `Angaben als Gegenkurs mindestens ${M.gkAngabeAnteil * 100} % der Segmente mit Kurs`, 'Parcours', `${zahl.gkAngabe} von ${zahl.absolut}`, `mindestens ${Math.ceil(M.gkAngabeAnteil * zahl.absolut)}`);
     bereich(zahl.rechen, M.rechen, 'Rechenaufgaben');
     bereich(zahl.richtung, M.richtung, 'Himmelsrichtungen');
     if (zahl.anl > 1) befund('Fehler', 'Mengen', 'anl. Kurs höchstens einmal je Blatt', 'Parcours', String(zahl.anl), 'höchstens 1');
