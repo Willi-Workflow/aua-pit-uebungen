@@ -1,12 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Zufall } from '../js/zufall.js';
-import { erzeugeElemente, gateStellenWaehlen } from '../js/elemente.js';
+import {
+  erzeugeElemente, STUFE2, KURVE_WINKEL_STUFE_2, KURSBERECHNUNGEN_MIN, KURVENRATE,
+} from '../js/elemente.js';
 import {
   geometrie, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, seitenverhaeltnisPasst, SEKUNDE_LAENGE, ZEILENABSTAND,
   LINIENBREITE_ABSTAND, MARKENLAENGE, FLUGZEUG_ABSTAND, FLUGZEUG_RADIUS, START_OBEN,
 } from '../js/geometrie.js';
-import { erzeugeParcours, KANDIDATEN } from '../js/parcours.js';
+import { erzeugeParcours, KANDIDATEN_STUFE_2 } from '../js/parcours.js';
 import { erzeugeBlatt, BLAETTER_JE_STUFE, hatGates } from '../js/blatt.js';
 import { normieren, differenz } from '../js/kurs.js';
 
@@ -34,6 +36,8 @@ function profilFolge(elemente) {
   });
 }
 
+// Stufe 2 wie in PDF und Handzeichnungen: meist auszurechnende Kurse (relative
+// Ecken und Gradzahl-Kurven), dazu 5 bis 7 Rechenaufgaben
 test('Mengen je Blatt, ohne Gates 18 bis 22 Segmente, mit Gates 15 bis 19', () => {
   for (const s of listen.map(segmente)) assert.ok(s.length >= 18 && s.length <= 22, `${s.length} Segmente ohne Gates`);
   const gateLaengen = new Set(gateListen.map((e) => segmente(e).length));
@@ -47,19 +51,54 @@ test('Mengen je Blatt, ohne Gates 18 bis 22 Segmente, mit Gates 15 bis 19', () =
     const himmel = s.filter((e) => e.anzeige === 'himmelsrichtung').length;
     assert.ok(himmel >= 3 && himmel <= 4, `${himmel} Himmelsrichtungen`);
     const rechnen = s.filter((e) => e.rechenaufgabe !== null).length;
-    assert.ok(rechnen >= 4 && rechnen <= 5, `${rechnen} Rechenaufgaben`);
+    assert.ok(rechnen >= 5 && rechnen <= 7, `${rechnen} Rechenaufgaben`);
+  }
+  for (const [liste, [von, bis]] of [[listen, STUFE2.kurven], [gateListen, STUFE2.kurvenMitGates]]) {
+    for (const elemente of liste) {
+      const kurven = elemente.filter((e) => e.art === 'kurve').length;
+      assert.ok(kurven >= von && kurven <= bis, `${kurven} Kurven`);
+      const berechnungen = kurven + segmente(elemente).filter((e) => e.relativ !== null).length;
+      assert.ok(berechnungen >= KURSBERECHNUNGEN_MIN && berechnungen <= 11, `${berechnungen} Kursberechnungen`);
+    }
   }
 });
 
-test('Rechenaufgaben mit Betrag 100 bis 350, auch an Segmenten ohne Kurs', () => {
+test('Gradzahl-Kurven: Winkel 30 bis 350 ohne 180, rund ein Drittel Schleifen, das Segment danach nur mit Zeit', () => {
+  const winkel = [];
+  for (const elemente of [...listen, ...gateListen]) {
+    let kurs = null;
+    elemente.forEach((e, k) => {
+      if (e.art === 'segment') kurs = e.kurs;
+      if (e.art === 'gate') kurs = e.zeilen[e.zeilen.length - 1].kursDanach;
+      if (e.art !== 'kurve') return;
+      assert.ok(Number.isInteger(e.winkel) && e.winkel >= KURVE_WINKEL_STUFE_2.min && e.winkel <= KURVE_WINKEL_STUFE_2.max && e.winkel !== 180, `${e.winkel}`);
+      assert.ok(['links', 'rechts'].includes(e.richtung) && ['horizontal', 'steigen', 'sinken'].includes(e.profil));
+      assert.equal(elemente[k - 1].art, 'segment', 'vor einer Kurve steht ein Segment');
+      const nach = elemente[k + 1];
+      assert.equal(nach.art, 'segment');
+      assert.equal(nach.anzeige, 'keine');
+      assert.equal(nach.relativ, null);
+      assert.equal(nach.kurs, normieren(kurs + (e.richtung === 'rechts' ? e.winkel : -e.winkel)));
+      winkel.push(e.winkel);
+    });
+  }
+  const schleifen = winkel.filter((w) => w > 180).length / winkel.length;
+  assert.ok(schleifen > 0.25 && schleifen < 0.45, `Anteil Schleifen ${schleifen.toFixed(2)}`);
+  assert.ok(winkel.some((w) => w < 45) && winkel.some((w) => w > 330), 'Randbereiche kommen vor');
+});
+
+test('Rechenaufgaben mit Betrag 100 bis 490, auch an Segmenten ohne Kurs', () => {
   let ohneKurs = 0;
+  let ueber350 = 0;
   for (const elemente of listen) {
     for (const s of segmente(elemente)) {
       if (s.rechenaufgabe === null) continue;
       if (s.anzeige === 'keine') ohneKurs += 1;
-      assert.ok(Math.abs(s.rechenaufgabe) >= 100 && Math.abs(s.rechenaufgabe) <= 350);
+      assert.ok(Math.abs(s.rechenaufgabe) >= 100 && Math.abs(s.rechenaufgabe) <= 490);
+      if (Math.abs(s.rechenaufgabe) > 350) ueber350 += 1;
     }
   }
+  assert.ok(ueber350 > 0, 'keine Rechenaufgabe über 350');
   assert.ok(ohneKurs > 0, 'keine Rechenaufgabe an einem Segment ohne Kurs, wie in der Vorlage (/30" mit +115)');
 });
 
@@ -78,7 +117,8 @@ test('relative Ecken haben keine Kursanzeige, Winkel 20 bis 340 ohne 180, Kurs s
 });
 
 // Kurs, mit dem man am Element k ankommt: nach einem Gate der Kurs der letzten
-// Zeile, nach einem Vollkreis der Kurs des Segments davor
+// Zeile, nach einem Vollkreis der Kurs des Segments davor (nach einer Kurve
+// gibt es keine Ecke, siehe die Prüfung der Kurven)
 function kursVor(elemente, k) {
   const vorher = elemente[k - 1];
   if (vorher.art === 'gate') return vorher.zeilen[vorher.zeilen.length - 1].kursDanach;
@@ -89,7 +129,7 @@ function kursVor(elemente, k) {
 test('Kurswechsel an Ecken mit Kurs zwischen 20 und 160 Grad, nach einem Gate vom letzten Gate-Kurs', () => {
   for (const elemente of [...listen, ...gateListen]) {
     elemente.forEach((e, k) => {
-      if (e.art !== 'segment' || k === 0 || e.relativ !== null) return;
+      if (e.art !== 'segment' || k === 0 || e.relativ !== null || elemente[k - 1].art === 'kurve') return;
       const a = Math.abs(differenz(kursVor(elemente, k), e.kurs));
       assert.ok(a >= 20 && a <= 160, `${kursVor(elemente, k)} nach ${e.kurs}`);
     });
@@ -138,8 +178,8 @@ test('kein Profil öfter als dreimal hintereinander, Vollkreishälften und Gate-
 });
 
 // Höhen im Parcours ab "hoehe", unabhängig vom Erzeuger nachgerechnet: 8 ft/s,
-// Segmente mit ihrer Dauer, Vollkreishälften 60 s, Gate-Zeilen mit ihren
-// Sekunden; Ecken ändern die Höhe nicht
+// Segmente mit ihrer Dauer, Vollkreishälften 60 s, Kurven Winkel / 3 s,
+// Gate-Zeilen mit ihren Sekunden; Ecken ändern die Höhe nicht
 function hoehenVerlauf(elemente, hoehe) {
   const rate = { horizontal: 0, steigen: 8, sinken: -8 };
   const verlauf = [hoehe];
@@ -147,6 +187,7 @@ function hoehenVerlauf(elemente, hoehe) {
     let teile;
     if (e.art === 'segment') teile = [[e.profil, e.dauer]];
     else if (e.art === 'vollkreis') teile = e.profile.map((p) => [p, 60]);
+    else if (e.art === 'kurve') teile = [[e.profil, e.winkel / KURVENRATE]];
     else teile = e.zeilen.map((z) => [z.profil, z.dauer]);
     for (const [profil, sekunden] of teile) {
       hoehe += rate[profil] * sekunden;
@@ -190,20 +231,6 @@ test('Gates: mit Gates 3 bis 4 Gates zu je 3 bis 4 Zeilen, ohne Gates keins', ()
     for (const gate of g) assert.ok(gate.zeilen.length >= 3 && gate.zeilen.length <= 4, `${gate.zeilen.length} Zeilen`);
   }
   for (const elemente of listen) assert.equal(gates(elemente).length, 0);
-});
-
-test('Gate-Stellen: auch im ungünstigsten Fall mit 15 Segmenten mindestens drei, mit Abstand', () => {
-  // 15 Segmente: Stellen 1 bis 12; Vollkreise nach 4 und 8, relative Ecken an 10 bis 13
-  // lassen nur 1, 2, 3, 5, 6, 7 übrig. Wer zuerst 2 und 6 nimmt, bliebe bei zwei.
-  const erlaubt = [1, 2, 3, 5, 6, 7];
-  for (let i = 0; i < 300; i++) {
-    const stellen = [...gateStellenWaehlen(new Zufall(`stellen-${i}`), 15, [4, 8], new Set([10, 11, 12, 13]))];
-    assert.ok(stellen.length >= 3 && stellen.length <= 4, `${stellen.length} Gates: ${stellen}`);
-    for (const a of stellen) {
-      assert.ok(erlaubt.includes(a), `Stelle ${a}`);
-      for (const b of stellen) if (a !== b) assert.ok(Math.abs(a - b) >= 2, `${a} und ${b} zu nah`);
-    }
-  }
 });
 
 test('Gate-Zeilen: Kurs danach stimmt, mindestens 20° Kurswechsel, Relativbeträge 20 bis 490, mindestens eine relative Zeile', () => {
@@ -526,7 +553,7 @@ test('erzeugeParcours ist bestimmt und liefert Kandidat, Kreuzungen und Umriss',
   const a = erzeugeParcours(new Zufall('stufe-2/blatt-1'), OHNE_GATES);
   const b = erzeugeParcours(new Zufall('stufe-2/blatt-1'), OHNE_GATES);
   assert.deepEqual(a, b);
-  assert.ok(a.kandidat >= 1 && a.kandidat <= KANDIDATEN);
+  assert.ok(a.kandidat >= 1 && a.kandidat <= KANDIDATEN_STUFE_2 + 1);
   assert.ok(a.kreuzungen >= 0);
   assert.ok(a.fuellung > 0);
   assert.equal(typeof a.zulaessig, 'boolean');

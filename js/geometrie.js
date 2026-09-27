@@ -308,13 +308,15 @@ function umrissBerechnen(stuecke, beschriftungen) {
 // Eckbeschriftungen bleiben waagerecht.
 // SVG-Pfade und Beschriftungslagen sind hier noch Funktionen: Die meisten
 // Kandidaten scheitern an den Prüfungen des Wegs, erst vollenden braucht sie.
-// "startEnde": Stufe 3 beschriftet Start und Ende, Stufe 2 nicht.
+// "startEnde": Stufe 3 beschriftet Start und Ende, Stufe 2 nicht. "zuordnung":
+// Die Beschriftungen merken sich ihr Stück für die Regel, dass sie ihm deutlich
+// näher stehen als jedem fremden (Blätter beider Stufen; ohne Angabe wie "startEnde").
 // "wegbauer" baut denselben Weg Element für Element: "schritt(element,
 // naechstes)" hängt eines an ("naechstes" braucht nur ein Gate für den Austritt),
 // "stand" und "zurueck" sichern den Zustand und setzen ihn zurück, "abschluss"
-// liefert das Ergebnis. So kann die Erzeugung der Stufe 3 jeden Schritt sofort
-// prüfen und bei Bedarf wiederholen; "bahn" hängt alle Elemente an.
-export function wegbauer(drehung = 0, startEnde = false) {
+// liefert das Ergebnis. So kann die Erzeugung jeden Schritt sofort prüfen und
+// bei Bedarf wiederholen; "bahn" hängt alle Elemente an.
+export function wegbauer(drehung = 0, startEnde = false, zuordnung = startEnde) {
   const gezeichnet = (kurs) => normieren(kurs - drehung);
   const stuecke = [];
   const marken = [];
@@ -369,7 +371,7 @@ export function wegbauer(drehung = 0, startEnde = false) {
       return;
     }
 
-    // Gradzahl-Kurve (Stufe 3): Bogen im eigenen Profil mit Querstrich am Anfang;
+    // Gradzahl-Kurve (beide Stufen): Bogen im eigenen Profil mit Querstrich am Anfang;
     // der Querstrich am Ende ist der des folgenden Segments, das ohne Ecke beginnt.
     // Die nackte Gradzahl steht außen an der Bogenmitte wie eine Eckbeschriftung.
     if (element.art === 'kurve') {
@@ -448,14 +450,14 @@ export function wegbauer(drehung = 0, startEnde = false) {
     // Eigene Stücke einer Beschriftung: ihr Stück und die angrenzenden, bei einem
     // Segment die Bögen davor und danach, bei einer Ecke und einem Gate die Strecken
     // davor und danach. Die Strecken enden am Kastenrand, der Kasten deckt sie dort ab.
-    // Stufe 3 merkt sich das beschriftete Stück selbst ("zuordnung") für die
-    // Regel, dass die Beschriftung ihm deutlich näher steht als jedem fremden.
+    // Mit "zuordnung" merkt sich die Beschriftung das beschriftete Stück selbst für
+    // die Regel, dass sie ihm deutlich näher steht als jedem fremden.
     for (const b of beschriftungen) {
       const eigenes = b.eigeneStuecke[0];
       const nachbarArt = stuecke[eigenes].art === 'strecke' ? 'bogen' : 'strecke';
       b.eigeneStuecke = [eigenes - 1, eigenes, eigenes + 1]
         .filter((i) => i === eigenes || (i >= 0 && i < stuecke.length && stuecke[i].art === nachbarArt));
-      if (startEnde && stuecke[eigenes].art !== 'gate') b.zuordnung = eigenes;
+      if (zuordnung && stuecke[eigenes].art !== 'gate') b.zuordnung = eigenes;
     }
 
     marken.push({ punkt, kurs, gezeichnet: gezeichnet(kurs) });
@@ -484,8 +486,8 @@ export function wegbauer(drehung = 0, startEnde = false) {
   return { schritt, stand, zurueck, abschluss, stuecke, marken };
 }
 
-export function bahn(elemente, drehung = 0, startEnde = false) {
-  const weg = wegbauer(drehung, startEnde);
+export function bahn(elemente, drehung = 0, startEnde = false, zuordnung = startEnde) {
+  const weg = wegbauer(drehung, startEnde, zuordnung);
   for (let n = 0; n < elemente.length; n++) weg.schritt(elemente[n], elemente[n + 1]);
   return weg.abschluss();
 }
@@ -521,9 +523,9 @@ export function vollenden(roh, abbrechen = false) {
   };
 }
 
-// Geometrie mit Zeichenwinkel "drehung" in Grad und "startEnde", siehe bahn
-export function geometrie(elemente, drehung = 0, startEnde = false) {
-  return vollenden(bahn(elemente, drehung, startEnde));
+// Geometrie mit Zeichenwinkel "drehung" in Grad, "startEnde" und "zuordnung", siehe bahn
+export function geometrie(elemente, drehung = 0, startEnde = false, zuordnung = startEnde) {
+  return vollenden(bahn(elemente, drehung, startEnde, zuordnung));
 }
 
 // Liegt der Start im oberen Teil des Umrisses, höchstens START_OBEN von oben?
@@ -666,9 +668,10 @@ function schleifeSauber(einfahrt, ausfahrt) {
 }
 
 // Darf das Paar i, j als Ein- und Ausfahrt einer Schleife ungeprüft bleiben?
-// Stufe 2 ("eng" falsch) nimmt jede Lage aus, damit ihre Blätter gleich bleiben;
-// Stufe 3 nur die saubere Kreuzung, jede andere Lage prüft sie wie zwei
-// getrennte Stücke (keine Kreuzung, Mittellinien mindestens LINIENBREITE_ABSTAND).
+// Ohne "eng" ist jede Lage ausgenommen (so wurden die Blätter der Stufe 2 bis
+// zu ihren Gradzahl-Kurven gebaut); mit "eng" (Blätter beider Stufen) nur die
+// saubere Kreuzung, jede andere Lage gilt wie zwei getrennte Stücke (keine
+// Kreuzung, Mittellinien mindestens LINIENBREITE_ABSTAND).
 function schleifeAusgenommen(stuecke, i, j, eng) {
   if (!schleifenpaar(stuecke, i, j)) return false;
   return !eng || schleifeSauber(stuecke[i], stuecke[j]);

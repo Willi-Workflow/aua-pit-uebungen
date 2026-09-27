@@ -1,10 +1,10 @@
-// Bausteine des Parcours: Segmente, Vollkreise und Gates als Kette, noch ohne
-// Geometrie. Ein Parcours ist eine Kette aus Segmenten, Vollkreisen und auf
-// manchen Blättern Gates. Zwischen zwei Segmenten liegt eine Ecke: kürzester Weg,
-// wenn das nächste Segment einen Kurs trägt, sonst eine relative Kursänderung,
-// die an der Ecke beschriftet wird. Ein Gate ersetzt eine Ecke durch einen Kasten
-// mit drei bis vier Anweisungen, die aus dem Gedächtnis geflogen und nicht
-// gezeichnet werden.
+// Bausteine des Parcours: Segmente, Vollkreise, Gradzahl-Kurven und Gates als
+// Kette, noch ohne Geometrie. Zwischen zwei Segmenten liegt eine Ecke: kürzester
+// Weg, wenn das nächste Segment einen Kurs trägt, sonst eine relative
+// Kursänderung, die an der Ecke beschriftet wird. Eine Gradzahl-Kurve dreht um
+// ihren nackten Winkel in gezeichneter Richtung. Ein Gate ersetzt eine Ecke durch
+// einen Kasten mit drei bis vier Anweisungen, die aus dem Gedächtnis geflogen und
+// nicht gezeichnet werden.
 
 import { normieren, differenz, himmelsrichtungGrad, naechsteHimmelsrichtung } from './kurs.js';
 
@@ -72,20 +72,6 @@ function stellenMitAbstand(reihenfolge, ziel) {
   return stellen;
 }
 
-// Stellen der Gates: Ecken nach Segment i, nicht nach dem ersten und nicht vor
-// dem letzten Segment, nicht am Vollkreis und nicht vor einer relativen Ecke, weil
-// die Ecke im Gate verschwindet. Zwischen zwei Gates liegen mindestens zwei
-// Segmente. Bei 15 Segmenten bleiben von zwölf Stellen mindestens sechs, und
-// sechs Stellen erlauben immer drei Gates. Die zufällige Reihenfolge kann darunter
-// bleiben (1, 2, 3, 5, 6, 7 mit 2 und 6 zuerst); dann wird von links gewählt,
-// das ergibt die größte Auswahl.
-export function gateStellenWaehlen(zufall, anzahl, kreisNach, relativeIndizes) {
-  const moeglich = bereich(1, anzahl - 3).filter((i) => !kreisNach.includes(i) && !relativeIndizes.has(i + 1));
-  const ziel = zufall.ganzzahl(3, 4);
-  const stellen = stellenMitAbstand(zufall.mischen(moeglich), ziel);
-  return new Set(stellen.length >= 3 ? stellen : stellenMitAbstand(moeglich, ziel));
-}
-
 // Eine Gate-Zeile ab "kursDavor". Relativ: Betrag 20 bis 490, der neue Kurs
 // mindestens 20° vom alten. Himmelsrichtung und Gradkurs wie bei Segmenten. Die
 // Dauer steht vor dem Profil fest, damit die Höhe mit ihr gerechnet werden kann.
@@ -150,97 +136,85 @@ function gateErzeugen(zufall, kursDavor, verlauf, bilanz, hoehe) {
 }
 
 // Elemente eines Kandidaten je Stufe. "einstellungen" ist { stufe: 2, mitGates }
-// oder { stufe: 3 }; "pruefer" nur in Stufe 3, siehe elementeStufe3. Stufe 2 zieht genau die Zufallszahlen wie bisher, damit ihre
-// Blätter gleich bleiben.
+// oder { stufe: 3 }. Beide Stufen entstehen Schritt für Schritt nach einem
+// Bauplan (siehe elementeSchrittweise), "pruefer" prüft jeden Schritt am Weg.
 // "start" ist der Flugzustand am Anfang des Parcours ({ kurs, hoehe }), auf den
-// Blättern beider Stufen das Ende des Textteils. Ohne "start" beginnt Stufe 3
-// ohne Kurs auf 2000 ft (STUFE3_START).
+// Blättern beider Stufen das Ende des Textteils. Ohne "start" beginnt der
+// Parcours ohne Kurs auf 2000 ft (STUFE3_START).
 export function erzeugeElemente(zufall, einstellungen, start = null, pruefer = null) {
-  if (einstellungen.stufe === 2) return elementeStufe2(zufall, einstellungen.mitGates, start);
-  if (einstellungen.stufe === 3) return elementeStufe3(zufall, start, pruefer);
+  if (einstellungen.stufe === 2) return elementeSchrittweise(zufall, planStufe2(zufall, einstellungen.mitGates), start, pruefer);
+  if (einstellungen.stufe === 3) return elementeSchrittweise(zufall, planStufe3(zufall), start, pruefer);
   throw new Error(`Stufe ${einstellungen.stufe} gibt es nicht`);
 }
 
-// Stufe 2. Blätter mit Gates haben 15 bis 19 statt 18 bis 22 Segmente, wie die
-// Handzeichnung mit vier Kästen; sonst würde die Zeichnung so groß, dass die
-// Schrift im Druck oft unter 6 pt fiele.
-// Mit "start" liegt das erste Segment 20° bis 160° vom Kurs am Ende des
-// Textteils, und die Profile halten die Höhe im Rahmen 1000 bis 3000 ft. Ohne
-// "start" gilt beides nicht.
-function elementeStufe2(zufall, mitGates, start) {
-  const anzahl = mitGates ? zufall.ganzzahl(15, 19) : zufall.ganzzahl(18, 22);
+// ---------------------------------------------------------------- Stufe 2
+//
+// Stufe 2 nach der PDF und den beiden Handzeichnungen: Dort ist fast jeder
+// Kurs auszurechnen, an den Bögen stehen nackte Drehwinkel (90, 120, 273, 305),
+// die Segmente danach tragen nur die Zeit. Je Blatt 8 bis 11 Kursberechnungen,
+// 3 bis 4 relative Ecken wie "+117°" und 5 bis 7 Gradzahl-Kurven, etwa ein
+// Drittel davon Schleifen über 180°, dazu 5 bis 7 Rechenaufgaben bis ±490.
+// Blätter mit Gates haben weniger Segmente und Kurven, sonst würde die
+// Zeichnung so groß, dass die Schrift im Druck zu klein würde.
 
-  // Vollkreise folgen auf Segment a und b, mit mindestens zwei Segmenten davor,
-  // einem dazwischen und einem danach
-  const kreisNach = [zufall.ganzzahl(1, anzahl - 4)];
-  kreisNach.push(zufall.ganzzahl(kreisNach[0] + 2, anzahl - 2));
+// Mengen je Blatt, jeweils von bis
+export const STUFE2 = {
+  segmente: [18, 22],
+  segmenteMitGates: [15, 19],
+  vollkreise: [2, 2],
+  kurven: [5, 7],
+  kurvenMitGates: [4, 6],
+  gates: [3, 4],
+  relative: [3, 4],
+  rechenaufgaben: [5, 7],
+  himmelsrichtungen: [3, 4],
+};
+// Relative Ecken und Kurven zusammen mindestens so viele
+export const KURSBERECHNUNGEN_MIN = 8;
+// Gradzahl-Kurve der Stufe 2: Drehwinkel 30 bis 350, nie 180; mit diesem Anteil
+// eine Schleife über 180°. Schleifen scheitern öfter am Weg, auf den fertigen
+// Blättern bleibt so rund ein Drittel (181 von 556).
+export const KURVE_WINKEL_STUFE_2 = { min: 30, max: 350 };
+const SCHLEIFEN_ANTEIL_STUFE_2 = 0.37;
+// Betrag der Rechenaufgaben, Stufe 2 bis 490 wie die Gates der Handzeichnung (+410)
+export const RECHEN_BIS = { 2: 490, 3: 350 };
 
-  const relativeIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(3, 4), bereich(1, anzahl - 1)));
-  const mitKurs = bereich(0, anzahl - 1).filter((i) => !relativeIndizes.has(i));
-  const himmelsIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(3, 4), mitKurs));
-  // Rechenaufgaben auch an Segmenten ohne Kurs, wie in der Vorlage (/30" mit +115)
-  const rechenIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(4, 5), bereich(0, anzahl - 1)));
-  const gateNach = mitGates ? gateStellenWaehlen(zufall, anzahl, kreisNach, relativeIndizes) : new Set();
+function kurvenWinkelStufe2(zufall) {
+  return zufall.wuerfel(SCHLEIFEN_ANTEIL_STUFE_2) ? zufall.ganzzahl(181, KURVE_WINKEL_STUFE_2.max) : zufall.ganzzahl(KURVE_WINKEL_STUFE_2.min, 179);
+}
 
-  const verlauf = [];
-  const bilanz = { horizontal: 0, steigen: 0, sinken: 0 };
-  const hoehe = start ? { wert: start.hoehe } : null;
-  const elemente = [];
-  let kurs = start ? start.kurs : null;
-
-  for (let i = 0; i < anzahl; i++) {
-    const segment = { art: 'segment', kurs: null, anzeige: 'grad', himmelsrichtung: null, relativ: null, rechenaufgabe: null };
-    if (relativeIndizes.has(i)) {
-      let winkel;
-      do { winkel = zufall.ganzzahl(20, 340); } while (winkel === 180);
-      segment.anzeige = 'keine';
-      segment.relativ = zufall.auswahl([1, -1]) * winkel;
-      segment.kurs = normieren(kurs + segment.relativ);
-    } else if (himmelsIndizes.has(i)) {
-      let index;
-      do { index = zufall.ganzzahl(0, 15); } while (kurs !== null && !imBereich(abstand(kurs, himmelsrichtungGrad(index))));
-      segment.anzeige = 'himmelsrichtung';
-      segment.himmelsrichtung = index;
-      segment.kurs = himmelsrichtungGrad(index);
-    } else {
-      let grad;
-      do { grad = zufall.ganzzahl(0, 359); } while (kurs !== null && !imBereich(abstand(kurs, grad)));
-      segment.kurs = grad;
-    }
-    if (rechenIndizes.has(i)) segment.rechenaufgabe = zufall.auswahl([1, -1]) * zufall.ganzzahl(100, 350);
-    segment.dauer = dauerWaehlen(zufall);
-    segment.profil = profilWaehlen(zufall, verlauf, bilanz, hoehe, segment.dauer);
-    elemente.push(segment);
-    kurs = segment.kurs;
-
-    if (kreisNach.includes(i)) {
-      const erste = profilWaehlen(zufall, verlauf, bilanz, hoehe, KREISHAELFTE);
-      const zweite = profilWaehlen(zufall, verlauf, bilanz, hoehe, KREISHAELFTE);
-      elemente.push({ art: 'vollkreis', richtung: null, profile: [erste, zweite] });
-    }
-
-    // Nach dem Gate gilt der Kurs der letzten Zeile; das nächste Segment trägt
-    // immer einen Kurs und wird gegen diesen gewählt
-    if (gateNach.has(i)) {
-      const gate = gateErzeugen(zufall, kurs, verlauf, bilanz, hoehe);
-      elemente.push(gate);
-      kurs = gate.zeilen[gate.zeilen.length - 1].kursDanach;
-    }
+// Bauplan eines Kandidaten der Stufe 2. Gates, Vollkreise und Kurven folgen auf
+// Segment i mit i von 1 bis Anzahl minus 3, je Stelle höchstens eines. Zwischen
+// zwei Gates liegen mindestens zwei Segmente (bei 15 Segmenten erlauben die zwölf
+// Stellen immer drei; geht die zufällige Reihenfolge nicht auf, wird von links
+// gewählt). Nach einer Kurve trägt das Segment nur die Zeit, nach einem Gate
+// einen Kurs; relative Ecken brauchen eine gezeichnete Ecke davor.
+function planStufe2(zufall, mitGates) {
+  const m = STUFE2;
+  const anzahl = zufall.ganzzahl(...(mitGates ? m.segmenteMitGates : m.segmente));
+  const anzahlKurven = zufall.ganzzahl(...(mitGates ? m.kurvenMitGates : m.kurven));
+  const stellen = zufall.mischen(bereich(1, anzahl - 3));
+  let gateNach = new Set();
+  if (mitGates) {
+    const ziel = zufall.ganzzahl(...m.gates);
+    const gewaehlt = stellenMitAbstand(stellen, ziel);
+    gateNach = new Set(gewaehlt.length >= m.gates[0] ? gewaehlt : stellenMitAbstand(bereich(1, anzahl - 3), ziel));
   }
-
-  // Drehrichtung der Vollkreise entgegen der folgenden Ecke, damit die Schleife
-  // nicht vom nächsten Segment durchschnitten wird. Die vorherige Ecke wird nicht
-  // berücksichtigt: Die andere Seite läge immer auf der Seite der folgenden Ecke,
-  // und dann gewinnt die folgende Ecke. Engstellen dort fängt der Abstandsfilter.
-  for (let i = 0; i < elemente.length; i++) {
-    if (elemente[i].art !== 'vollkreis') continue;
-    const vorher = elemente[i - 1];
-    const nachher = elemente[i + 1];
-    const eckeRechts = nachher.relativ !== null ? nachher.relativ > 0 : differenz(vorher.kurs, nachher.kurs) > 0;
-    elemente[i].richtung = eckeRechts ? 'links' : 'rechts';
-  }
-
-  return elemente;
+  const frei = stellen.filter((i) => !gateNach.has(i));
+  const kreisNach = new Set(frei.slice(0, m.vollkreise[0]));
+  const kurveNach = new Set(frei.slice(m.vollkreise[0], m.vollkreise[0] + anzahlKurven));
+  const mitEcke = bereich(1, anzahl - 1).filter((i) => !kurveNach.has(i - 1) && !gateNach.has(i - 1));
+  // Mindestens 8 Kursberechnungen: Mit nur 4 Kurven (Blätter mit Gates) gibt es
+  // 4 relative Ecken. "mitEcke" hat immer mindestens 4 Stellen: nach Segment 0,
+  // nach den beiden Vollkreisen und vor dem letzten Segment.
+  const anzahlRelative = Math.max(zufall.ganzzahl(...m.relative), KURSBERECHNUNGEN_MIN - anzahlKurven);
+  const relativeIndizes = new Set(verschiedeneIndizes(zufall, anzahlRelative, mitEcke));
+  const mitKurs = bereich(0, anzahl - 1).filter((i) => !kurveNach.has(i - 1) && !relativeIndizes.has(i));
+  const himmelsIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.himmelsrichtungen), mitKurs));
+  const rechenIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.rechenaufgaben), bereich(0, anzahl - 1)));
+  return {
+    stufe: 2, anzahl, kreisNach, kurveNach, gateNach, gates: null, relativeIndizes, hrIndizes: new Set(), gkIndizes: new Set(), himmelsIndizes, rechenIndizes,
+  };
 }
 
 // ---------------------------------------------------------------- Stufe 3
@@ -365,11 +339,13 @@ function gkSetzen(zufall, segment, kurs) {
   segment.kurs = normieren(kurs + 180);
 }
 
-// Gradzahl-Kurve: Drehwinkel 40 bis 340, nicht 180, links oder rechts, eigenes
-// Profil über Winkel / 3 s
-function kurveErzeugen(zufall, verlauf, bilanz, hoehe) {
+// Gradzahl-Kurve: Drehwinkel in Stufe 3 40 bis 340, in Stufe 2 30 bis 350 mit
+// einem Drittel Schleifen, nie 180, links oder rechts, eigenes Profil über
+// Winkel / 3 s
+function kurveErzeugen(zufall, stufe, verlauf, bilanz, hoehe) {
   let winkel;
-  do { winkel = zufall.ganzzahl(KURVE_WINKEL.min, KURVE_WINKEL.max); } while (winkel === 180);
+  if (stufe === 2) winkel = kurvenWinkelStufe2(zufall);
+  else do { winkel = zufall.ganzzahl(KURVE_WINKEL.min, KURVE_WINKEL.max); } while (winkel === 180);
   const richtung = zufall.auswahl(['links', 'rechts']);
   const profil = profilWaehlen(zufall, verlauf, bilanz, hoehe, winkel / KURVENRATE);
   return { art: 'kurve', winkel, richtung, profil };
@@ -573,7 +549,7 @@ function planStufe3(zufall) {
   const himmelsIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.himmelsrichtungen), mitKurs));
   const rechenIndizes = new Set(verschiedeneIndizes(zufall, zufall.ganzzahl(...m.rechenaufgaben), bereich(0, anzahl - 1)));
   const gates = gatesPlanen(zufall, [...gateNach].sort((x, y) => x - y));
-  return { anzahl, kreisNach, kurveNach, gateNach, gates, relativeIndizes, hrIndizes, gkIndizes, himmelsIndizes, rechenIndizes };
+  return { stufe: 3, anzahl, kreisNach, kurveNach, gateNach, gates, relativeIndizes, hrIndizes, gkIndizes, himmelsIndizes, rechenIndizes };
 }
 
 // Drehrichtung eines Vollkreises entgegen der folgenden Ecke, wie in Stufe 2,
@@ -586,9 +562,10 @@ function kreisRichtung(vorher, nachher) {
   return eckeRechts ? 'links' : 'rechts';
 }
 
-// Schritt i: Segment i und was ihm folgt. Ein Vollkreis bekommt seine Richtung
-// und ein Gate der Form A seine Anschlusszeile erst mit dem nächsten Segment.
-function schrittStufe3(zufall, plan, z, i) {
+// Schritt i: Segment i und was ihm folgt, nach dem Bauplan einer der beiden
+// Stufen. Ein Vollkreis bekommt seine Richtung und ein Gate der Form A seine
+// Anschlusszeile erst mit dem nächsten Segment.
+function schritt(zufall, plan, z, i) {
   const segment = {
     art: 'segment', kurs: null, anzeige: 'grad', himmelsrichtung: null, relativ: null, rechenaufgabe: null, hrGrad: null, gkRichtung: null,
   };
@@ -609,15 +586,15 @@ function schrittStufe3(zufall, plan, z, i) {
     gkSetzen(zufall, segment, kurs);
   } else {
     let passt = (k) => kurs === null || imBereich(abstand(kurs, k));
-    if (plan.gateNach.has(i - 1) && z.gate.form === 'a') {
+    if (plan.gateNach.has(i - 1) && plan.stufe === 3 && z.gate.form === 'a') {
       const art = zufall.auswahl(ANSCHLUESSE.filter((a) => anschlussMoeglich(a, kurs)));
       z.gate.anschluss = art;
       passt = (k) => anschlussPasst(art, kurs, k);
     }
     eigenerKurs(zufall, segment, plan.himmelsIndizes.has(i), passt);
   }
-  if (plan.rechenIndizes.has(i)) segment.rechenaufgabe = mitVorzeichen(zufall, 100, 350);
-  segment.dauer = dauerStufe3(zufall);
+  if (plan.rechenIndizes.has(i)) segment.rechenaufgabe = mitVorzeichen(zufall, 100, RECHEN_BIS[plan.stufe]);
+  segment.dauer = plan.stufe === 3 ? dauerStufe3(zufall) : dauerWaehlen(zufall);
   segment.profil = profilWaehlen(zufall, z.verlauf, z.bilanz, z.hoehe, segment.dauer);
   const letztes = z.elemente[z.elemente.length - 1];
   if (letztes && letztes.art === 'vollkreis') letztes.richtung = kreisRichtung(z.elemente[z.elemente.length - 2], segment);
@@ -630,12 +607,14 @@ function schrittStufe3(zufall, plan, z, i) {
     z.elemente.push({ art: 'vollkreis', richtung: null, profile: [erste, zweite] });
   }
   if (plan.kurveNach.has(i)) {
-    const kurve = kurveErzeugen(zufall, z.verlauf, z.bilanz, z.hoehe);
+    const kurve = kurveErzeugen(zufall, plan.stufe, z.verlauf, z.bilanz, z.hoehe);
     z.elemente.push(kurve);
     z.kurs = normieren(z.kurs + (kurve.richtung === 'rechts' ? kurve.winkel : -kurve.winkel));
   }
   if (plan.gateNach.has(i)) {
-    z.gate = gateStufe3(zufall, plan.gates.get(i), z.kurs, z.verlauf, z.bilanz, z.hoehe, z);
+    z.gate = plan.stufe === 3
+      ? gateStufe3(zufall, plan.gates.get(i), z.kurs, z.verlauf, z.bilanz, z.hoehe, z)
+      : gateErzeugen(zufall, z.kurs, z.verlauf, z.bilanz, z.hoehe);
     z.elemente.push(z.gate);
     z.kurs = z.gate.zeilen[z.gate.zeilen.length - 1].kursDanach;
   }
@@ -682,14 +661,13 @@ function zeichenbar(elemente) {
 export const SCHRITT_VERSUCHE = 4;
 export const KANDIDAT_VERSUCHE = 60;
 
-// Stufe 3, Schritt für Schritt. Mit "pruefer" (schrittpruefer aus geometrie.js)
-// wird jeder Schritt sofort gezeichnet und wiederholt, solange er einen früheren
-// Teil des Wegs kreuzt oder ihm zu nahe kommt. Scheitert ein Schritt
-// SCHRITT_VERSUCHE Mal, wird der Schritt davor wiederholt; nach
-// KANDIDAT_VERSUCHE Schritten insgesamt ist das Ergebnis null. Ohne "pruefer"
-// entsteht die Kette wie in Stufe 2 ohne Blick auf den Weg.
-function elementeStufe3(zufall, start, pruefer) {
-  const plan = planStufe3(zufall);
+// Kette nach dem Bauplan "plan", Schritt für Schritt. Mit "pruefer"
+// (schrittpruefer aus geometrie.js) wird jeder Schritt sofort gezeichnet und
+// wiederholt, solange er einen früheren Teil des Wegs kreuzt oder ihm zu nahe
+// kommt. Scheitert ein Schritt SCHRITT_VERSUCHE Mal, wird der Schritt davor
+// wiederholt; nach KANDIDAT_VERSUCHE Schritten insgesamt ist das Ergebnis null.
+// Ohne "pruefer" entsteht die Kette ohne Blick auf den Weg.
+function elementeSchrittweise(zufall, plan, start, pruefer) {
   const z = {
     elemente: [],
     verlauf: [],
@@ -710,7 +688,7 @@ function elementeStufe3(zufall, start, pruefer) {
     } else {
       sicherungen[i] = { z: sichern(z), weg: pruefer ? pruefer.stand() : null };
     }
-    schrittStufe3(zufall, plan, z, i);
+    schritt(zufall, plan, z, i);
     if (!pruefer || pruefer.pruefen(z.elemente, zeichenbar(z.elemente))) {
       i += 1;
       continue;

@@ -3,14 +3,23 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { erzeugeBlatt, BLAETTER_JE_STUFE, STUFEN, hatGates } from '../js/blatt.js';
 import { differenz } from '../js/kurs.js';
-import { STUFE3, KURVENRATE } from '../js/elemente.js';
+import { STUFE2, STUFE3, KURVENRATE } from '../js/elemente.js';
 import {
   beschriftungFrei, beschriftungsAbstand, kleinsterAbstand, zaehleKreuzungen, startOben, LINIENBREITE_ABSTAND,
 } from '../js/geometrie.js';
 
 // Alle Blätter beider Stufen einmal erzeugen, die Prüfungen unten teilen sie sich
+// Rechenzeit je Blatt als CPU-Zeit, siehe Stufe 3 unten
+erzeugeBlatt(2, BLAETTER_JE_STUFE);
 const beginn = Date.now();
-const blaetter = Array.from({ length: BLAETTER_JE_STUFE }, (_, i) => erzeugeBlatt(2, i + 1));
+const zeiten2 = [];
+const blaetter = Array.from({ length: BLAETTER_JE_STUFE }, (_, i) => {
+  const start = process.cpuUsage();
+  const blatt = erzeugeBlatt(2, i + 1);
+  const { user, system } = process.cpuUsage(start);
+  zeiten2.push((user + system) / 1000);
+  return blatt;
+});
 const dauer = Date.now() - beginn;
 // Rechenzeit je Blatt als CPU-Zeit: Die Wanduhr zählt parallel laufende
 // Prüfdateien und einen Ruhezustand des Rechners mit. Die CPU-Zeit zählt
@@ -27,20 +36,19 @@ const blaetter3 = Array.from({ length: BLAETTER_JE_STUFE }, (_, i) => {
   return blatt;
 });
 
-// Fingerabdruck (SHA-256) des JSON aller 100 Blätter der Stufe 2. Stufe 3 hat
-// eigene Zufallsschlüssel und Erzeugungspfade; ändert sich hier etwas, hat eine
-// Änderung Stufe 2 mitverändert. Seit dem Bau der Stufe 3 bewusst geändert nur
-// durch den Ausschluss der Gate-Zeilen, die genau auf dem Gegenkurs enden: Das
-// betraf allein Blatt 51 (vorher 2f4d1e59…1864723).
-const STUFE2_FINGERABDRUCK = 'ac5eff849283b6c5355e9620af915aded66c4f2e5b2ca4abace9787f37c2d97c';
+// Fingerabdruck (SHA-256) des JSON der Textteile aller 100 Blätter der Stufe 2.
+// Der Parcours der Stufe 2 ist seit den Gradzahl-Kurven neu (bis dahin hatte der
+// Fingerabdruck aller Blätter ac5eff84…d97c); der Textteil entsteht vor dem
+// Parcours aus demselben Zufallsstrom und bleibt, wie er war.
+const STUFE2_TEXTTEILE_FINGERABDRUCK = 'f00cf8950f089e1b4fe68339d35ed23ae8c91986108611c028977cfea0d1ba49';
 
 test('Konstanten', () => {
   assert.equal(BLAETTER_JE_STUFE, 100);
   assert.deepEqual(STUFEN, [2, 3]);
 });
 
-test('Stufe 2 ist Byte für Byte unverändert', () => {
-  assert.equal(createHash('sha256').update(JSON.stringify(blaetter)).digest('hex'), STUFE2_FINGERABDRUCK);
+test('Textteile der Stufe 2 sind Byte für Byte unverändert', () => {
+  assert.equal(createHash('sha256').update(JSON.stringify(blaetter.map((b) => b.textteil))).digest('hex'), STUFE2_TEXTTEILE_FINGERABDRUCK);
 });
 
 test('unbekannte Stufe und ungültige Nummern werfen', () => {
@@ -67,7 +75,7 @@ test('hatGates: Nummer teilbar durch 3', () => {
   assert.equal(hatGates(3, 100), true);
 });
 
-test('alle 100 Blätter der Stufe 2 entstehen, Gates nur bei Nummern teilbar durch 3, mindestens 90 zulässig', () => {
+test('alle 100 Blätter der Stufe 2 entstehen, Gates nur bei Nummern teilbar durch 3, mindestens 90 zulässig, jedes unter 500 ms CPU-Zeit', () => {
   const gruppen = { mit: { blaetter: 0, zulaessig: 0 }, ohne: { blaetter: 0, zulaessig: 0 } };
   let kandidatenSumme = 0;
   for (const blatt of blaetter) {
@@ -89,9 +97,41 @@ test('alle 100 Blätter der Stufe 2 entstehen, Gates nur bei Nummern teilbar dur
   }
   const zulaessig = gruppen.mit.zulaessig + gruppen.ohne.zulaessig;
   console.log(`Stufe 2: ${zulaessig} von ${BLAETTER_JE_STUFE} Blättern zulässig, mit Gates ${gruppen.mit.zulaessig} von ${gruppen.mit.blaetter}, ohne Gates ${gruppen.ohne.zulaessig} von ${gruppen.ohne.blaetter}; Siegerkandidat im Mittel Nummer ${kandidatenSumme / BLAETTER_JE_STUFE}, ${dauer} ms, ${dauer / BLAETTER_JE_STUFE} ms je Blatt`);
+  const sortiert = [...zeiten2].sort((a, b) => a - b);
+  console.log(`Stufe 2: CPU-Zeit je Blatt Median ${sortiert[50].toFixed(0)} ms, höchstens ${sortiert[99].toFixed(0)} ms (Blatt ${zeiten2.indexOf(sortiert[99]) + 1})`);
+  assert.ok(sortiert[99] < 500, `bis ${sortiert[99]} ms je Blatt`);
   assert.equal(gruppen.mit.blaetter, 33);
   assert.ok(zulaessig >= 90, `nur ${zulaessig} von ${BLAETTER_JE_STUFE} zulässig`);
   assert.ok(gruppen.mit.zulaessig >= 27, `nur ${gruppen.mit.zulaessig} von ${gruppen.mit.blaetter} Blättern mit Gates zulässig`);
+});
+
+// Wie in PDF und Handzeichnungen ist auf jedem Blatt der Stufe 2 fast jeder
+// Kurs auszurechnen: 3 bis 4 relative Ecken und 5 bis 7 Gradzahl-Kurven (auf
+// Blättern mit Gates 4 bis 6), zusammen 8 bis 11, dazu 5 bis 7 Rechenaufgaben
+// mit Beträgen bis 490. Vorher waren es 3 bis 4 Kursberechnungen und 4 bis 5
+// Rechenaufgaben bis 350.
+test('Stufe 2: 8 bis 11 Kursberechnungen und 5 bis 7 Rechenaufgaben je Blatt', () => {
+  const je = {};
+  for (const blatt of blaetter) {
+    const { elemente } = blatt.parcours;
+    const segmente = elemente.filter((e) => e.art === 'segment');
+    const kurven = elemente.filter((e) => e.art === 'kurve').length;
+    const relative = segmente.filter((e) => e.relativ !== null).length;
+    const rechen = segmente.filter((e) => e.rechenaufgabe !== null);
+    const [kmin, kmax] = hatGates(2, blatt.nummer) ? STUFE2.kurvenMitGates : STUFE2.kurven;
+    assert.ok(kurven >= kmin && kurven <= kmax, `Blatt ${blatt.nummer}: ${kurven} Kurven`);
+    assert.ok(relative >= 3 && relative <= 4, `Blatt ${blatt.nummer}: ${relative} relative Ecken`);
+    assert.ok(kurven + relative >= 8 && kurven + relative <= 11, `Blatt ${blatt.nummer}: ${kurven + relative} Kursberechnungen`);
+    assert.ok(rechen.length >= 5 && rechen.length <= 7, `Blatt ${blatt.nummer}: ${rechen.length} Rechenaufgaben`);
+    assert.ok(rechen.every((e) => Math.abs(e.rechenaufgabe) >= 100 && Math.abs(e.rechenaufgabe) <= 490));
+    // Nach jeder Kursberechnung trägt das Segment nur die Zeit
+    elemente.forEach((e, k) => {
+      if (e.art === 'kurve') assert.equal(elemente[k + 1].anzeige, 'keine', `Blatt ${blatt.nummer}: Segment nach Kurve mit Kurs`);
+      if (e.art === 'segment' && e.relativ !== null) assert.equal(e.anzeige, 'keine');
+    });
+    je[kurven + relative] = (je[kurven + relative] || 0) + 1;
+  }
+  console.log(`Stufe 2, Kursberechnungen je Blatt: ${JSON.stringify(je)}`);
 });
 
 test('der Parcours beginnt in beiden Stufen 20 bis 160 Grad vom Endkurs des Textteils', () => {

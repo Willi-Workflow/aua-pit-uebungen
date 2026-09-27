@@ -8,10 +8,11 @@ import {
   beschriftungFrei, seitenverhaeltnis, seitenverhaeltnisPasst, startOben, LINIENBREITE_ABSTAND,
 } from './geometrie.js';
 
-export const KANDIDATEN = 12000;
-// Stufe 3 prüft schon beim Erzeugen jeden Schritt (siehe elementeStufe3), ein
-// Kandidat kostet mehr, kommt aber meist ohne Kreuzung durch. 1000 halten jedes
-// Blatt unter 250 ms und lassen alle 100 Blätter zulässig.
+// Beide Stufen prüfen schon beim Erzeugen jeden Schritt (siehe
+// elementeSchrittweise), ein Kandidat kostet mehr, kommt aber meist ohne
+// Kreuzung durch. 1000 halten jedes Blatt der Stufe 3 unter 250 ms und lassen
+// alle 100 Blätter zulässig.
+export const KANDIDATEN_STUFE_2 = 1000;
 export const KANDIDATEN_STUFE_3 = 1000;
 
 // Ausweichlösung, solange kein Kandidat zulässig ist: wenigste Kreuzungen, dann
@@ -19,7 +20,7 @@ export const KANDIDATEN_STUFE_3 = 1000;
 // Start oben, dann das Seitenverhältnis am nächsten an 1. Der Abstand zählt nur bis LINIENBREITE_ABSTAND:
 // Darüber liegt nichts mehr übereinander, und mehr Abstand hieße nur einen
 // weitläufigeren, langgezogenen Weg. "kreuzungen" ist bis zur Zahl des bisherigen
-// Ersatzes genau. "eng" wie bei kleinsterAbstand (Stufe 3). Liefert die
+// Ersatzes genau. "eng" wie bei kleinsterAbstand. Liefert die
 // Kennzahlen des neuen Ersatzes oder null.
 function besserErsatz(roh, geoHolen, kreuzungen, ersatz, eng) {
   if (ersatz && kreuzungen > ersatz.kreuzungen) return null;
@@ -39,7 +40,7 @@ function besserErsatz(roh, geoHolen, kreuzungen, ersatz, eng) {
   return { kreuzungen, abstand, verdeckt, oben, abweichung };
 }
 
-// Zieht KANDIDATEN Parcours aus dem Zufallsstrom. Norden zeigt immer nach oben,
+// Zieht KANDIDATEN_STUFE_2 oder _3 Parcours aus dem Zufallsstrom. Norden zeigt immer nach oben,
 // wie in der Vorlage; die Geometrie bleibt ungedreht (Drehung 0). Der Start
 // liegt trotzdem oben, weil unter den probierten Kandidaten nur die mit dem
 // Start im oberen Teil zulässig sind. Zulässig ist ein Kandidat ohne Kreuzung,
@@ -48,25 +49,27 @@ function besserErsatz(roh, geoHolen, kreuzungen, ersatz, eng) {
 // freien Beschriftungen. Unter den zulässigen gewinnt die höchste Füllung, bei
 // Gleichstand der frühere. Die Prüfungen laufen billig zuerst und nur so weit,
 // wie sie das Ergebnis noch ändern können; es ist dasselbe wie bei voller
-// Prüfung aller. Stufe 3 lässt an Schleifen nur die saubere Kreuzung von Ein-
-// und Ausfahrt zu ("eng", siehe geometrie.js). "einstellungen" und "start" wie
-// bei erzeugeElemente.
+// Prüfung aller. Beide Stufen lassen an Schleifen nur die saubere Kreuzung von
+// Ein- und Ausfahrt zu ("eng", siehe geometrie.js). "einstellungen" und "start"
+// wie bei erzeugeElemente.
 export function erzeugeParcours(zufall, einstellungen, start = null) {
+  // Nur Stufe 3 beschriftet Start und Ende; die Regeln für Schleifen ("eng") und
+  // für die Zuordnung der Beschriftungen gelten in beiden Stufen
   const stufe3 = einstellungen.stufe === 3;
-  const anzahl = stufe3 ? KANDIDATEN_STUFE_3 : KANDIDATEN;
+  const anzahl = stufe3 ? KANDIDATEN_STUFE_3 : KANDIDATEN_STUFE_2;
   let bester = null;
   let ersatz = null;
   for (let kandidat = 1; kandidat <= anzahl; kandidat++) {
-    const elemente = erzeugeElemente(zufall, einstellungen, start, stufe3 ? schrittpruefer() : null);
-    // Stufe 3: Ein Schritt ließ sich nicht ohne Konflikt legen. Stufe 2: Eine
+    const elemente = erzeugeElemente(zufall, einstellungen, start, schrittpruefer(stufe3));
+    // Ein Schritt ließ sich nicht ohne Konflikt legen, oder (Stufe 2) eine
     // relative Gate-Zeile endet genau auf dem Gegenkurs (in Stufe 3 kommt das
     // nicht vor, dort ist die Prüfung wirkungslos).
     if (!elemente || hatGegenkursZeile(elemente)) continue;
-    const roh = bahn(elemente, 0, stufe3);
+    const roh = bahn(elemente, 0, stufe3, true);
     if (bester && fuellungObergrenze(roh.stuecke) <= bester.fuellung) continue;
-    const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity), stufe3);
+    const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity), true);
     let geo = null;
-    if (kreuzungen === 0 && kleinsterAbstand(roh.stuecke, LINIENBREITE_ABSTAND, roh.flugzeug, stufe3) >= LINIENBREITE_ABSTAND) {
+    if (kreuzungen === 0 && kleinsterAbstand(roh.stuecke, LINIENBREITE_ABSTAND, roh.flugzeug, true) >= LINIENBREITE_ABSTAND) {
       // Mit einem zulässigen Sieger zählt nur noch ein zulässiger Kandidat: Die
       // Beschriftung bricht ab, sobald eine keine freie Lage findet
       geo = vollenden(roh, bester !== null);
@@ -78,16 +81,15 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
       }
     }
     if (bester) continue;
-    const neu = besserErsatz(roh, () => geo || (geo = vollenden(roh)), kreuzungen, ersatz, stufe3);
+    const neu = besserErsatz(roh, () => geo || (geo = vollenden(roh)), kreuzungen, ersatz, true);
     if (neu) ersatz = { elemente, geometrie: geo, kandidat, fuellung: fuellungBerechnen(geo), ...neu };
   }
   if (!bester && !ersatz) {
-    // Nur in Stufe 3 möglich, wenn kein Kandidat alle Schritte schaffte: dann
-    // einer ohne Prüfung als Ersatz
+    // Kein Kandidat schaffte alle Schritte: dann einer ohne Prüfung als Ersatz
     const elemente = erzeugeElemente(zufall, einstellungen, start);
-    const roh = bahn(elemente, 0, stufe3);
+    const roh = bahn(elemente, 0, stufe3, true);
     const geo = vollenden(roh);
-    ersatz = { elemente, geometrie: geo, kandidat: anzahl + 1, fuellung: fuellungBerechnen(geo), kreuzungen: zaehleKreuzungen(roh.stuecke, Infinity, stufe3) };
+    ersatz = { elemente, geometrie: geo, kandidat: anzahl + 1, fuellung: fuellungBerechnen(geo), kreuzungen: zaehleKreuzungen(roh.stuecke, Infinity, true) };
   }
   const sieger = bester || ersatz;
   return {
