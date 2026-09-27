@@ -7,6 +7,7 @@
 // nicht gezeichnet werden.
 
 import { normieren, differenz, himmelsrichtungGrad, naechsteHimmelsrichtung } from './kurs.js';
+import { zahlWaehlen, kursWaehlen, flugRichtungen, richtungPlusWaehlen, kurvenWinkel, anlWaehlen } from './schwierigkeit.js';
 
 const PROFILE = ['horizontal', 'steigen', 'sinken'];
 // Höhenrahmen wie im Textteil, 8 ft je Sekunde Steig- oder Sinkflug
@@ -75,24 +76,32 @@ function stellenMitAbstand(reihenfolge, ziel) {
 // Eine Gate-Zeile ab "kursDavor". Relativ: Betrag 20 bis 490, der neue Kurs
 // mindestens 20° vom alten. Himmelsrichtung und Gradkurs wie bei Segmenten. Die
 // Dauer steht vor dem Profil fest, damit die Höhe mit ihr gerechnet werden kann.
-function gateZeileErzeugen(zufall, typ, kursDavor, verlauf, bilanz, hoehe) {
+// Mit Schwierigkeit "s" (nur Ausschnitte des Blitzrechnens) kommen die Werte aus
+// schwierigkeit.js, und eine relative Zeile endet nie genau auf dem Gegenkurs.
+function gateZeileErzeugen(zufall, typ, kursDavor, verlauf, bilanz, hoehe, s = null) {
   let kurs;
   let kursDanach;
   if (typ === 'relativ') {
     let wert;
-    do {
-      wert = zufall.auswahl([1, -1]) * zufall.ganzzahl(20, 490);
-    } while (abstand(kursDavor, normieren(kursDavor + wert)) < 20);
+    if (s) {
+      wert = zahlWaehlen(zufall, s, 'zahl', kursDavor, (w) => abstand(kursDavor, normieren(kursDavor + w)) >= 20 && Math.abs(w) % 360 !== 180);
+    } else {
+      do {
+        wert = zufall.auswahl([1, -1]) * zufall.ganzzahl(20, 490);
+      } while (abstand(kursDavor, normieren(kursDavor + wert)) < 20);
+    }
     kurs = { typ, wert };
     kursDanach = normieren(kursDavor + wert);
   } else if (typ === 'himmelsrichtung') {
     let index;
-    do { index = zufall.ganzzahl(0, 15); } while (!imBereich(abstand(kursDavor, himmelsrichtungGrad(index))));
+    if (s) do { index = zufall.auswahl(flugRichtungen(s)); } while (!imBereich(abstand(kursDavor, himmelsrichtungGrad(index))));
+    else do { index = zufall.ganzzahl(0, 15); } while (!imBereich(abstand(kursDavor, himmelsrichtungGrad(index))));
     kurs = { typ, index };
     kursDanach = himmelsrichtungGrad(index);
   } else {
     let grad;
-    do { grad = zufall.ganzzahl(0, 359); } while (!imBereich(abstand(kursDavor, grad)));
+    if (s) grad = kursWaehlen(zufall, s, (g) => imBereich(abstand(kursDavor, g)));
+    else do { grad = zufall.ganzzahl(0, 359); } while (!imBereich(abstand(kursDavor, grad)));
     kurs = { typ, grad };
     kursDanach = grad;
   }
@@ -118,7 +127,7 @@ export function hatGegenkursZeile(elemente) {
 
 // Gate mit drei bis vier Zeilen, je Zeile etwa zur Hälfte relativ, zu je einem
 // Viertel Himmelsrichtung und Gradkurs, mindestens eine Zeile relativ
-function gateErzeugen(zufall, kursDavor, verlauf, bilanz, hoehe) {
+function gateErzeugen(zufall, kursDavor, verlauf, bilanz, hoehe, s = null) {
   const typen = Array.from({ length: zufall.ganzzahl(3, 4) }, () => zufall.gewichteteAuswahl([
     { wert: 'relativ', gewicht: 2 },
     { wert: 'himmelsrichtung', gewicht: 1 },
@@ -128,7 +137,7 @@ function gateErzeugen(zufall, kursDavor, verlauf, bilanz, hoehe) {
   const zeilen = [];
   let kurs = kursDavor;
   for (const typ of typen) {
-    const zeile = gateZeileErzeugen(zufall, typ, kurs, verlauf, bilanz, hoehe);
+    const zeile = gateZeileErzeugen(zufall, typ, kurs, verlauf, bilanz, hoehe, s);
     zeilen.push(zeile);
     kurs = zeile.kursDanach;
   }
@@ -141,10 +150,17 @@ function gateErzeugen(zufall, kursDavor, verlauf, bilanz, hoehe) {
 // "start" ist der Flugzustand am Anfang des Parcours ({ kurs, hoehe }), auf den
 // Blättern beider Stufen das Ende des Textteils. Ohne "start" beginnt der
 // Parcours ohne Kurs auf 2000 ft (STUFE3_START).
+// Nur Ausschnitte des Blitzrechnens geben dazu "schwierigkeit" ('leicht',
+// 'normal', 'schwer') an: Dann kommen Zahlen, Kurse und Winkel aus den
+// Wertebereichen in schwierigkeit.js. Ohne sie, also auf allen Blättern, zieht
+// die Kette genau dieselben Zufallszahlen wie bisher.
 export function erzeugeElemente(zufall, einstellungen, start = null, pruefer = null) {
-  if (einstellungen.stufe === 2) return elementeSchrittweise(zufall, planStufe2(zufall, einstellungen.mitGates), start, pruefer);
-  if (einstellungen.stufe === 3) return elementeSchrittweise(zufall, planStufe3(zufall), start, pruefer);
-  throw new Error(`Stufe ${einstellungen.stufe} gibt es nicht`);
+  let plan;
+  if (einstellungen.stufe === 2) plan = planStufe2(zufall, einstellungen.mitGates);
+  else if (einstellungen.stufe === 3) plan = planStufe3(zufall);
+  else throw new Error(`Stufe ${einstellungen.stufe} gibt es nicht`);
+  plan.schwierigkeit = einstellungen.schwierigkeit || null;
+  return elementeSchrittweise(zufall, plan, start, pruefer);
 }
 
 // ---------------------------------------------------------------- Stufe 2
@@ -347,10 +363,11 @@ function gkSetzen(zufall, segment, kurs) {
 
 // Gradzahl-Kurve: Drehwinkel in Stufe 3 40 bis 340, in Stufe 2 30 bis 350 mit
 // einem Drittel Schleifen, nie 180, links oder rechts, eigenes Profil über
-// Winkel / 3 s
-function kurveErzeugen(zufall, stufe, verlauf, bilanz, hoehe) {
+// Winkel / 3 s. Mit Schwierigkeit "s" der Winkel nach schwierigkeit.js.
+function kurveErzeugen(zufall, stufe, verlauf, bilanz, hoehe, s = null) {
   let winkel;
-  if (stufe === 2) winkel = kurvenWinkelStufe2(zufall);
+  if (s) winkel = kurvenWinkel(zufall, s);
+  else if (stufe === 2) winkel = kurvenWinkelStufe2(zufall);
   else do { winkel = zufall.ganzzahl(KURVE_WINKEL.min, KURVE_WINKEL.max); } while (winkel === 180);
   const richtung = zufall.auswahl(['links', 'rechts']);
   const profil = profilWaehlen(zufall, verlauf, bilanz, hoehe, winkel / KURVENRATE);
@@ -372,12 +389,19 @@ function mitVorzeichen(zufall, von, bis) {
 // Form C: Himmelsrichtung, Himmelsrichtung ± 10 bis 130, GK, GK ± 10 bis 60,
 //   anl. Kurs + n oder + a×b (a von 2 bis 9, b von 2 bis 13 wie "9×13" in der
 //   Handzeichnung, Ergebnis 20 bis 160).
-function gateZeileStufe3(zufall, form, typ, kursDavor, verlauf, bilanz, hoehe) {
+// Mit Schwierigkeit "s" (nur Ausschnitte des Blitzrechnens) kommen die Werte
+// aus schwierigkeit.js, mit denselben Bedingungen an den Kurs danach.
+function gateZeileStufe3(zufall, form, typ, kursDavor, verlauf, bilanz, hoehe, s = null) {
   let kurs;
   let kursDanach;
+  const danachPasst = (k) => imBereich(abstand(kursDavor, k));
   if (typ === 'relativ') {
     let wert;
-    if (form === 'a') {
+    if (s && form === 'a') {
+      wert = zahlWaehlen(zufall, s, 'formA', kursDavor, (w) => abstand(kursDavor, normieren(kursDavor + w)) !== 180);
+    } else if (s) {
+      wert = zahlWaehlen(zufall, s, 'zahl', kursDavor, (w) => danachPasst(normieren(kursDavor + w)));
+    } else if (form === 'a') {
       do { wert = mitVorzeichen(zufall, 20, 190); } while (abstand(kursDavor, normieren(kursDavor + wert)) === 180);
     } else {
       do { wert = mitVorzeichen(zufall, 20, 490); } while (!imBereich(abstand(kursDavor, normieren(kursDavor + wert))));
@@ -386,21 +410,26 @@ function gateZeileStufe3(zufall, form, typ, kursDavor, verlauf, bilanz, hoehe) {
     kursDanach = normieren(kursDavor + wert);
   } else if (typ === 'himmelsrichtung') {
     let index;
-    do { index = zufall.ganzzahl(0, 15); } while (!imBereich(abstand(kursDavor, himmelsrichtungGrad(index))));
+    if (s) do { index = zufall.auswahl(flugRichtungen(s)); } while (!imBereich(abstand(kursDavor, himmelsrichtungGrad(index))));
+    else do { index = zufall.ganzzahl(0, 15); } while (!imBereich(abstand(kursDavor, himmelsrichtungGrad(index))));
     kurs = { typ, index };
     kursDanach = himmelsrichtungGrad(index);
   } else if (typ === 'grad') {
     let grad;
-    do { grad = zufall.ganzzahl(0, 359); } while (!imBereich(abstand(kursDavor, grad)));
+    if (s) grad = kursWaehlen(zufall, s, danachPasst);
+    else do { grad = zufall.ganzzahl(0, 359); } while (!imBereich(abstand(kursDavor, grad)));
     kurs = { typ, grad };
     kursDanach = grad;
   } else if (typ === 'hrPlus') {
     let index;
     let wert;
-    do {
-      index = zufall.ganzzahl(0, 15);
-      wert = mitVorzeichen(zufall, 10, 130);
-    } while (!imBereich(abstand(kursDavor, normieren(himmelsrichtungGrad(index) + wert))));
+    if (s) ({ index, wert } = richtungPlusWaehlen(zufall, s, 'hr', danachPasst));
+    else {
+      do {
+        index = zufall.ganzzahl(0, 15);
+        wert = mitVorzeichen(zufall, 10, 130);
+      } while (!imBereich(abstand(kursDavor, normieren(himmelsrichtungGrad(index) + wert))));
+    }
     kurs = { typ, index, wert };
     kursDanach = normieren(himmelsrichtungGrad(index) + wert);
   } else if (typ === 'gk') {
@@ -408,9 +437,15 @@ function gateZeileStufe3(zufall, form, typ, kursDavor, verlauf, bilanz, hoehe) {
     kursDanach = normieren(kursDavor + 180);
   } else if (typ === 'gkPlus') {
     let wert;
-    do { wert = mitVorzeichen(zufall, 10, 60); } while (!imBereich(abstand(kursDavor, normieren(kursDavor + 180 + wert))));
+    const gegenkurs = normieren(kursDavor + 180);
+    if (s) wert = zahlWaehlen(zufall, s, 'gk', gegenkurs, (w) => danachPasst(normieren(gegenkurs + w)));
+    else do { wert = mitVorzeichen(zufall, 10, 60); } while (!imBereich(abstand(kursDavor, normieren(kursDavor + 180 + wert))));
     kurs = { typ, wert };
     kursDanach = normieren(kursDavor + 180 + wert);
+  } else if (s) {
+    // anl. Kurs nach Schwierigkeit, als eigene Kopie
+    kurs = { ...anlWaehlen(zufall, s, kursDavor) };
+    kursDanach = normieren(kursDavor + kurs.wert);
   } else {
     // anl. Kurs: der gerade geflogene Kurs plus n oder plus a×b
     if (zufall.wuerfel(0.5)) {
@@ -470,12 +505,12 @@ function gateTypen(zufall, form, gk, zustand) {
 }
 
 // Gate nach dem Bauplan "geplant" ({ form, gk })
-function gateStufe3(zufall, geplant, kursDavor, verlauf, bilanz, hoehe, zustand) {
+function gateStufe3(zufall, geplant, kursDavor, verlauf, bilanz, hoehe, zustand, s = null) {
   const { form, gk } = geplant;
   const zeilen = [];
   let kurs = kursDavor;
   for (const typ of gateTypen(zufall, form, gk, zustand)) {
-    const zeile = gateZeileStufe3(zufall, form, typ, kurs, verlauf, bilanz, hoehe);
+    const zeile = gateZeileStufe3(zufall, form, typ, kurs, verlauf, bilanz, hoehe, s);
     zeilen.push(zeile);
     kurs = zeile.kursDanach;
   }
@@ -507,14 +542,16 @@ function gatesPlanen(zufall, stellen) {
 }
 
 // Kurs eines Segments mit eigener Angabe, als Himmelsrichtung oder Gradkurs, der
-// "passt" erfüllt
-function eigenerKurs(zufall, segment, himmelsrichtung, passt) {
+// "passt" erfüllt; mit Schwierigkeit "s" der Gradkurs nach schwierigkeit.js
+function eigenerKurs(zufall, segment, himmelsrichtung, passt, s = null) {
   if (himmelsrichtung) {
     let index;
     do { index = zufall.ganzzahl(0, 15); } while (!passt(himmelsrichtungGrad(index)));
     segment.anzeige = 'himmelsrichtung';
     segment.himmelsrichtung = index;
     segment.kurs = himmelsrichtungGrad(index);
+  } else if (s) {
+    segment.kurs = kursWaehlen(zufall, s, passt);
   } else {
     let grad;
     do { grad = zufall.ganzzahl(0, 359); } while (!passt(grad));
@@ -587,6 +624,10 @@ function schritt(zufall, plan, z, i) {
     // Der Kurs ergibt sich aus der Kurve davor
     segment.anzeige = 'keine';
     segment.kurs = kurs;
+  } else if (plan.relativeIndizes.has(i) && plan.schwierigkeit) {
+    segment.anzeige = 'keine';
+    segment.relativ = zahlWaehlen(zufall, plan.schwierigkeit, 'ecke', kurs);
+    segment.kurs = normieren(kurs + segment.relativ);
   } else if (plan.relativeIndizes.has(i)) {
     let winkel;
     do { winkel = zufall.ganzzahl(20, 340); } while (winkel === 180);
@@ -604,12 +645,16 @@ function schritt(zufall, plan, z, i) {
       z.gate.anschluss = art;
       passt = (k) => anschlussPasst(art, kurs, k);
     }
-    eigenerKurs(zufall, segment, plan.himmelsIndizes.has(i), passt);
+    eigenerKurs(zufall, segment, plan.himmelsIndizes.has(i), passt, plan.schwierigkeit);
   }
   // Angabe als Gegenkurs, nur an Segmenten mit eigenem Kurs. Nur Stufe 3 kennt
   // das Feld, damit die Blätter der Stufe 2 gleich bleiben.
   if (plan.stufe === 3) segment.alsGegenkurs = plan.gegenkursIndizes.has(i);
-  if (plan.rechenIndizes.has(i)) segment.rechenaufgabe = mitVorzeichen(zufall, 100, RECHEN_BIS[plan.stufe]);
+  if (plan.rechenIndizes.has(i)) {
+    segment.rechenaufgabe = plan.schwierigkeit
+      ? zahlWaehlen(zufall, plan.schwierigkeit, 'zahl', segment.kurs)
+      : mitVorzeichen(zufall, 100, RECHEN_BIS[plan.stufe]);
+  }
   segment.dauer = plan.stufe === 3 ? dauerStufe3(zufall) : dauerWaehlen(zufall);
   segment.profil = profilWaehlen(zufall, z.verlauf, z.bilanz, z.hoehe, segment.dauer);
   const letztes = z.elemente[z.elemente.length - 1];
@@ -623,14 +668,14 @@ function schritt(zufall, plan, z, i) {
     z.elemente.push({ art: 'vollkreis', richtung: null, profile: [erste, zweite] });
   }
   if (plan.kurveNach.has(i)) {
-    const kurve = kurveErzeugen(zufall, plan.stufe, z.verlauf, z.bilanz, z.hoehe);
+    const kurve = kurveErzeugen(zufall, plan.stufe, z.verlauf, z.bilanz, z.hoehe, plan.schwierigkeit);
     z.elemente.push(kurve);
     z.kurs = normieren(z.kurs + (kurve.richtung === 'rechts' ? kurve.winkel : -kurve.winkel));
   }
   if (plan.gateNach.has(i)) {
     z.gate = plan.stufe === 3
-      ? gateStufe3(zufall, plan.gates.get(i), z.kurs, z.verlauf, z.bilanz, z.hoehe, z)
-      : gateErzeugen(zufall, z.kurs, z.verlauf, z.bilanz, z.hoehe);
+      ? gateStufe3(zufall, plan.gates.get(i), z.kurs, z.verlauf, z.bilanz, z.hoehe, z, plan.schwierigkeit)
+      : gateErzeugen(zufall, z.kurs, z.verlauf, z.bilanz, z.hoehe, plan.schwierigkeit);
     z.elemente.push(z.gate);
     z.kurs = z.gate.zeilen[z.gate.zeilen.length - 1].kursDanach;
   }

@@ -8,7 +8,7 @@ import {
   beschriftungFrei, beschriftungsAbstand, kleinsterAbstand, zaehleKreuzungen, startOben, querstrichAnBeschriftung, eigenerBogenAnBeschriftung,
   LINIENBREITE_ABSTAND,
 } from '../js/geometrie.js';
-import { druckschrift, DRUCKFLAECHE } from '../js/zeichnung.js';
+import { druckschrift, DRUCKFLAECHE, zeichneParcours, zeichneVorschau } from '../js/zeichnung.js';
 import { DRUCKSCHRIFT_MIN } from '../js/parcours.js';
 
 // Alle Blätter beider Stufen einmal erzeugen, die Prüfungen unten teilen sie sich
@@ -48,6 +48,13 @@ const blaetter3 = Array.from({ length: BLAETTER_JE_STUFE }, (_, i) => {
 // Parcours aus demselben Zufallsstrom und bleibt, wie er war.
 const STUFE2_TEXTTEILE_FINGERABDRUCK = 'f00cf8950f089e1b4fe68339d35ed23ae8c91986108611c028977cfea0d1ba49';
 
+// Fingerabdruck (SHA-256) aller 200 Blätter: je Blatt, erst Stufe 2, dann Stufe 3,
+// das JSON des Textteils, der gezeichnete Parcours und das Vorschaubild. Stand
+// 27.09.2026, gemessen vor und nach der Schwierigkeit im Blitzrechnen, die nur
+// für Ausschnitte gilt. Ändert sich ein Blatt gewollt, diesen Wert neu setzen
+// und die Vorschaubilder neu erzeugen (npm run vorschauen).
+const BLAETTER_FINGERABDRUCK = '8bd541da511fb33f07e6aa79de9ac9038f794719788e2ee2f052311feb308590';
+
 test('Konstanten', () => {
   assert.equal(BLAETTER_JE_STUFE, 100);
   assert.deepEqual(STUFEN, [2, 3]);
@@ -55,6 +62,12 @@ test('Konstanten', () => {
 
 test('Textteile der Stufe 2 sind Byte für Byte unverändert', () => {
   assert.equal(createHash('sha256').update(JSON.stringify(blaetter.map((b) => b.textteil))).digest('hex'), STUFE2_TEXTTEILE_FINGERABDRUCK);
+});
+
+test('alle 200 Blätter unverändert: Textteil, Zeichnung und Vorschaubild', () => {
+  const h = createHash('sha256');
+  for (const b of [...blaetter, ...blaetter3]) h.update(JSON.stringify(b.textteil)).update(zeichneParcours(b.parcours)).update(zeichneVorschau(b.parcours));
+  assert.equal(h.digest('hex'), BLAETTER_FINGERABDRUCK);
 });
 
 test('unbekannte Stufe und ungültige Nummern werfen', () => {
