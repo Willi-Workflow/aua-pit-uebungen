@@ -2,7 +2,7 @@
 
 Erzeugt Übungsblätter für die PIT-Übungen nach dem Vorbild der Vorlagen "AUA PIT Stufe 2" und "AUA PIT Stufe 3". Ein Blatt der Stufe 2 besteht aus einem Textteil (zwölf Anweisungen ab Ausgangskurs 090°, 2000 ft) und einem gezeichneten Parcours, der direkt anschließt. Ein Blatt der Stufe 3 ist nur der Parcours, Start auf 2000 ft mit dem Kurs des ersten Segments.
 
-Die App speichert nichts. Blatt 7 der Stufe 2 ist immer dasselbe Blatt, weil die Nummer den Zufall festlegt.
+Die App speichert nichts außer den Einstellungen des Blitzrechnens, und die nur auf dem Gerät. Blatt 7 der Stufe 2 ist immer dasselbe Blatt, weil die Nummer den Zufall festlegt.
 
 **Adresse:** https://willi-workflow.github.io/aua-pit-uebungen/
 
@@ -10,7 +10,8 @@ Die App speichert nichts. Blatt 7 der Stufe 2 ist immer dasselbe Blatt, weil die
 
 - Stufe 2 vollständig: Textteil und Parcours, 100 nummerierte Blätter, Druck auf A4
 - Stufe 3 vollständig: nur Parcours nach den drei Vorlagen (PDF, Gegenkursbeispiel, Handzeichnung), 100 nummerierte Blätter, alle mit Gates, Druck auf A4
-- Endlosmodus und Blitzrechnen folgen
+- Blitzrechnen vollständig: Kopfrechnen mit Kursen (geschrieben, per Ton oder beides) und Ausschnitte für Stufe 2 und Stufe 3
+- Endlosmodus folgt
 
 ## Zeichensprache
 
@@ -38,6 +39,19 @@ Stufe 3 hat alle Zeichen der Stufe 2 und dazu:
 
 Norden ist oben, der Start liegt oben; der Pfeil zeigt nach Norden. Das Flugzeug steht am Start und zeigt in die erste Flugrichtung. In Stufe 2 beginnt der Parcours 20° bis 160° vom Endkurs des Textteils und hält wie der Textteil die Höhe zwischen 1000 und 3000 ft; in Stufe 3 gilt derselbe Höhenrahmen ab 2000 ft.
 
+## Blitzrechnen
+
+Unter `#/blitzrechnen` (Karte mit Blitz unter der Kursrose) drei Übungen, jede ohne Ende, mit Zähler "richtig / gesamt" und Serie, nichts wird gespeichert:
+
+- **Kopfrechnen mit Kursen** (`#/blitzrechnen/kopfrechnen`): Kurs plus oder minus eine Zahl von 20 bis 490 (`247 + 230`, Antwort modulo 360), Gegenkurs, Himmelsrichtung in Grad, nächste Himmelsrichtung zu einem Kurs (Antwort über 16 Knöpfe) und `GK −19° ab 247`. Die Aufgabe steht geschrieben da, wird per Ton angesagt oder beides; per Ton beginnt die Antwortzeit erst nach der Ansage, "Nochmal hören" spielt sie erneut.
+- **Blitzrechnen Stufe 2 und Stufe 3** (`#/blitzrechnen/stufe2`, `…/stufe3`): Ein Ausschnitt wie auf dem Blatt ("Ankunft auf Kurs 247", Startsegment, ein Aufgabenelement, Folgesegment) ist für die Anzeigezeit zu sehen und verschwindet dann; danach kommen die Fragen, bei einem Gate eine je Zeile mit eigener Antwortzeit, bei Form A zuletzt der Drehsinn zum nächsten Kurs. Zum Schluss steht der Ausschnitt wieder da, die Lösungen daneben. Stufe 2: relative Ecke, Rechenaufgabe, Himmelsrichtung, Gate mit drei Zeilen. Stufe 3 zusätzlich `HR/`, `HR 111°/`, `GK/`, Gradzahl-Kurve, Gates der Formen A, B, C und `anl. Kurs`. Die Ausschnitte werden aus Ketten der Blatterzeugung geschnitten, ohne Kandidatensuche, und nur genommen, wenn sie kreuzungsfrei sind und alle Beschriftungen frei stehen.
+
+**Einstellungen** (`#/blitzrechnen/einstellungen`, gespeichert im Browser unter `blitzrechnen.einstellungen`, ohne Speicher gelten die Vorgaben): Antwortart Eintippen mit Prüfung (Vorgabe) oder Auflösung ohne Tippen mit "Hatte ich" und "Hatte ich nicht", Anzeigezeit 3, 5 oder 8 s, Antwortzeit 10, 15 oder 20 s, Aufgabenstellung beim Kopfrechnen geschrieben, per Ton oder beides. Beim Eintippen zählen 000 und 360 gleich; liegt die Lösung auf einem halben Grad (202,5), zählen 202, 203 und 202,5.
+
+**Tonschnipsel** liegen als MP3 unter `klaenge/` (rund 12 MB, Herkunft in `klaenge/HERKUNFT.md`). Fehlende Wörter erzeugt `python3 werkzeuge/klaenge_erzeuge.py` über ElevenLabs, mit dem Schlüssel aus dem Schlüsselbund.
+
+**Prüfmodus** für Bildschirmfotos: Eine Übungsadresse mit `?probe=` zeigt einen Zustand direkt, mit angehaltenem Zeitbalken und ohne Ton, etwa `#/blitzrechnen/stufe3?probe=ausgeblendet&art=gate`. Werte: beim Kopfrechnen `aufgabe`, `ergebnis`, `loesung`; bei den Stufen `anzeige`, `ausgeblendet`, `loesung`. Dazu wahlweise `art=` (Aufgabenart), `saat=`, `frage=` (Nummer ab 0), `antwort=eintippen|aufloesung`, `stellung=geschrieben|ton|beides`.
+
 ## Örtlich starten
 
 Die App besteht aus ES-Modulen, deshalb braucht sie einen kleinen Server:
@@ -50,7 +64,7 @@ Dann http://127.0.0.1:8765/ öffnen.
 
     node --test
 
-Braucht Node 20 oder neuer, keine Abhängigkeiten. Die Prüfungen erzeugen alle 100 Blätter beider Stufen und dauern gut eine Minute; eine davon stellt sicher, dass die Blätter der Stufe 2 Byte für Byte gleich bleiben.
+Braucht Node 20 oder neuer, keine Abhängigkeiten. Die Prüfungen erzeugen alle 100 Blätter beider Stufen und dauern gut eine Minute; eine davon stellt sicher, dass die Blätter der Stufe 2 Byte für Byte gleich bleiben. Für das Blitzrechnen rechnen sie je Stufe 200 Ausschnitte aus den gezeichneten Beschriftungen nach, prüfen jede Kopfaufgabe gegen ihren Text und jede Tonfolge gegen die Dateien unter `klaenge/`.
 
 ## Logikprüfung
 
@@ -69,9 +83,16 @@ oder `npm run pruefen -- 3`. Das Werkzeug erzeugt alle 100 Blätter einer Stufe 
 | `js/elemente.js` | Bausteine und Mengen je Stufe |
 | `js/geometrie.js` | Weg, Beschriftungen, Kreuzungs- und Abstandsprüfung |
 | `js/parcours.js` | Kandidatensuche |
-| `js/zeichnung.js` | SVG aus dem Parcours |
+| `js/zeichnung.js` | SVG aus dem Parcours, für Ausschnitte ohne Nordpfeil |
 | `js/blatt.js` | Blatt aus Stufe und Nummer |
 | `js/app.js` | Adressen und Ansichten |
+| `js/kopfrechnen.js` | Blitzrechnen: Kopfaufgaben mit Text, Lösung und Tonfolge |
+| `js/ausschnitt.js` | Blitzrechnen: Ausschnitte aus der Blatterzeugung, Fragen und Lösungen |
+| `js/antwort.js` | Blitzrechnen: Antworten lesen, prüfen, als Lösung schreiben |
+| `js/blitzeinstellungen.js` | Blitzrechnen: Einstellungen auf dem Gerät |
+| `js/blitzansicht.js` | Blitzrechnen: Seiten und Zustände als HTML, Prüfmodus |
+| `js/blitzlauf.js` | Blitzrechnen: Ablauf im Browser, Zeitgeber, Ton, Eingaben |
+| `klaenge/` | Tonschnipsel des Kopfrechnens |
 
 Entwurf und Plan liegen unter `docs/superpowers/`.
 
