@@ -208,7 +208,7 @@ test('Prüfmodus Kopfrechnen: Aufgabe geschrieben, per Ton, beides; Knopfleiste 
 test('Prüfmodus: Schwierigkeit über die Adresse, mit ihren Zeiten und Wertebereichen', () => {
   const leicht = ansichtFuer('#/blitzrechnen/kopfrechnen?probe=aufgabe&art=kursPlusZahl&schwierigkeit=leicht');
   const m = leicht.match(/<p class="aufgabe-text">(\d{3}) [+−] (\d+)<\/p>/);
-  assert.ok(m && Number(m[1]) % 10 === 0 && Number(m[2]) % 10 === 0 && Number(m[2]) <= 150, 'leicht in Zehnerschritten');
+  assert.ok(m && Number(m[2]) % 5 === 0 && Number(m[2]) >= 20 && Number(m[2]) <= 250, 'leicht in Fünferschritten bis 250');
   assert.ok(/<span style="animation-duration: 15s/.test(leicht), 'Antwortzeit 15 s bei leicht');
   const schwer = ansichtFuer('#/blitzrechnen/kopfrechnen?probe=aufgabe&art=anlKurs&schwierigkeit=schwer');
   assert.ok(/<p class="aufgabe-text lang">anl\. Kurs \d{3} \+\d×\d{2}<\/p>/.test(schwer), 'anl. Kurs mit Produkt');

@@ -8,9 +8,7 @@
 // Kreuzung, mit Strichen, die sich höchstens berühren, und freien
 // Beschriftungen; sonst wird neu gewürfelt.
 // Die Schwierigkeit (leicht, normal, schwer) geht als Einstellung an die
-// Erzeugung und legt dort Zahlen, Kurse und Winkel fest (schwierigkeit.js); bei
-// leicht beginnt der Ausschnitt zudem auf einem Kurs in Zehnerschritten, und
-// eine Rechenaufgabe steht nur an einem solchen Kurs.
+// Erzeugung und legt dort Zahlen, Kurse und Winkel fest (schwierigkeit.js).
 
 import { erzeugeElemente, anschlussDrehung, gegenkursZeile } from './elemente.js';
 import { bahn, vollenden, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, LINIENBREITE_ABSTAND } from './geometrie.js';
@@ -44,9 +42,7 @@ const istAnl = (zeile) => zeile.kurs.typ === 'anl' || zeile.kurs.typ === 'anlPro
 function stueckFuer(elemente, i, art, stufe, schwierigkeit) {
   const element = elemente[i];
   const davor = elemente[i - 1];
-  const leicht = schwierigkeit === 'leicht';
   if (!istSegment(davor) || !Number.isInteger(davor.kurs)) return null;
-  if (leicht && davor.kurs % 10 !== 0) return null;
   let letzter;
   if (art === 'kurve') {
     if (element.art !== 'kurve' || !istSegment(elemente[i + 1])) return null;
@@ -62,7 +58,6 @@ function stueckFuer(elemente, i, art, stufe, schwierigkeit) {
     if (!istSegment(element)) return null;
     if (art === 'relativ' && element.relativ === null) return null;
     if (art === 'rechen' && (element.rechenaufgabe === null || !['grad', 'himmelsrichtung'].includes(element.anzeige))) return null;
-    if (art === 'rechen' && leicht && element.kurs % 10 !== 0) return null;
     if (['himmelsrichtung', 'hr', 'hrKurs', 'gk'].includes(art) && element.anzeige !== art) return null;
     // Himmelsrichtung in Grad nur ohne Gegenkurs-Angabe, dafür gibt es "gkAngabe"
     if (art === 'himmelsrichtung' && element.alsGegenkurs) return null;

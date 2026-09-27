@@ -10,6 +10,7 @@ const RICHTUNGEN = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW'
 const norm = (g) => ((g % 360) + 360) % 360;
 const abstand = (a, b) => { const d = norm(a - b); return Math.min(d, 360 - d); };
 const zehner = (n) => n % 10 === 0;
+const fuenfer = (n) => n % 5 === 0;
 const ohneFuenfer = (n) => n % 5 !== 0;
 const imBereich = (n, von, bis) => n >= von && n <= bis;
 const ueberlauf = (basis, zahl) => basis + zahl >= 360 || basis + zahl < 0;
@@ -129,24 +130,25 @@ test('Kopfrechnen: je Schwierigkeit Lösung und Tonfolge aus dem Aufgabentext na
   }
 });
 
-test('Kopfrechnen leicht: Kurse und Zahlen in Zehnerschritten, Zahl 10 bis 150, Überlauf höchstens in einem von drei Fällen', () => {
+test('Kopfrechnen leicht: beliebige Kurse, Zahlen in Fünferschritten 20 bis 250, acht Richtungen, Überlauf in etwa drei von zehn Fällen', () => {
   const s = 'leicht';
   for (const x of gelesen(s, 'kursPlusZahl')) {
-    assert.ok(zehner(x.kurs) && zehner(x.zahl) && imBereich(Math.abs(x.zahl), 10, 150), `${x.kurs} ${x.zahl}`);
+    assert.ok(imBereich(x.kurs, 0, 359) && fuenfer(x.zahl) && imBereich(Math.abs(x.zahl), 20, 250), `${x.kurs} ${x.zahl}`);
   }
-  for (const x of gelesen(s, 'gkPlus')) assert.ok(zehner(x.kurs) && zehner(x.zahl) && imBereich(Math.abs(x.zahl), 10, 60));
+  for (const x of gelesen(s, 'gkPlus')) assert.ok(fuenfer(x.zahl) && imBereich(Math.abs(x.zahl), 10, 60));
   for (const art of ['richtungPlus', 'gkRichtung']) {
     for (const x of gelesen(s, art)) {
-      assert.ok([0, 4, 8, 12].includes(x.index), `${art}: nur N, E, S, W`);
-      assert.ok(zehner(x.zahl) && imBereich(Math.abs(x.zahl), 10, art === 'gkRichtung' ? 60 : 130));
+      assert.ok(x.index % 2 === 0, `${art}: nur Haupt- und Nebenrichtungen`);
+      assert.ok(fuenfer(x.zahl) && imBereich(Math.abs(x.zahl), 10, art === 'gkRichtung' ? 60 : 130));
     }
   }
-  for (const x of gelesen(s, 'anlKurs')) assert.ok(zehner(x.kurs) && zehner(x.zahl) && imBereich(x.zahl, 20, 150) && x.a === undefined);
-  // Ganze Grade in Zehnerschritten als Ergebnis
-  for (const art of RECHNEND) for (const a of jeArt[s][art]) assert.ok(zehner(a.loesung), a.text);
+  for (const x of gelesen(s, 'anlKurs')) assert.ok(fuenfer(x.zahl) && imBereich(x.zahl, 20, 150) && x.a === undefined);
+  // Ganze Grade als Ergebnis, und nicht mehr nur Zehnerschritte
+  for (const art of RECHNEND) for (const a of jeArt[s][art]) assert.ok(Number.isInteger(a.loesung), a.text);
+  assert.ok(gelesen(s, 'kursPlusZahl').some((x) => !zehner(x.kurs)), 'leicht nur mit Zehnerkursen');
   for (const art of RECHNEND) {
     const wert = anteil(gelesen(s, art), (x) => ueberlauf(x.basis, x.zahl));
-    assert.ok(wert <= 1 / 3, `${art}: Überlauf in ${wert}`);
+    assert.ok(wert <= 0.42, `${art}: Überlauf in ${wert}`);
   }
   assert.ok(anteil(gelesen(s, 'kursPlusZahl'), (x) => ueberlauf(x.basis, x.zahl)) > 0.1, 'leicht ganz ohne Überlauf');
 });

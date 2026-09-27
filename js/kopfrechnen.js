@@ -131,8 +131,8 @@ export function baueKopfaufgabe(art, werte) {
 }
 
 // Eine Aufgabe der Art "art" in der Schwierigkeit "schwierigkeit", ohne Art eine
-// nach ARTEN_GEWICHTE gemischte. Gerechnet wird ab einem Kurs, bei leicht in
-// Zehnerschritten; die Zahl kommt aus schwierigkeit.js und trifft dort den
+// nach ARTEN_GEWICHTE gemischte. Gerechnet wird ab einem beliebigen Kurs;
+// die Zahl kommt aus schwierigkeit.js und trifft dort den
 // Anteil mit Überlauf. Bei schwer sind die Kurse bei Gegenkurs und nächster
 // Himmelsrichtung ungerade und die Himmelsrichtungen solche mit halbem Grad. Bei
 // der nächsten Himmelsrichtung liegt ein ganzzahliger Kurs nie genau zwischen

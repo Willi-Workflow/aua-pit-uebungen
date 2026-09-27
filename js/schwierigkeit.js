@@ -7,8 +7,8 @@
 // Gerechnet wird immer der neue Kurs aus einer Basis (aktueller Kurs, Gegenkurs
 // oder Himmelsrichtung) und einer Zahl mit Vorzeichen, Ergebnis modulo 360.
 // Überlauf heißt: Basis plus Zahl erreicht 360 oder fällt unter 0.
-//   leicht: Kurse in Zehnerschritten, Zahlen 10 bis 150 in Zehnerschritten,
-//           Überlauf in höchstens einem von drei Fällen
+//   leicht: beliebige Kurse, Zahlen 20 bis 250 in Fünferschritten, acht
+//           Haupt- und Nebenrichtungen, Überlauf in etwa drei von zehn Fällen
 //   normal: Kurse 000 bis 359, Zahlen 20 bis 490, Überlauf in etwa der Hälfte
 //   schwer: wie normal, aber keine Zahl mit Endziffer 0 oder 5, ein Drittel der
 //           Zahlen über 360, Himmelsrichtungen mit halbem Grad
@@ -27,7 +27,7 @@ export const VORGABEZEITEN = {
 
 // Anteil der Aufgaben mit Überlauf, wo er möglich ist; bei schwer nur für die
 // Zahlen unter 360, die übrigen laufen immer über
-export const UEBERLAUF = { leicht: 0.25, normal: 0.5, schwer: 0.5 };
+export const UEBERLAUF = { leicht: 0.3, normal: 0.5, schwer: 0.5 };
 // Anteil der Zahlen von 361 bis 490 bei schwer, nur bei Kurs plus oder minus Zahl
 export const UEBER_360 = 1 / 3;
 
@@ -38,18 +38,18 @@ export const UEBER_360 = 1 / 3;
 //   gk:    GK plus oder minus n
 //   hr:    Himmelsrichtung plus oder minus n
 export const BETRAEGE = {
-  leicht: { zahl: [10, 150], ecke: [10, 150], formA: [20, 150], gk: [10, 60], hr: [10, 130] },
+  leicht: { zahl: [20, 250], ecke: [20, 250], formA: [20, 150], gk: [10, 60], hr: [10, 130] },
   normal: { zahl: [20, 490], ecke: [20, 340], formA: [20, 190], gk: [10, 60], hr: [10, 130] },
   schwer: { zahl: [20, 490], ecke: [20, 340], formA: [20, 190], gk: [10, 60], hr: [10, 130] },
 };
 
 // Drehwinkel der Gradzahl-Kurven. Normal wie Stufe 2 mit rund einem Drittel
 // Schleifen über 180°.
-export const KURVENWINKEL = { leicht: [30, 150], normal: [30, 350], schwer: [150, 350] };
+export const KURVENWINKEL = { leicht: [30, 250], normal: [30, 350], schwer: [150, 350] };
 const SCHLEIFEN_ANTEIL = 0.37;
 
 // anl. Kurs: plus n oder plus a×b. Normal wie auf den Blättern (n und a×b von 20
-// bis 160, a von 2 bis 9, b von 2 bis 13); leicht nur plus n in Zehnerschritten;
+// bis 160, a von 2 bis 9, b von 2 bis 13); leicht nur plus n in Fünferschritten;
 // schwer nur a×b wie "9×13" ohne Faktor 5, 10 oder 15.
 export const ANL = {
   leicht: { n: [20, 150] },
@@ -82,7 +82,7 @@ export function betraege(schwierigkeit, zusammenhang) {
   if (!betraegeSpeicher.has(schluessel)) {
     const [von, bis] = BETRAEGE[schwierigkeit][zusammenhang];
     let werte;
-    if (schwierigkeit === 'leicht') werte = bereich(Math.ceil(von / 10) * 10, bis, 10);
+    if (schwierigkeit === 'leicht') werte = bereich(Math.ceil(von / 5) * 5, bis, 5);
     else werte = bereich(von, bis).filter((n) => schwierigkeit === 'normal' || ohneFuenfer(n));
     // Eine Ecke von 180° hätte keine Richtung
     if (zusammenhang === 'ecke') werte = werte.filter((n) => n !== 180);
@@ -125,12 +125,12 @@ export function zahlWaehlen(zufall, schwierigkeit, zusammenhang, basis, gueltig 
   return nachUeberlauf(zufall, werte, basis, UEBERLAUF[schwierigkeit]);
 }
 
-// Ein Kurs, von dem aus gerechnet wird: leicht in Zehnerschritten, sonst 000
-// bis 359; "passt" muss für mindestens einen Kurs gelten
+// Ein Kurs von 000 bis 359, von dem aus gerechnet wird; "passt" muss für
+// mindestens einen Kurs gelten
 export function kursWaehlen(zufall, schwierigkeit, passt = () => true) {
   let kurs;
   do {
-    kurs = schwierigkeit === 'leicht' ? zufall.ganzzahl(0, 35) * 10 : zufall.ganzzahl(0, 359);
+    kurs = zufall.ganzzahl(0, 359);
   } while (!passt(kurs));
   return kurs;
 }
@@ -140,18 +140,18 @@ export function ungeraderKurs(zufall) {
   return zufall.ganzzahl(0, 179) * 2 + 1;
 }
 
-// Himmelsrichtungen, auf die gerechnet wird (Index 0 bis 15): leicht nur N, E,
-// S, W (Grad in Zehnerschritten), schwer nur die mit halbem Grad (NNE, ENE, …)
+// Himmelsrichtungen, auf die gerechnet wird (Index 0 bis 15): leicht die acht
+// Haupt- und Nebenrichtungen (ganze Grade), schwer nur die mit halbem Grad (NNE, ENE, …)
 export function rechenRichtungen(schwierigkeit) {
-  if (schwierigkeit === 'leicht') return [0, 4, 8, 12];
+  if (schwierigkeit === 'leicht') return bereich(0, 14, 2);
   if (schwierigkeit === 'schwer') return bereich(1, 15, 2);
   return bereich(0, 15);
 }
 
-// Himmelsrichtungen, die direkt geflogen werden (Gate-Zeile "SSW"): leicht nur
-// N, E, S, W, damit das Rechnen danach bei Zehnerschritten bleibt, sonst alle 16
+// Himmelsrichtungen, die direkt geflogen werden (Gate-Zeile "SSW"): leicht die
+// acht Haupt- und Nebenrichtungen, damit das Rechnen bei ganzen Graden bleibt, sonst alle 16
 export function flugRichtungen(schwierigkeit) {
-  return schwierigkeit === 'leicht' ? [0, 4, 8, 12] : bereich(0, 15);
+  return schwierigkeit === 'leicht' ? bereich(0, 14, 2) : bereich(0, 15);
 }
 
 // Himmelsrichtung und Zahl für "Himmelsrichtung ± n", mit "gegenkurs" für "GK
@@ -167,11 +167,15 @@ export function richtungPlusWaehlen(zufall, schwierigkeit, zusammenhang, gueltig
   return { index, wert: zahlWaehlen(zufall, schwierigkeit, zusammenhang, basis, (w) => gueltig(normieren(basis + w))) };
 }
 
-// Drehwinkel einer Gradzahl-Kurve: leicht 30 bis 150 in Zehnerschritten,
+// Drehwinkel einer Gradzahl-Kurve: leicht 30 bis 250 in Fünferschritten ohne 180,
 // normal 30 bis 350 ohne 180, schwer ungerade von 151 bis 349
 export function kurvenWinkel(zufall, schwierigkeit) {
   const [von, bis] = KURVENWINKEL[schwierigkeit];
-  if (schwierigkeit === 'leicht') return zufall.ganzzahl(von / 10, bis / 10) * 10;
+  if (schwierigkeit === 'leicht') {
+    let winkel;
+    do { winkel = zufall.ganzzahl(von / 5, bis / 5) * 5; } while (winkel === 180);
+    return winkel;
+  }
   if (schwierigkeit === 'schwer') return zufall.ganzzahl(Math.ceil((von - 1) / 2), Math.floor((bis - 1) / 2)) * 2 + 1;
   return zufall.wuerfel(SCHLEIFEN_ANTEIL) ? zufall.ganzzahl(181, bis) : zufall.ganzzahl(von, 179);
 }
@@ -182,7 +186,7 @@ const anlSpeicher = new Map();
 export function anlAngaben(schwierigkeit) {
   if (!anlSpeicher.has(schwierigkeit)) {
     const g = ANL[schwierigkeit];
-    const plus = g.n ? bereich(...g.n, schwierigkeit === 'leicht' ? 10 : 1).map((wert) => ({ typ: 'anl', wert })) : [];
+    const plus = g.n ? bereich(...g.n, schwierigkeit === 'leicht' ? 5 : 1).map((wert) => ({ typ: 'anl', wert })) : [];
     const produkte = [];
     if (g.a) {
       for (const a of bereich(...g.a)) {

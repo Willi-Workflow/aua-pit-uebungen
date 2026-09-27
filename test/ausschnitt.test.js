@@ -256,7 +256,7 @@ test('Ausschnitte: jede Art lässt sich gezielt erzeugen, gleicher Startwert gib
 // (Rechenaufgabe, relative Gate-Zeile ohne Gradzeichen), relative Ecke, Form A
 // mit Gradzeichen, GK ± n, Himmelsrichtung ± n, Drehwinkel der Kurve
 const BEREICHE = {
-  leicht: { zahl: [10, 150], ecke: [10, 150], formA: [20, 150], gk: [10, 60], hr: [10, 130], kurve: [30, 150] },
+  leicht: { zahl: [20, 250], ecke: [20, 250], formA: [20, 150], gk: [10, 60], hr: [10, 130], kurve: [30, 250] },
   normal: { zahl: [20, 490], ecke: [20, 340], formA: [20, 190], gk: [10, 60], hr: [10, 130], kurve: [30, 350] },
   schwer: { zahl: [20, 490], ecke: [20, 340], formA: [20, 190], gk: [10, 60], hr: [10, 130], kurve: [151, 349] },
 };
@@ -305,22 +305,19 @@ function wertebereichePruefen(a, s) {
     for (const wert of w[art]) {
       const betrag = Math.abs(wert);
       assert.ok(betrag >= b[art][0] && betrag <= b[art][1], `${text}: ${art} ${wert} außerhalb ${b[art]}`);
-      if (s === 'leicht') assert.equal(betrag % 10, 0, `${text}: ${art} ${wert} nicht in Zehnerschritten`);
+      if (s === 'leicht') assert.equal(betrag % 5, 0, `${text}: ${art} ${wert} nicht in Fünferschritten`);
       if (s === 'schwer') assert.notEqual(betrag % 5, 0, `${text}: ${art} ${wert} mit Endziffer 0 oder 5`);
     }
   }
   for (const wert of w.ecke) assert.notEqual(Math.abs(wert), 180);
   for (const winkel of w.kurve) {
     assert.ok(winkel >= b.kurve[0] && winkel <= b.kurve[1] && winkel !== 180, `${text}: Kurve ${winkel}`);
-    if (s === 'leicht') assert.equal(winkel % 10, 0, `${text}: Kurve ${winkel}`);
+    if (s === 'leicht') assert.equal(winkel % 5, 0, `${text}: Kurve ${winkel}`);
     if (s === 'schwer') assert.equal(winkel % 2, 1, `${text}: Kurve ${winkel} gerade`);
   }
   if (s === 'leicht') {
-    assert.equal(a.ankunft % 10, 0, `${text}: Ankunft ${a.ankunft}`);
-    for (const basis of w.rechenBasis) assert.equal(basis % 10, 0, `${text}: Rechenaufgabe an ${basis}`);
-    for (const i of [...w.hrRichtung, ...w.gateRichtung]) assert.ok([0, 4, 8, 12].includes(i), `${text}: Richtung ${RICHTUNGEN[i]}`);
-    for (const grad of w.gateGrad) assert.equal(grad % 10, 0, `${text}: Gate-Kurs ${grad}`);
-    for (const wert of w.anl) assert.ok(wert % 10 === 0 && wert >= 20 && wert <= 150, `${text}: anl. Kurs +${wert}`);
+    for (const i of [...w.hrRichtung, ...w.gateRichtung]) assert.ok(i % 2 === 0, `${text}: Richtung ${RICHTUNGEN[i]}`);
+    for (const wert of w.anl) assert.ok(wert % 5 === 0 && wert >= 20 && wert <= 150, `${text}: anl. Kurs +${wert}`);
     assert.equal(w.anlProdukt.length, 0, `${text}: anl. Kurs mit Produkt`);
   }
   if (s === 'normal') {
@@ -378,7 +375,7 @@ test('Ausschnitte nach Schwierigkeit: jede Art gezielt, Rechenaufgaben mit Über
   const anteil = (liste, bedingung) => liste.filter(bedingung).length / liste.length;
   const ueber = (x) => x.basis + x.zahl >= 360 || x.basis + x.zahl < 0;
   const leicht = anteil(zahlen.leicht, ueber);
-  assert.ok(leicht > 0 && leicht <= 1 / 3, `leicht: Überlauf in ${leicht}`);
+  assert.ok(leicht > 0.1 && leicht <= 0.45, `leicht: Überlauf in ${leicht}`);
   const normal = anteil(zahlen.normal, ueber);
   assert.ok(normal >= 0.35 && normal <= 0.65, `normal: Überlauf in ${normal}`);
   const gross = anteil(zahlen.schwer, (x) => Math.abs(x.zahl) > 360);

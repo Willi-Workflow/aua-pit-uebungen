@@ -18,7 +18,7 @@ export const EINSTELLUNGEN_SCHLUESSEL = 'blitzrechnen.einstellungen';
 export const EINSTELLUNGEN = {
   schwierigkeit: {
     titel: 'Schwierigkeit',
-    text: 'Normal wie auf den Vorlagen. Leicht: runde Kurse und Zahlen bis 150, selten über 360 hinaus. Schwer: krumme Zahlen, öfter über 360, halbe Grade und Aufgaben in zwei Schritten wie GK von SSW −37° oder anl. Kurs +9×13.',
+    text: 'Normal wie auf den Vorlagen. Leicht: beliebige Kurse, Zahlen bis 250 in Fünferschritten, etwa jede dritte Aufgabe über 360 hinaus. Schwer: krumme Zahlen, öfter über 360, halbe Grade und Aufgaben in zwei Schritten wie GK von SSW −37° oder anl. Kurs +9×13.',
     werte: SCHWIERIGKEITEN,
     vorgabe: VORGABE_SCHWIERIGKEIT,
     namen: { leicht: 'leicht', normal: 'normal', schwer: 'schwer' },

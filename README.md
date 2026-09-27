@@ -51,14 +51,14 @@ Unter `#/blitzrechnen` (Karte mit Blitz unter der Kursrose) drei Übungen, jede 
 
 | | leicht | normal | schwer |
 |---|---|---|---|
-| Kurs plus oder minus Zahl, Rechenaufgabe, relative Gate-Zeile | Kurs und Zahl in Zehnerschritten, Zahl 10 bis 150, Überlauf über 360 oder unter 0 höchstens in einem von drei Fällen | Kurs 000 bis 359, Zahl 20 bis 490, Überlauf etwa in der Hälfte | wie normal, keine Zahl mit Endziffer 0 oder 5, ein Drittel über 360 (361 bis 490) |
-| GK ± n, Himmelsrichtung ± n | 10 bis 60 und 10 bis 130 in Zehnerschritten, nur N, E, S, W | 10 bis 60 und 10 bis 130, alle 16 Richtungen | ohne Endziffer 0 oder 5, nur Richtungen mit halbem Grad (`SSW +41°` = 243,5; richtig sind 243, 244 und 243,5) |
-| relative Ecke | 10 bis 150 in Zehnerschritten | 20 bis 340 | 20 bis 340 ohne Endziffer 0 oder 5 |
-| Gradzahl-Kurve | 30 bis 150 in Zehnerschritten | 30 bis 350 | ungerade von 151 bis 349 |
-| anl. Kurs | plus n in Zehnerschritten | plus n oder a×b wie auf den Blättern | nur a×b wie `+9×13` |
+| Kurs plus oder minus Zahl, Rechenaufgabe, relative Gate-Zeile | beliebiger Kurs, Zahl 20 bis 250 in Fünferschritten, Überlauf über 360 oder unter 0 in etwa drei von zehn Fällen | Kurs 000 bis 359, Zahl 20 bis 490, Überlauf etwa in der Hälfte | wie normal, keine Zahl mit Endziffer 0 oder 5, ein Drittel über 360 (361 bis 490) |
+| GK ± n, Himmelsrichtung ± n | 10 bis 60 und 10 bis 130 in Fünferschritten, die acht Haupt- und Nebenrichtungen | 10 bis 60 und 10 bis 130, alle 16 Richtungen | ohne Endziffer 0 oder 5, nur Richtungen mit halbem Grad (`SSW +41°` = 243,5; richtig sind 243, 244 und 243,5) |
+| relative Ecke | 20 bis 250 in Fünferschritten | 20 bis 340 | 20 bis 340 ohne Endziffer 0 oder 5 |
+| Gradzahl-Kurve | 30 bis 250 in Fünferschritten | 30 bis 350 | ungerade von 151 bis 349 |
+| anl. Kurs | plus n in Fünferschritten | plus n oder a×b wie auf den Blättern | nur a×b wie `+9×13` |
 | Kopfrechnen, übrige Arten | seltener | wie bisher | ungerade Kurse, Himmelsrichtungen mit halbem Grad |
 
-Eine Ecke bleibt unter 360°, weil sie als Drehung gezeichnet wird; relative Gate-Zeilen mit Gradzeichen (Form A) gehen wie in der PDF bis 190. Bei leicht beginnt ein Ausschnitt auf einem Kurs in Zehnerschritten, und direkt geflogene Himmelsrichtungen in Gates sind N, E, S oder W, damit das Rechnen danach bei Zehnerschritten bleibt.
+Eine Ecke bleibt unter 360°, weil sie als Drehung gezeichnet wird; relative Gate-Zeilen mit Gradzeichen (Form A) gehen wie in der PDF bis 190. Bei leicht sind direkt geflogene Himmelsrichtungen in Gates die acht Haupt- und Nebenrichtungen, damit das Rechnen bei ganzen Graden bleibt.
 
 **Einstellungen** (`#/blitzrechnen/einstellungen`, gespeichert im Browser unter `blitzrechnen.einstellungen`, ohne Speicher gelten die Vorgaben): Schwierigkeit leicht, normal (Vorgabe) oder schwer, Antwortart Eintippen mit Prüfung (Vorgabe) oder Auflösung ohne Tippen mit "Hatte ich" und "Hatte ich nicht", Anzeigezeit 3, 5 oder 8 s, Antwortzeit 8, 10, 15 oder 20 s, Aufgabenstellung beim Kopfrechnen geschrieben, per Ton oder beides. Die Zeiten folgen der Schwierigkeit (leicht Anzeige 8 s und Antwort 15 s, normal 5 s und 10 s, schwer 3 s und 8 s), bis eine davon von Hand gewählt wird; die bleibt dann bei jedem Wechsel der Schwierigkeit, bis "Zeiten nach Schwierigkeit" sie zurücksetzt. Ein älterer Speicherstand ohne Schwierigkeit zählt eine Zeit als selbst gewählt, wenn sie von 5 s oder 10 s abweicht. Die Auswahlseite und der Start jeder Übung nennen die Schwierigkeit mit. Beim Eintippen zählen 000 und 360 gleich; liegt die Lösung auf einem halben Grad (202,5), zählen 202, 203 und 202,5.
 
