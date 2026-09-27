@@ -10,7 +10,7 @@ Die App speichert nichts außer den Einstellungen des Blitzrechnens, und die nur
 
 - Stufe 2 vollständig: Textteil und Parcours, 100 nummerierte Blätter, Druck auf A4
 - Stufe 3 vollständig: Textteil wie Stufe 2 und Parcours nach den drei Vorlagen (PDF, Gegenkursbeispiel, Handzeichnung), 100 nummerierte Blätter, alle mit Gates, Druck auf A4
-- Blitzrechnen vollständig: Kopfrechnen mit Kursen (geschrieben, per Ton oder beides) und Ausschnitte für Stufe 2 und Stufe 3
+- Blitzrechnen vollständig: Kopfrechnen mit Kursen (geschrieben, per Ton oder beides) und Ausschnitte für Stufe 2 und Stufe 3, jeweils leicht, normal oder schwer
 - Endlosmodus folgt
 
 ## Zeichensprache
@@ -44,14 +44,27 @@ Jede Beschriftung steht deutlich näher an ihrem eigenen Strich als an jedem and
 
 Unter `#/blitzrechnen` (Karte mit Blitz unter der Kursrose) drei Übungen, jede ohne Ende, mit Zähler "richtig / gesamt" und Serie, nichts wird gespeichert:
 
-- **Kopfrechnen mit Kursen** (`#/blitzrechnen/kopfrechnen`): Kurs plus oder minus eine Zahl von 20 bis 490 (`247 + 230`, Antwort modulo 360), Gegenkurs, Himmelsrichtung in Grad, nächste Himmelsrichtung zu einem Kurs (Antwort über 16 Knöpfe) und `GK −19° ab 247`. Die Aufgabe steht geschrieben da, wird per Ton angesagt oder beides; per Ton beginnt die Antwortzeit erst nach der Ansage, "Nochmal hören" spielt sie erneut.
-- **Blitzrechnen Stufe 2 und Stufe 3** (`#/blitzrechnen/stufe2`, `…/stufe3`): Ein Ausschnitt wie auf dem Blatt ("Ankunft auf Kurs 247", Startsegment, ein Aufgabenelement, Folgesegment) ist für die Anzeigezeit zu sehen und verschwindet dann; danach kommen die Fragen, bei einem Gate eine je Zeile mit eigener Antwortzeit, bei Form A zuletzt der Drehsinn zum nächsten Kurs. Zum Schluss steht der Ausschnitt wieder da, die Lösungen daneben. Stufe 2: relative Ecke, Gradzahl-Kurve (nackter Drehwinkel, gefragt ist der Kurs danach), Rechenaufgabe, Himmelsrichtung, Gate mit drei Zeilen. Stufe 3 zusätzlich `HR/`, `HR 111°/`, `GK/`, Kursangaben als Gegenkurs (`GK 247°/`, gefragt ist der tatsächliche Kurs), Gates der Formen A, B, C und `anl. Kurs`. Die Ausschnitte werden aus Ketten der Blatterzeugung geschnitten, ohne Kandidatensuche, und nur genommen, wenn sie kreuzungsfrei sind und alle Beschriftungen frei stehen.
+- **Kopfrechnen mit Kursen** (`#/blitzrechnen/kopfrechnen`): Kurs plus oder minus eine Zahl (`247 + 230`, Antwort modulo 360), Gegenkurs, Himmelsrichtung in Grad, nächste Himmelsrichtung zu einem Kurs (Antwort über 16 Knöpfe), `GK −19° ab 247` und Himmelsrichtung plus oder minus (`NNE +102°`); bei schwer dazu zweistufig `GK von SSW −37°` und `anl. Kurs 247 +9×13`. Die Aufgabe steht geschrieben da, wird per Ton angesagt oder beides; per Ton beginnt die Antwortzeit erst nach der Ansage, "Nochmal hören" spielt sie erneut.
+- **Blitzrechnen Stufe 2 und Stufe 3** (`#/blitzrechnen/stufe2`, `…/stufe3`): Ein Ausschnitt wie auf dem Blatt ("Ankunft auf Kurs 247", Startsegment, ein Aufgabenelement, Folgesegment) ist für die Anzeigezeit zu sehen und verschwindet dann; danach kommen die Fragen, bei einem Gate eine je Zeile mit eigener Antwortzeit, bei Form A zuletzt der Drehsinn zum nächsten Kurs. Zum Schluss steht der Ausschnitt wieder da, die Lösungen daneben. Stufe 2: relative Ecke, Gradzahl-Kurve (nackter Drehwinkel, gefragt ist der Kurs danach), Rechenaufgabe, Himmelsrichtung, Gate mit drei Zeilen. Stufe 3 zusätzlich `HR/`, `HR 111°/`, `GK/`, Kursangaben als Gegenkurs (`GK 247°/`, gefragt ist der tatsächliche Kurs), Gates der Formen A, B, C und `anl. Kurs`. Die Ausschnitte werden aus Ketten der Blatterzeugung geschnitten, ohne Kandidatensuche, und nur genommen, wenn sie kreuzungsfrei sind und alle Beschriftungen frei stehen. Die Kette bekommt dafür die Schwierigkeit als Einstellung; die nummerierten Blätter bekommen keine und bleiben, wie sie sind.
 
-**Einstellungen** (`#/blitzrechnen/einstellungen`, gespeichert im Browser unter `blitzrechnen.einstellungen`, ohne Speicher gelten die Vorgaben): Antwortart Eintippen mit Prüfung (Vorgabe) oder Auflösung ohne Tippen mit "Hatte ich" und "Hatte ich nicht", Anzeigezeit 3, 5 oder 8 s, Antwortzeit 10, 15 oder 20 s, Aufgabenstellung beim Kopfrechnen geschrieben, per Ton oder beides. Beim Eintippen zählen 000 und 360 gleich; liegt die Lösung auf einem halben Grad (202,5), zählen 202, 203 und 202,5.
+**Schwierigkeit** (`js/schwierigkeit.js`): Gefragt ist immer der neue Kurs aus dem aktuellen Kurs und der Gradzahl. Normal entspricht den Vorlagen.
 
-**Tonschnipsel** liegen als MP3 unter `klaenge/` (rund 12 MB, Herkunft in `klaenge/HERKUNFT.md`). Fehlende Wörter erzeugt `python3 werkzeuge/klaenge_erzeuge.py` über ElevenLabs, mit dem Schlüssel aus dem Schlüsselbund.
+| | leicht | normal | schwer |
+|---|---|---|---|
+| Kurs plus oder minus Zahl, Rechenaufgabe, relative Gate-Zeile | Kurs und Zahl in Zehnerschritten, Zahl 10 bis 150, Überlauf über 360 oder unter 0 höchstens in einem von drei Fällen | Kurs 000 bis 359, Zahl 20 bis 490, Überlauf etwa in der Hälfte | wie normal, keine Zahl mit Endziffer 0 oder 5, ein Drittel über 360 (361 bis 490) |
+| GK ± n, Himmelsrichtung ± n | 10 bis 60 und 10 bis 130 in Zehnerschritten, nur N, E, S, W | 10 bis 60 und 10 bis 130, alle 16 Richtungen | ohne Endziffer 0 oder 5, nur Richtungen mit halbem Grad (`SSW +41°` = 243,5; richtig sind 243, 244 und 243,5) |
+| relative Ecke | 10 bis 150 in Zehnerschritten | 20 bis 340 | 20 bis 340 ohne Endziffer 0 oder 5 |
+| Gradzahl-Kurve | 30 bis 150 in Zehnerschritten | 30 bis 350 | ungerade von 151 bis 349 |
+| anl. Kurs | plus n in Zehnerschritten | plus n oder a×b wie auf den Blättern | nur a×b wie `+9×13` |
+| Kopfrechnen, übrige Arten | seltener | wie bisher | ungerade Kurse, Himmelsrichtungen mit halbem Grad |
 
-**Prüfmodus** für Bildschirmfotos: Eine Übungsadresse mit `?probe=` zeigt einen Zustand direkt, mit angehaltenem Zeitbalken und ohne Ton, etwa `#/blitzrechnen/stufe3?probe=ausgeblendet&art=gate`. Werte: beim Kopfrechnen `aufgabe`, `ergebnis`, `loesung`; bei den Stufen `anzeige`, `ausgeblendet`, `loesung`. Dazu wahlweise `art=` (Aufgabenart), `saat=`, `frage=` (Nummer ab 0), `antwort=eintippen|aufloesung`, `stellung=geschrieben|ton|beides`.
+Eine Ecke bleibt unter 360°, weil sie als Drehung gezeichnet wird; relative Gate-Zeilen mit Gradzeichen (Form A) gehen wie in der PDF bis 190. Bei leicht beginnt ein Ausschnitt auf einem Kurs in Zehnerschritten, und direkt geflogene Himmelsrichtungen in Gates sind N, E, S oder W, damit das Rechnen danach bei Zehnerschritten bleibt.
+
+**Einstellungen** (`#/blitzrechnen/einstellungen`, gespeichert im Browser unter `blitzrechnen.einstellungen`, ohne Speicher gelten die Vorgaben): Schwierigkeit leicht, normal (Vorgabe) oder schwer, Antwortart Eintippen mit Prüfung (Vorgabe) oder Auflösung ohne Tippen mit "Hatte ich" und "Hatte ich nicht", Anzeigezeit 3, 5 oder 8 s, Antwortzeit 8, 10, 15 oder 20 s, Aufgabenstellung beim Kopfrechnen geschrieben, per Ton oder beides. Die Zeiten folgen der Schwierigkeit (leicht Anzeige 8 s und Antwort 15 s, normal 5 s und 10 s, schwer 3 s und 8 s), bis eine davon von Hand gewählt wird; die bleibt dann bei jedem Wechsel der Schwierigkeit, bis "Zeiten nach Schwierigkeit" sie zurücksetzt. Ein älterer Speicherstand ohne Schwierigkeit zählt eine Zeit als selbst gewählt, wenn sie von 5 s oder 10 s abweicht. Die Auswahlseite und der Start jeder Übung nennen die Schwierigkeit mit. Beim Eintippen zählen 000 und 360 gleich; liegt die Lösung auf einem halben Grad (202,5), zählen 202, 203 und 202,5.
+
+**Tonschnipsel** liegen als MP3 unter `klaenge/` (rund 12 MB, Herkunft in `klaenge/HERKUNFT.md`). Die Aufgaben der Schwierigkeit kommen mit den vorhandenen aus: `NNE +102°` als "Himmelsrichtung Nord-Nord-Ost plus hundertzwei", `GK von SSW −37°` als "Gegenkurs von Süd-Süd-West minus siebenunddreißig", `anl. Kurs 247 +9×13` als "anliegender Kurs zwei vier sieben plus neun mal dreizehn". Fehlende Wörter erzeugt `python3 werkzeuge/klaenge_erzeuge.py` über ElevenLabs, mit dem Schlüssel aus dem Schlüsselbund.
+
+**Prüfmodus** für Bildschirmfotos: Eine Übungsadresse mit `?probe=` zeigt einen Zustand direkt, mit angehaltenem Zeitbalken und ohne Ton, etwa `#/blitzrechnen/stufe3?probe=ausgeblendet&art=gate`. Werte: beim Kopfrechnen `aufgabe`, `ergebnis`, `loesung`; bei den Stufen `anzeige`, `ausgeblendet`, `loesung`. Dazu wahlweise `art=` (Aufgabenart), `saat=`, `frage=` (Nummer ab 0), `antwort=eintippen|aufloesung`, `stellung=geschrieben|ton|beides`, `schwierigkeit=leicht|normal|schwer`, etwa `#/blitzrechnen/kopfrechnen?probe=aufgabe&art=anlKurs&schwierigkeit=schwer`.
 
 ## Örtlich starten
 
@@ -65,7 +78,7 @@ Dann http://127.0.0.1:8765/ öffnen.
 
     node --test
 
-Braucht Node 20 oder neuer, keine Abhängigkeiten. Die Prüfungen erzeugen alle 100 Blätter beider Stufen und dauern gut eine Minute; eine davon stellt sicher, dass die Textteile der Stufe 2 Byte für Byte gleich bleiben. Für das Blitzrechnen rechnen sie je Stufe 200 Ausschnitte aus den gezeichneten Beschriftungen nach, prüfen jede Kopfaufgabe gegen ihren Text und jede Tonfolge gegen die Dateien unter `klaenge/`.
+Braucht Node 20 oder neuer, keine Abhängigkeiten. Die Prüfungen erzeugen alle 100 Blätter beider Stufen und dauern gut eine Minute; eine davon stellt sicher, dass die Textteile der Stufe 2 Byte für Byte gleich bleiben, eine andere hält den Fingerabdruck aller 200 Blätter fest (Textteil, Zeichnung, Vorschaubild). Für das Blitzrechnen rechnen sie je Stufe 200 Ausschnitte und je Stufe und Schwierigkeit 100 weitere aus den gezeichneten Beschriftungen nach und lesen dort auch die Wertebereiche ab; beim Kopfrechnen erzeugen sie je Schwierigkeit 500 Aufgaben je Art und prüfen Wertebereiche, Lösung und Tonfolge gegen den Aufgabentext und die Dateien unter `klaenge/`.
 
 ## Logikprüfung
 
@@ -87,6 +100,7 @@ oder `npm run pruefen -- 3`. Das Werkzeug erzeugt alle 100 Blätter einer Stufe 
 | `js/zeichnung.js` | SVG aus dem Parcours, für Ausschnitte ohne Nordpfeil |
 | `js/blatt.js` | Blatt aus Stufe und Nummer |
 | `js/app.js` | Adressen und Ansichten |
+| `js/schwierigkeit.js` | Blitzrechnen: Wertebereiche und Vorgabezeiten je Schwierigkeit |
 | `js/kopfrechnen.js` | Blitzrechnen: Kopfaufgaben mit Text, Lösung und Tonfolge |
 | `js/ausschnitt.js` | Blitzrechnen: Ausschnitte aus der Blatterzeugung, Fragen und Lösungen |
 | `js/antwort.js` | Blitzrechnen: Antworten lesen, prüfen, als Lösung schreiben |
