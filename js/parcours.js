@@ -5,8 +5,9 @@
 import { erzeugeElemente, hatGegenkursZeile } from './elemente.js';
 import {
   bahn, vollenden, schrittpruefer, fuellungObergrenze, fuellungBerechnen, zaehleKreuzungen, kleinsterAbstand, verdeckteBeschriftungen,
-  beschriftungFrei, seitenverhaeltnis, seitenverhaeltnisPasst, startOben, LINIENBREITE_ABSTAND,
+  beschriftungFrei, querstrichAnBeschriftung, seitenverhaeltnis, seitenverhaeltnisPasst, startOben, LINIENBREITE_ABSTAND,
 } from './geometrie.js';
+import { druckschrift, DRUCKFLAECHE } from './zeichnung.js';
 
 // Beide Stufen prüfen schon beim Erzeugen jeden Schritt (siehe
 // elementeSchrittweise), ein Kandidat kostet mehr, kommt aber meist ohne
@@ -14,6 +15,18 @@ import {
 // alle 100 Blätter zulässig.
 export const KANDIDATEN_STUFE_2 = 1000;
 export const KANDIDATEN_STUFE_3 = 1000;
+
+// Stufe 2: Die Beschriftung erscheint im A4-Druck mindestens so groß (in pt,
+// siehe druckschrift in zeichnung.js), und kein Querstrich berührt eine
+// Beschriftung. Ohne diese Regeln lag Blatt 39 bei 5,1 pt, auf den Blättern 33
+// und 41 lief ein Querstrich in die erste Ziffer. Stufe 3 bleibt ohne sie,
+// damit ihre Blätter gleich bleiben.
+export const DRUCKSCHRIFT_MIN = 6;
+
+// Höhe der Zeichnung im Druck: Gate-Blätter der Stufe 2 tragen den Gate-Hinweis
+function druckhoehe(einstellungen) {
+  return einstellungen.stufe === 2 && einstellungen.mitGates ? DRUCKFLAECHE.hoeheMitGateHinweis : DRUCKFLAECHE.hoehe;
+}
 
 // Ausweichlösung, solange kein Kandidat zulässig ist: wenigste Kreuzungen, dann
 // größter kleinster Abstand, dann wenigste verdeckte Beschriftungen, dann der
@@ -45,8 +58,9 @@ function besserErsatz(roh, geoHolen, kreuzungen, ersatz, eng) {
 // liegt trotzdem oben, weil unter den probierten Kandidaten nur die mit dem
 // Start im oberen Teil zulässig sind. Zulässig ist ein Kandidat ohne Kreuzung,
 // mit Strichen, die sich höchstens berühren und das Flugzeugsymbol frei lassen,
-// im Seitenverhältnis, mit dem Start im oberen Teil (siehe START_OBEN) und mit
-// freien Beschriftungen. Unter den zulässigen gewinnt die höchste Füllung, bei
+// im Seitenverhältnis, mit dem Start im oberen Teil (siehe START_OBEN), mit
+// freien Beschriftungen, in Stufe 2 zudem mit mindestens DRUCKSCHRIFT_MIN pt im
+// Druck und ohne Querstrich an einer Beschriftung. Unter den zulässigen gewinnt die höchste Füllung, bei
 // Gleichstand der frühere. Die Prüfungen laufen billig zuerst und nur so weit,
 // wie sie das Ergebnis noch ändern können; es ist dasselbe wie bei voller
 // Prüfung aller. Beide Stufen lassen an Schleifen nur die saubere Kreuzung von
@@ -57,6 +71,7 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
   // für die Zuordnung der Beschriftungen gelten in beiden Stufen
   const stufe3 = einstellungen.stufe === 3;
   const anzahl = stufe3 ? KANDIDATEN_STUFE_3 : KANDIDATEN_STUFE_2;
+  const stufe2Passt = (geo) => stufe3 || (druckschrift(geo, druckhoehe(einstellungen)) >= DRUCKSCHRIFT_MIN && querstrichAnBeschriftung(geo) === 0);
   let bester = null;
   let ersatz = null;
   for (let kandidat = 1; kandidat <= anzahl; kandidat++) {
@@ -75,7 +90,7 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
       geo = vollenden(roh, bester !== null);
       if (!geo) continue;
       const fuellung = fuellungBerechnen(geo);
-      if (seitenverhaeltnisPasst(geo.umriss) && startOben(geo) && (!bester || fuellung > bester.fuellung) && beschriftungFrei(geo)) {
+      if (seitenverhaeltnisPasst(geo.umriss) && startOben(geo) && (!bester || fuellung > bester.fuellung) && stufe2Passt(geo) && beschriftungFrei(geo)) {
         bester = { elemente, geometrie: geo, kreuzungen: 0, kandidat, fuellung };
         continue;
       }

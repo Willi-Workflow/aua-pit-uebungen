@@ -5,8 +5,10 @@ import { erzeugeBlatt, BLAETTER_JE_STUFE, STUFEN, hatGates } from '../js/blatt.j
 import { differenz } from '../js/kurs.js';
 import { STUFE2, STUFE3, KURVENRATE } from '../js/elemente.js';
 import {
-  beschriftungFrei, beschriftungsAbstand, kleinsterAbstand, zaehleKreuzungen, startOben, LINIENBREITE_ABSTAND,
+  beschriftungFrei, beschriftungsAbstand, kleinsterAbstand, zaehleKreuzungen, startOben, querstrichAnBeschriftung, LINIENBREITE_ABSTAND,
 } from '../js/geometrie.js';
+import { druckschrift, DRUCKFLAECHE } from '../js/zeichnung.js';
+import { DRUCKSCHRIFT_MIN } from '../js/parcours.js';
 
 // Alle Blätter beider Stufen einmal erzeugen, die Prüfungen unten teilen sie sich
 // Rechenzeit je Blatt als CPU-Zeit, siehe Stufe 3 unten
@@ -132,6 +134,19 @@ test('Stufe 2: 8 bis 11 Kursberechnungen und 5 bis 7 Rechenaufgaben je Blatt', (
     je[kurven + relative] = (je[kurven + relative] || 0) + 1;
   }
   console.log(`Stufe 2, Kursberechnungen je Blatt: ${JSON.stringify(je)}`);
+});
+
+// Im A4-Druck bekommt die Zeichnung 703 × 688 Pixel, auf Gate-Blättern 703 × 652
+// (in Chrome gemessen). Vorher lag Blatt 39 bei 5,1 pt; Querstriche liefen auf
+// den Blättern 33 und 41 in die erste Ziffer.
+test('Stufe 2: Druckschrift mindestens 6 pt, im Median mindestens 7,5 pt, kein Querstrich an einer Beschriftung', () => {
+  const pt = blaetter.map((b) => druckschrift(b.parcours.geometrie, hatGates(2, b.nummer) ? DRUCKFLAECHE.hoeheMitGateHinweis : DRUCKFLAECHE.hoehe));
+  const sortiert = [...pt].sort((a, b) => a - b);
+  console.log(`Stufe 2, Druckschrift: Median ${((sortiert[49] + sortiert[50]) / 2).toFixed(2)} pt, kleinste ${sortiert[0].toFixed(2)} pt (Blatt ${pt.indexOf(sortiert[0]) + 1})`);
+  assert.equal(DRUCKSCHRIFT_MIN, 6);
+  pt.forEach((wert, i) => assert.ok(wert >= 6, `Blatt ${i + 1}: ${wert.toFixed(2)} pt`));
+  assert.ok((sortiert[49] + sortiert[50]) / 2 >= 7.5);
+  for (const blatt of blaetter) assert.equal(querstrichAnBeschriftung(blatt.parcours.geometrie), 0, `Blatt ${blatt.nummer}`);
 });
 
 test('der Parcours beginnt in beiden Stufen 20 bis 160 Grad vom Endkurs des Textteils', () => {

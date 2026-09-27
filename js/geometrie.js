@@ -975,6 +975,65 @@ export function verdeckteBeschriftungen(geo, grenze = Infinity) {
   return anzahl;
 }
 
+// Tinte einer Textzeile in Schrift 9 um ihren Ankerpunkt (text-anchor middle,
+// dominant-baseline middle), wie im Prüfwerkzeug aus in Chrome gemessenen
+// Zeichenmaßen: Die Grundlinie liegt 2,7 unter dem Anker, Ziffern reichen 6,49
+// darüber und 0,15 darunter, der Schrägstrich 6,62 und 1,58. Längs der Zeile die
+// halbe Summe der Vorschübe (ZEICHENBREITEN) abzüglich der Seitenränder der
+// Zeichen. Ein Querstrich ist 1,2 breit.
+const GRUNDLINIE = 2.7;
+const TINTE_RAND = 0.5;
+const QUERSTRICH_HALB = 0.6;
+
+function zeilenTinte(zeile, dy) {
+  const schraeg = zeile.includes('/');
+  const halb = textBreite(zeile) / 1.08 / 2 - TINTE_RAND;
+  return { minX: -halb, maxX: halb, minY: dy + GRUNDLINIE - (schraeg ? 6.62 : 6.49), maxY: dy + GRUNDLINIE + (schraeg ? 1.58 : 0.15) };
+}
+
+// Abstand der Strecke a-b vom achsenparallelen Rechteck r (0, wenn sie es trifft)
+function streckeRechteckAbstand(a, b, r) {
+  const innen = (p) => p.x >= r.minX && p.x <= r.maxX && p.y >= r.minY && p.y <= r.maxY;
+  if (innen(a) || innen(b)) return 0;
+  const ecken = [{ x: r.minX, y: r.minY }, { x: r.maxX, y: r.minY }, { x: r.maxX, y: r.maxY }, { x: r.minX, y: r.maxY }];
+  let abstand = Infinity;
+  for (let i = 0; i < 4; i++) {
+    const c = ecken[i];
+    const d = ecken[(i + 1) % 4];
+    if (schneidenSich(a, b, c, d)) return 0;
+    abstand = Math.min(abstand, streckenAbstand(a, b, c, d));
+  }
+  return abstand;
+}
+
+// Zählt Beschriftungen, deren Tinte ein Querstrich berührt (Stufe 2, Blatt 33
+// und 41: der Querstrich am Segmentanfang lief in die erste Ziffer). Gate-Texte
+// zählen nicht, ihre Querstriche regelt austrittsMarke.
+export function querstrichAnBeschriftung(geo) {
+  const striche = geo.marken.map((m) => {
+    const r = (m.gezeichnet * Math.PI) / 180;
+    const n = { x: Math.cos(r) * MARKENLAENGE, y: Math.sin(r) * MARKENLAENGE };
+    return [{ x: m.punkt.x - n.x, y: m.punkt.y - n.y }, { x: m.punkt.x + n.x, y: m.punkt.y + n.y }];
+  });
+  let anzahl = 0;
+  for (const b of geo.beschriftungen) {
+    if (b.gate) continue;
+    const w = (b.winkel * Math.PI) / 180;
+    const cos = Math.cos(w);
+    const sin = Math.sin(w);
+    // In das Koordinatensystem der Beschriftung: Ursprung am Anker, x längs der Zeilen
+    const lokal = (p) => ({ x: (p.x - b.x) * cos + (p.y - b.y) * sin, y: -(p.x - b.x) * sin + (p.y - b.y) * cos });
+    const rechtecke = b.zeilen.map((zeile, i) => zeilenTinte(zeile, i * ZEILENABSTAND));
+    const trifft = striche.some(([a, e]) => {
+      const la = lokal(a);
+      const le = lokal(e);
+      return rechtecke.some((r) => streckeRechteckAbstand(la, le, r) < QUERSTRICH_HALB);
+    });
+    if (trifft) anzahl += 1;
+  }
+  return anzahl;
+}
+
 export function beschriftungFrei(geo) {
   return verdeckteBeschriftungen(geo, 0) === 0;
 }

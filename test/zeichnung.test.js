@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Zufall } from '../js/zufall.js';
 import { erzeugeParcours } from '../js/parcours.js';
-import { zeichneParcours, RAND } from '../js/zeichnung.js';
+import { zeichneParcours, zeichenfeld, druckschrift, DRUCKFLAECHE, RAND } from '../js/zeichnung.js';
 import { erzeugeBlatt } from '../js/blatt.js';
 
 const parcours = erzeugeParcours(new Zufall('stufe-2/blatt-1'), { stufe: 2, mitGates: false });
@@ -223,4 +223,15 @@ test('Stufe 3: Kurven im Profilstil, Gates mit allen Zeilen im Kasten, Start und
   assert.ok(!bild.includes('2000 ft'));
   assert.ok(bild.includes('.parcours text.fett { font-weight: 700; }'));
   assert.ok(!svg.includes('fett'), 'Stufe 2 ohne fett');
+});
+
+test('Zeichenfeld ist die viewBox; Druckschrift aus Druckfläche und Zeichenfeld', () => {
+  const feld = zeichenfeld(parcours.geometrie);
+  const zahl = (w) => Number(w.toFixed(2)).toString();
+  assert.ok(svg.includes(`viewBox="${zahl(feld.x)} ${zahl(feld.y)} ${zahl(feld.breite)} ${zahl(feld.hoehe)}"`));
+  const erwartet = 9 * 0.75 * Math.min(DRUCKFLAECHE.breite / feld.breite, DRUCKFLAECHE.hoehe / feld.hoehe);
+  assert.equal(druckschrift(parcours.geometrie), erwartet);
+  assert.ok(druckschrift(parcours.geometrie, DRUCKFLAECHE.hoeheMitGateHinweis) <= erwartet);
+  // Ohne Nordpfeil ist das Feld nicht größer
+  assert.ok(zeichenfeld(parcours.geometrie, { nordpfeil: false }).breite <= feld.breite);
 });

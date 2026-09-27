@@ -109,12 +109,12 @@ const NORD_ABSTAND = 8;
 // Platz, den das "N" um seinen Mittelpunkt braucht (Schrift 9, fett)
 const NORD_RADIUS = 6;
 
-// "optionen.nordpfeil" false zeichnet ohne Nordpfeil (Ausschnitte im
-// Blitzrechnen, Norden ist dort immer oben); die Blätter zeichnen ihn immer.
-export function zeichneParcours(parcours, optionen = {}) {
-  const { stuecke, marken, beschriftungen, umriss, drehung } = parcours.geometrie;
-  const start = marken[0];
-  const { mitte } = parcours.geometrie.flugzeug;
+// Zeichenfeld eines Parcours: Umriss samt Flugzeugsymbol und, außer bei
+// "optionen.nordpfeil" false, Nordpfeil mit "N", ringsum RAND. Liefert die
+// viewBox (x, y, breite, hoehe) und die Lage des Nordpfeils ("nord" oder null).
+export function zeichenfeld(geometrie, optionen = {}) {
+  const { umriss, drehung } = geometrie;
+  const { mitte } = geometrie.flugzeug;
   let minX = Math.min(umriss.minX, mitte.x - FLUGZEUG_RADIUS);
   let minY = Math.min(umriss.minY, mitte.y - FLUGZEUG_RADIUS);
   let maxX = Math.max(umriss.maxX, mitte.x + FLUGZEUG_RADIUS);
@@ -142,10 +142,28 @@ export function zeichneParcours(parcours, optionen = {}) {
     maxX = Math.max(maxX, n.x + NORD_RADIUS);
     maxY = Math.max(maxY, n.y + NORD_RADIUS);
   }
-  const x = minX - RAND;
-  const y = minY - RAND;
-  const breite = maxX - minX + 2 * RAND;
-  const hoehe = maxY - minY + 2 * RAND;
+  return { x: minX - RAND, y: minY - RAND, breite: maxX - minX + 2 * RAND, hoehe: maxY - minY + 2 * RAND, nord };
+}
+
+// Druck auf A4 (style.css, @media print): Die Zeichnung bekommt die volle
+// Breite und die Höhe, die Titel, Textteil und Legende übrig lassen, in Chrome
+// gemessen in CSS-Pixeln: 703 breit, 688 hoch, auf Gate-Blättern der Stufe 2
+// mit dem zweizeiligen Gate-Hinweis 652. Die Beschriftung (Schrift 9 in
+// Einheiten der Zeichnung) erscheint damit in dieser Größe in Punkt.
+export const DRUCKFLAECHE = { breite: 703, hoehe: 688, hoeheMitGateHinweis: 652 };
+
+export function druckschrift(geometrie, hoehe = DRUCKFLAECHE.hoehe) {
+  const feld = zeichenfeld(geometrie);
+  return 9 * 0.75 * Math.min(DRUCKFLAECHE.breite / feld.breite, hoehe / feld.hoehe);
+}
+
+// "optionen.nordpfeil" false zeichnet ohne Nordpfeil (Ausschnitte im
+// Blitzrechnen, Norden ist dort immer oben); die Blätter zeichnen ihn immer.
+export function zeichneParcours(parcours, optionen = {}) {
+  const { stuecke, marken, beschriftungen } = parcours.geometrie;
+  const start = marken[0];
+  const { mitte } = parcours.geometrie.flugzeug;
+  const { x, y, breite, hoehe, nord } = zeichenfeld(parcours.geometrie, optionen);
   // Die Regel für fette Beschriftungen nur, wo es sie gibt, damit die Blätter
   // der Stufe 2 Zeichen für Zeichen bleiben, wie sie waren
   const fett = beschriftungen.some((b) => b.fett) ? '\n.parcours text.fett { font-weight: 700; }' : '';

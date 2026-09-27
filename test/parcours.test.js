@@ -6,7 +6,7 @@ import {
 } from '../js/elemente.js';
 import {
   geometrie, zaehleKreuzungen, kleinsterAbstand, beschriftungFrei, seitenverhaeltnisPasst, SEKUNDE_LAENGE, ZEILENABSTAND,
-  LINIENBREITE_ABSTAND, MARKENLAENGE, FLUGZEUG_ABSTAND, FLUGZEUG_RADIUS, START_OBEN,
+  LINIENBREITE_ABSTAND, MARKENLAENGE, FLUGZEUG_ABSTAND, FLUGZEUG_RADIUS, START_OBEN, querstrichAnBeschriftung,
 } from '../js/geometrie.js';
 import { erzeugeParcours, KANDIDATEN_STUFE_2 } from '../js/parcours.js';
 import { erzeugeBlatt, BLAETTER_JE_STUFE, hatGates } from '../js/blatt.js';
@@ -538,6 +538,18 @@ test('Flugzeugsymbol: Lage hinter dem Start, Hindernis für fremde Stücke und f
   const gateText = { zeilen: ['+72 → 10"', 'SSW ↗ 15"', '123° → 15"'], x: -19, y: -30, winkel: 0, mitte: null, kurs: null, gate: true, halbeBreite: 36, halbeHoehe: 17.5, eigeneStuecke: [] };
   assert.equal(beschriftungFrei({ stuecke: [erste], beschriftungen: [gateText], flugzeug: geo.flugzeug }), false, 'Gate-Text am Symbol');
   assert.equal(beschriftungFrei({ stuecke: [erste], beschriftungen: [{ ...gateText, y: -60 }], flugzeug: geo.flugzeug }), true);
+});
+
+test('querstrichAnBeschriftung: ein Querstrich in der Tinte zählt, einer daneben nicht', () => {
+  // Beschriftung "123°/15"" waagerecht um (0, 0), Tinte etwa von x -19 bis 19, y -3,9 bis 4,3
+  const text = { zeilen: ['123°/15"'], x: 0, y: 0, winkel: 0 };
+  // Weg nach Osten, der Querstrich steht senkrecht, 7 nach oben und unten
+  const marke = (x, y) => ({ punkt: { x, y }, gezeichnet: 90 });
+  assert.equal(querstrichAnBeschriftung({ marken: [marke(18, 10)], beschriftungen: [text] }), 1, 'Spitze reicht in die letzte Ziffer');
+  assert.equal(querstrichAnBeschriftung({ marken: [marke(25, 10)], beschriftungen: [text] }), 0, 'rechts daneben');
+  assert.equal(querstrichAnBeschriftung({ marken: [marke(0, 12)], beschriftungen: [text] }), 0, 'darunter');
+  assert.equal(querstrichAnBeschriftung({ marken: [marke(0, 12)], beschriftungen: [{ ...text, zeilen: ['123°/15"', '+230'] }] }), 1, 'zweite Zeile');
+  assert.equal(querstrichAnBeschriftung({ marken: [marke(0, 0)], beschriftungen: [{ ...text, gate: true }] }), 0, 'Gate-Texte zählen nicht');
 });
 
 test('seitenverhaeltnisPasst', () => {
