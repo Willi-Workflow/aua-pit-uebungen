@@ -4,11 +4,14 @@
 
 import { erzeugeElemente } from './elemente.js';
 import {
-  bahn, vollenden, fuellungObergrenze, fuellungBerechnen, zaehleKreuzungen, kleinsterAbstand, verdeckteBeschriftungen,
+  bahn, vollenden, schrittpruefer, fuellungObergrenze, fuellungBerechnen, zaehleKreuzungen, kleinsterAbstand, verdeckteBeschriftungen,
   beschriftungFrei, seitenverhaeltnis, seitenverhaeltnisPasst, startOben, LINIENBREITE_ABSTAND,
 } from './geometrie.js';
 
 export const KANDIDATEN = 12000;
+// Stufe 3 prüft schon beim Erzeugen jeden Schritt (siehe elementeStufe3), ein
+// Kandidat kostet mehr, kommt aber fast immer ohne Kreuzung durch
+export const KANDIDATEN_STUFE_3 = 1300;
 
 // Ausweichlösung, solange kein Kandidat zulässig ist: wenigste Kreuzungen, dann
 // größter kleinster Abstand, dann wenigste verdeckte Beschriftungen, dann der
@@ -45,11 +48,15 @@ function besserErsatz(roh, geoHolen, kreuzungen, ersatz) {
 // wie sie das Ergebnis noch ändern können; es ist dasselbe wie bei voller
 // Prüfung aller. "einstellungen" und "start" wie bei erzeugeElemente.
 export function erzeugeParcours(zufall, einstellungen, start = null) {
+  const stufe3 = einstellungen.stufe === 3;
+  const anzahl = stufe3 ? KANDIDATEN_STUFE_3 : KANDIDATEN;
   let bester = null;
   let ersatz = null;
-  for (let kandidat = 1; kandidat <= KANDIDATEN; kandidat++) {
-    const elemente = erzeugeElemente(zufall, einstellungen, start);
-    const roh = bahn(elemente, 0);
+  for (let kandidat = 1; kandidat <= anzahl; kandidat++) {
+    const elemente = erzeugeElemente(zufall, einstellungen, start, stufe3 ? schrittpruefer() : null);
+    // Stufe 3: Ein Schritt ließ sich nicht ohne Konflikt legen
+    if (!elemente) continue;
+    const roh = bahn(elemente, 0, stufe3);
     if (bester && fuellungObergrenze(roh.stuecke) <= bester.fuellung) continue;
     const kreuzungen = zaehleKreuzungen(roh.stuecke, bester ? 0 : (ersatz ? ersatz.kreuzungen : Infinity));
     let geo = null;
@@ -64,6 +71,14 @@ export function erzeugeParcours(zufall, einstellungen, start = null) {
     if (bester) continue;
     const neu = besserErsatz(roh, () => geo || (geo = vollenden(roh)), kreuzungen, ersatz);
     if (neu) ersatz = { elemente, geometrie: geo, kandidat, fuellung: fuellungBerechnen(geo), ...neu };
+  }
+  if (!bester && !ersatz) {
+    // Nur in Stufe 3 möglich, wenn kein Kandidat alle Schritte schaffte: dann
+    // einer ohne Prüfung als Ersatz
+    const elemente = erzeugeElemente(zufall, einstellungen, start);
+    const roh = bahn(elemente, 0, stufe3);
+    const geo = vollenden(roh);
+    ersatz = { elemente, geometrie: geo, kandidat: anzahl + 1, fuellung: fuellungBerechnen(geo), kreuzungen: zaehleKreuzungen(roh.stuecke) };
   }
   const sieger = bester || ersatz;
   return {

@@ -26,10 +26,43 @@ export const MARKENLAENGE = 7;
 export const FLUGZEUG_ABSTAND = 19;
 export const FLUGZEUG_RADIUS = 14;
 
+// Gradzahl-Kurve der Stufe 3: Radius 24, ab 180° eine Schleife mit 35 wie ein
+// Vollkreis. Die 180°-Kehre vor einem GK-Segment hat Radius 20, damit die beiden
+// parallelen Strecken 40 auseinander liegen und eine Beschriftung dazwischen
+// eindeutig zu ihrer Strecke gehört.
+export const KURVENRADIUS = 24;
+export const KURVENSCHLEIFE = 35;
+export const KEHRENRADIUS = 20;
+
 const BESCHRIFTUNGSABSTAND = 12;
 // Halbe Breite eines Zeichens bei Schriftgröße 9; im Browser gemessen 2,4 bis 3,1
 const HALBE_ZEICHENBREITE = 2.9;
 const HALBE_STRICHBREITE = 4.5;
+// "Start" und "Ende": Mitte so weit vom Flugzeugsymbol beziehungsweise vom Ende
+// des letzten Segments, dazu wie bei Eckbeschriftungen der Teil der halben
+// Textbreite, der in Richtung der Versetzung zeigt
+const START_ABSTAND = FLUGZEUG_RADIUS + 9;
+const ENDE_ABSTAND = BESCHRIFTUNGSABSTAND;
+
+// Vorschub der Zeichen in Schrift 9 (system-ui), in Chrome auf macOS gemessen und
+// auf eine Stelle aufgerundet; San Francisco ist unter den gängigen Systemschriften
+// die breiteste. Für die Gate-Kästen der Stufe 3, mit 8 % Zuschlag für andere
+// Schriften; unbekannte Zeichen zählen wie in Stufe 2 mit 6,2.
+const ZEICHENBREITEN = {
+  0: 5.9, 1: 4.4, 2: 5.6, 3: 5.9, 4: 6.0, 5: 5.8, 6: 5.9, 7: 5.3, 8: 6.0, 9: 5.9,
+  '°': 4.5, '/': 3.0, '"': 4.5, '+': 5.9, '-': 4.5, '×': 5.9, '→': 8.4, '↗': 7.1, '↘': 7.1, ' ': 2.7, '.': 2.9,
+  A: 6.3, B: 6.1, C: 6.7, D: 6.8, E: 5.6, F: 5.4, G: 6.9, H: 6.9, I: 2.6, J: 5.1, K: 6.1, L: 5.3, M: 8.1,
+  N: 6.9, O: 7.2, P: 5.9, Q: 7.2, R: 6.1, S: 6.0, T: 5.9, U: 6.9, V: 6.3, W: 8.9, X: 6.3, Y: 6.1, Z: 6.2,
+  a: 5.2, b: 5.7, c: 5.3, d: 5.7, e: 5.4, f: 3.5, g: 5.7, h: 5.5, i: 2.4, j: 2.4, k: 5.1, l: 2.5, m: 8.0,
+  n: 5.5, o: 5.5, p: 5.7, q: 5.7, r: 3.6, s: 4.9, t: 3.5, u: 5.5, v: 5.1, w: 7.2, x: 4.9, y: 5.1, z: 5.1,
+  ä: 5.2, ö: 5.5, ü: 5.5,
+};
+
+export function textBreite(text) {
+  let summe = 0;
+  for (const zeichen of text) summe += ZEICHENBREITEN[zeichen] ?? 6.2;
+  return summe * 1.08;
+}
 
 // Richtungsvektor eines Kurses im Bildschirmkoordinatensystem (Norden ist -y)
 export function vektor(kurs) {
@@ -84,10 +117,16 @@ function vorzeichenText(zahl) {
   return zahl > 0 ? `+${zahl}` : `${zahl}`;
 }
 
+// Kurs und Dauer eines Segments. Stufe 3: "HR/20"" nächste Himmelsrichtung,
+// "HR 111°/15"" der Gradkurs auf die nächste Himmelsrichtung gerundet, "GK/15""
+// Gegenkurs.
 function kursBeschriftung(element) {
   const dauer = `/${element.dauer}"`;
   if (element.anzeige === 'keine') return dauer;
   if (element.anzeige === 'himmelsrichtung') return `${himmelsrichtungName(element.himmelsrichtung, SCHREIBWEISE.zeichnung)}${dauer}`;
+  if (element.anzeige === 'hr') return `HR${dauer}`;
+  if (element.anzeige === 'hrKurs') return `HR ${kursText(element.hrGrad)}°${dauer}`;
+  if (element.anzeige === 'gk') return `GK${dauer}`;
   return `${kursText(element.kurs)}°${dauer}`;
 }
 
@@ -125,15 +164,40 @@ function segmentBeschriftung(element, mitte, seite, drehung) {
 
 const GATE_PFEILE = { horizontal: '→', steigen: '↗', sinken: '↘' };
 
+const ANSCHLUSS_TEXTE = { ueberN: 'über N auf K', ueberS: 'über S auf K', kuerzester: 'kürz. W. auf K' };
+
+// Ausdruck einer Zeile der Form C: Himmelsrichtung, Himmelsrichtung ± n, GK,
+// GK ± n, anl. Kurs + n oder + a×b
+function gateAusdruck(kurs) {
+  const name = (index) => himmelsrichtungName(index, SCHREIBWEISE.zeichnung);
+  if (kurs.typ === 'himmelsrichtung') return name(kurs.index);
+  if (kurs.typ === 'hrPlus') return `${name(kurs.index)} ${vorzeichenText(kurs.wert)}°`;
+  if (kurs.typ === 'gk') return 'GK';
+  if (kurs.typ === 'gkPlus') return `GK ${vorzeichenText(kurs.wert)}°`;
+  if (kurs.typ === 'anl') return `anl. Kurs +${kurs.wert}°`;
+  return `anl. Kurs +${kurs.a}×${kurs.b}`;
+}
+
 // Zeile eines Gates: erster Wert, Pfeil für das Profil, Dauer. Relativwerte mit
 // Vorzeichen, Himmelsrichtung englisch, Gradkurs dreistellig mit Gradzeichen.
-function gateZeileText(zeile) {
+// Stufe 2 und Form B (Gegenkursbeispiel) wie "+72 → 10"", Form A (PDF) mit
+// Gradzeichen am Relativwert wie "+127° → 15"", Form C (Handzeichnung) mit dem
+// Pfeil voran wie "↗ NNE +102° 15"".
+function gateZeileText(zeile, form) {
   const { kurs } = zeile;
+  if (form === 'c') return `${GATE_PFEILE[zeile.profil]} ${gateAusdruck(kurs)} ${zeile.dauer}"`;
   let wert;
-  if (kurs.typ === 'relativ') wert = vorzeichenText(kurs.wert);
+  if (kurs.typ === 'relativ') wert = form === 'a' ? `${vorzeichenText(kurs.wert)}°` : vorzeichenText(kurs.wert);
   else if (kurs.typ === 'himmelsrichtung') wert = himmelsrichtungName(kurs.index, SCHREIBWEISE.zeichnung);
   else wert = `${kursText(kurs.grad)}°`;
   return `${wert} ${GATE_PFEILE[zeile.profil]} ${zeile.dauer}"`;
+}
+
+// Alle Zeilen eines Gates, bei Form A als letzte die Anschlusszeile
+export function gateTexte(gate) {
+  const texte = gate.zeilen.map((zeile) => gateZeileText(zeile, gate.form));
+  if (gate.anschluss) texte.push(ANSCHLUSS_TEXTE[gate.anschluss]);
+  return texte;
 }
 
 // Weg vom Kastenmittelpunkt in Richtung "richtung" bis zum Rand
@@ -144,8 +208,10 @@ function bisZumRand(richtung, halbeBreite, halbeHoehe) {
 // Achsenparalleler Kasten eines Gates um seine Zeilentexte "texte". Die Ankunft
 // liegt auf dem Rand, der Mittelpunkt in Richtung des alten Kurses dahinter; der
 // Austritt ist der Punkt, an dem der neue Kurs vom Mittelpunkt aus den Rand verlässt.
-function gateKasten(texte, ankunft, kursVorher, kursNachher) {
-  const halbeBreite = (6.2 * laengsteZeile(texte) + 10) / 2;
+// "textbreite" ist die Breite der längsten Zeile, in Stufe 2 6,2 je Zeichen, in
+// Stufe 3 aus den gemessenen Zeichenbreiten.
+function gateKasten(texte, ankunft, kursVorher, kursNachher, textbreite = 6.2 * laengsteZeile(texte)) {
+  const halbeBreite = (textbreite + 10) / 2;
   const halbeHoehe = (texte.length * ZEILENABSTAND + 8) / 2;
   const d = vektor(kursVorher);
   const t = bisZumRand(d, halbeBreite, halbeHoehe);
@@ -198,6 +264,14 @@ function eckBeschriftung(text, ecke, anteil) {
   return { zeilen: [text], x: punkt.x, y: punkt.y, winkel: 0, mitte: null, kurs: null };
 }
 
+// "Start" oder "Ende", waagerecht und fett, in gezeichneter Richtung "richtung"
+// vom Anker, ebenso weit versetzt wie eine Eckbeschriftung
+function fettBeschriftung(text, anker, richtung, grundabstand) {
+  const v = vektor(richtung);
+  const abstand = grundabstand + Math.abs(v.x) * HALBE_ZEICHENBREITE * text.length;
+  return { zeilen: [text], x: anker.x + v.x * abstand, y: anker.y + v.y * abstand, winkel: 0, mitte: null, kurs: null, fett: true };
+}
+
 function umrissBerechnen(stuecke, beschriftungen) {
   const xs = [];
   const ys = [];
@@ -221,7 +295,13 @@ function umrissBerechnen(stuecke, beschriftungen) {
 // Eckbeschriftungen bleiben waagerecht.
 // SVG-Pfade und Beschriftungslagen sind hier noch Funktionen: Die meisten
 // Kandidaten scheitern an den Prüfungen des Wegs, erst vollenden braucht sie.
-export function bahn(elemente, drehung = 0) {
+// "startEnde": Stufe 3 beschriftet Start und Ende, Stufe 2 nicht.
+// "wegbauer" baut denselben Weg Element für Element: "schritt(element,
+// naechstes)" hängt eines an ("naechstes" braucht nur ein Gate für den Austritt),
+// "stand" und "zurueck" sichern den Zustand und setzen ihn zurück, "abschluss"
+// liefert das Ergebnis. So kann die Erzeugung der Stufe 3 jeden Schritt sofort
+// prüfen und bei Bedarf wiederholen; "bahn" hängt alle Elemente an.
+export function wegbauer(drehung = 0, startEnde = false) {
   const gezeichnet = (kurs) => normieren(kurs - drehung);
   const stuecke = [];
   const marken = [];
@@ -230,14 +310,15 @@ export function bahn(elemente, drehung = 0) {
   let kurs = null;
   let profil = null; // Profil des zuletzt geflogenen Stücks
   let austrittsKasten = null; // Ecken des Gates, an dessen Austritt das nächste Segment beginnt
+  let ohneEcke = false; // nach einer Gradzahl-Kurve beginnt das Segment ohne Ecke
 
-  for (let n = 0; n < elemente.length; n++) {
-    const element = elemente[n];
+  function schritt(element, naechstes) {
     if (element.art === 'gate') {
       // Das nächste Element ist immer ein Segment mit Kurs; es beginnt am
       // Austritt ohne Bogen, sein Querstrich markiert den Austritt
-      const texte = element.zeilen.map(gateZeileText);
-      const kasten = gateKasten(texte, punkt, gezeichnet(kurs), gezeichnet(elemente[n + 1].kurs));
+      const texte = gateTexte(element);
+      const breite = element.form ? Math.max(...texte.map(textBreite)) : undefined;
+      const kasten = gateKasten(texte, punkt, gezeichnet(kurs), gezeichnet(naechstes.kurs), breite);
       stuecke.push({ art: 'gate', profil: null, pfad: kasten.pfad, punkte: kasten.punkte, laenge: 0, schleife: false });
       beschriftungen.push({
         eigeneStuecke: [stuecke.length - 1],
@@ -257,7 +338,7 @@ export function bahn(elemente, drehung = 0) {
       austrittsKasten = kasten.punkte;
       kurs = null; // wie am Anfang: keine Ecke vor dem nächsten Segment
       profil = element.zeilen[element.zeilen.length - 1].profil;
-      continue;
+      return;
     }
 
     if (element.art === 'vollkreis') {
@@ -272,16 +353,43 @@ export function bahn(elemente, drehung = 0) {
       marken.push({ punkt, kurs, gezeichnet: gezeichnet(kurs) });
       marken.push({ punkt: erste.ende, kurs: normieren(kurs + 180), gezeichnet: erste.kursNach });
       profil = element.profile[1];
-      continue;
+      return;
     }
 
-    if (kurs !== null) {
-      const richtung = element.relativ !== null
-        ? (element.relativ > 0 ? 'rechts' : 'links')
-        : (differenz(kurs, element.kurs) >= 0 ? 'rechts' : 'links');
-      const winkel = element.relativ !== null ? Math.abs(element.relativ) : drehwinkel(kurs, element.kurs, richtung);
+    // Gradzahl-Kurve (Stufe 3): Bogen im eigenen Profil mit Querstrich am Anfang;
+    // der Querstrich am Ende ist der des folgenden Segments, das ohne Ecke beginnt.
+    // Die nackte Gradzahl steht außen an der Bogenmitte wie eine Eckbeschriftung.
+    if (element.art === 'kurve') {
+      const schleife = element.winkel > 180;
+      const kurve = bogen(punkt, gezeichnet(kurs), element.winkel, element.richtung, schleife ? KURVENSCHLEIFE : KURVENRADIUS);
+      marken.push({ punkt, kurs, gezeichnet: gezeichnet(kurs) });
+      stuecke.push({ art: 'bogen', profil: element.profil, pfad: kurve.pfad, punkte: kurve.punkte, laenge: kurve.laenge, schleife, kreis: kurve.kreis, kurve: true });
+      const text = String(element.winkel);
+      beschriftungen.push({
+        eigeneStuecke: [stuecke.length - 1],
+        varianten: () => [0.5, 0.25, 0.75].map((anteil) => eckBeschriftung(text, kurve, anteil)),
+      });
+      punkt = kurve.ende;
+      kurs = normieren(kurs + (element.richtung === 'rechts' ? element.winkel : -element.winkel));
+      profil = element.profil;
+      ohneEcke = true;
+      return;
+    }
+
+    if (kurs !== null && !ohneEcke) {
+      // Vor GK (Stufe 3) eine Kehre von 180° in der gewählten Richtung
+      const gk = element.anzeige === 'gk';
+      let richtung;
+      if (gk) richtung = element.gkRichtung;
+      else {
+        richtung = element.relativ !== null
+          ? (element.relativ > 0 ? 'rechts' : 'links')
+          : (differenz(kurs, element.kurs) >= 0 ? 'rechts' : 'links');
+      }
+      const winkel = gk ? 180 : element.relativ !== null ? Math.abs(element.relativ) : drehwinkel(kurs, element.kurs, richtung);
       const schleife = winkel > 180;
-      const ecke = bogen(punkt, gezeichnet(kurs), winkel, richtung, schleife ? SCHLEIFENRADIUS : ECKENRADIUS);
+      const radius = gk ? KEHRENRADIUS : schleife ? SCHLEIFENRADIUS : ECKENRADIUS;
+      const ecke = bogen(punkt, gezeichnet(kurs), winkel, richtung, radius);
       // Der Bogen gehört noch zum vorherigen Flugzustand, das neue Profil beginnt am Querstrich danach
       stuecke.push({ art: 'bogen', profil, pfad: ecke.pfad, punkte: ecke.punkte, laenge: ecke.laenge, schleife, kreis: schleife ? ecke.kreis : null });
       if (element.relativ !== null) {
@@ -297,6 +405,7 @@ export function bahn(elemente, drehung = 0) {
     const richtung = gezeichnet(element.kurs);
     marken.push({ punkt: austrittsKasten ? austrittsMarke(punkt, richtung, austrittsKasten) : punkt, kurs: element.kurs, gezeichnet: richtung });
     austrittsKasten = null;
+    ohneEcke = false;
     const gerade = strecke(punkt, richtung, element.dauer * SEKUNDE_LAENGE);
     stuecke.push({ art: 'strecke', profil: element.profil, pfad: gerade.pfad, punkte: gerade.punkte, laenge: gerade.laenge, schleife: false });
     beschriftungen.push({
@@ -311,18 +420,51 @@ export function bahn(elemente, drehung = 0) {
     profil = element.profil;
   }
 
-  // Eigene Stücke einer Beschriftung: ihr Stück und die angrenzenden, bei einem
-  // Segment die Bögen davor und danach, bei einer Ecke und einem Gate die Strecken
-  // davor und danach. Die Strecken enden am Kastenrand, der Kasten deckt sie dort ab.
-  for (const b of beschriftungen) {
-    const eigenes = b.eigeneStuecke[0];
-    const nachbarArt = stuecke[eigenes].art === 'strecke' ? 'bogen' : 'strecke';
-    b.eigeneStuecke = [eigenes - 1, eigenes, eigenes + 1]
-      .filter((i) => i === eigenes || (i >= 0 && i < stuecke.length && stuecke[i].art === nachbarArt));
+  function stand() {
+    return { stuecke: stuecke.length, marken: marken.length, beschriftungen: beschriftungen.length, punkt, kurs, profil, austrittsKasten, ohneEcke };
   }
 
-  marken.push({ punkt, kurs, gezeichnet: gezeichnet(kurs) });
-  return { stuecke, marken, entwuerfe: beschriftungen, flugzeug: flugzeugLage(marken[0]), drehung };
+  function zurueck(s) {
+    stuecke.length = s.stuecke;
+    marken.length = s.marken;
+    beschriftungen.length = s.beschriftungen;
+    ({ punkt, kurs, profil, austrittsKasten, ohneEcke } = s);
+  }
+
+  function abschluss() {
+    // Eigene Stücke einer Beschriftung: ihr Stück und die angrenzenden, bei einem
+    // Segment die Bögen davor und danach, bei einer Ecke und einem Gate die Strecken
+    // davor und danach. Die Strecken enden am Kastenrand, der Kasten deckt sie dort ab.
+    for (const b of beschriftungen) {
+      const eigenes = b.eigeneStuecke[0];
+      const nachbarArt = stuecke[eigenes].art === 'strecke' ? 'bogen' : 'strecke';
+      b.eigeneStuecke = [eigenes - 1, eigenes, eigenes + 1]
+        .filter((i) => i === eigenes || (i >= 0 && i < stuecke.length && stuecke[i].art === nachbarArt));
+    }
+
+    marken.push({ punkt, kurs, gezeichnet: gezeichnet(kurs) });
+    const flugzeug = flugzeugLage(marken[0]);
+    // "Start" hinter dem Flugzeugsymbol, "Ende" hinter dem Ende des letzten
+    // Segments, jeweils gerade dahinter oder 45° daneben. Sie stehen vorn, damit
+    // sie ihren Platz vor den übrigen Beschriftungen bekommen.
+    if (startEnde) {
+      const hinten = marken[0].gezeichnet + 180;
+      const vorn = gezeichnet(kurs);
+      beschriftungen.unshift(
+        { eigeneStuecke: [0], varianten: () => [0, 45, -45].map((w) => fettBeschriftung('Start', flugzeug.mitte, hinten + w, START_ABSTAND)) },
+        { eigeneStuecke: [stuecke.length - 1], varianten: () => [0, 45, -45].map((w) => fettBeschriftung('Ende', punkt, vorn + w, ENDE_ABSTAND)) },
+      );
+    }
+    return { stuecke, marken, entwuerfe: beschriftungen, flugzeug, drehung };
+  }
+
+  return { schritt, stand, zurueck, abschluss, stuecke, marken };
+}
+
+export function bahn(elemente, drehung = 0, startEnde = false) {
+  const weg = wegbauer(drehung, startEnde);
+  for (let n = 0; n < elemente.length; n++) weg.schritt(elemente[n], elemente[n + 1]);
+  return weg.abschluss();
 }
 
 // Kreis um das Flugzeugsymbol, hinter dem Start entgegen der gezeichneten Richtung
@@ -350,9 +492,9 @@ export function vollenden(roh) {
   };
 }
 
-// Geometrie mit Zeichenwinkel "drehung" in Grad, siehe bahn
-export function geometrie(elemente, drehung = 0) {
-  return vollenden(bahn(elemente, drehung));
+// Geometrie mit Zeichenwinkel "drehung" in Grad und "startEnde", siehe bahn
+export function geometrie(elemente, drehung = 0, startEnde = false) {
+  return vollenden(bahn(elemente, drehung, startEnde));
 }
 
 // Liegt der Start im oberen Teil des Umrisses, höchstens START_OBEN von oben?
@@ -527,6 +669,100 @@ export function kleinsterAbstand(stuecke, grenze = 0, flugzeug = null) {
     }
   }
   return kleinster;
+}
+
+// Kommen sich zwei Polygonzüge näher als "grenze"? Dasselbe wie
+// zugAbstand(a, b) < grenze, bricht aber beim ersten Treffer ab und überspringt
+// Streckenpaare, deren Rechtecke in x oder y weiter als "grenze" auseinander liegen.
+function zugNaeherAls(a, b, grenze) {
+  for (let m = 0; m + 1 < a.length; m++) {
+    const p = a[m];
+    const q = a[m + 1];
+    const minX = Math.min(p.x, q.x) - grenze;
+    const maxX = Math.max(p.x, q.x) + grenze;
+    const minY = Math.min(p.y, q.y) - grenze;
+    const maxY = Math.max(p.y, q.y) + grenze;
+    for (let n = 0; n + 1 < b.length; n++) {
+      const r = b[n];
+      const s = b[n + 1];
+      if (Math.max(r.x, s.x) < minX || Math.min(r.x, s.x) > maxX || Math.max(r.y, s.y) < minY || Math.min(r.y, s.y) > maxY) continue;
+      if (streckenAbstand(p, q, r, s) < grenze) return true;
+    }
+  }
+  return false;
+}
+
+// Hat eines der Stücke ab "ab" einen Konflikt mit einem früheren oder einem
+// anderen neuen Stück? Dieselben Regeln wie zaehleKreuzungen und
+// kleinsterAbstand, nur für Paare mit einem neuen Stück: keine Kreuzung außer
+// Ein- und Ausfahrt einer Schleife, Mittellinien mindestens LINIENBREITE_ABSTAND
+// auseinander, sobald eine Strecke oder ein Gate dazwischen liegt, und frei vom
+// Flugzeugsymbol. "kaesten" sind die umgebenden Rechtecke aller Stücke.
+function neuerKonflikt(stuecke, kaesten, ab, flugzeug) {
+  for (let j = ab; j < stuecke.length; j++) {
+    if (flugzeug && j >= 1) {
+      const { mitte, radius } = flugzeug;
+      const zuschlag = LINIENBREITE_ABSTAND - radius - HALBE_STRICHBREITE;
+      const ort = { minX: mitte.x, minY: mitte.y, maxX: mitte.x, maxY: mitte.y };
+      if (kastenAbstand(ort, kaesten[j]) + zuschlag < LINIENBREITE_ABSTAND) {
+        const innen = stuecke[j].art === 'gate' && kastenAbstand(ort, kaesten[j]) === 0;
+        if ((innen ? 0 : zugAbstand([mitte, mitte], stuecke[j].punkte)) + zuschlag < LINIENBREITE_ABSTAND) return true;
+      }
+    }
+    let getrennt = false;
+    for (let i = j - 2; i >= 0; i--) {
+      if (stuecke[i + 1].art === 'strecke' || stuecke[i + 1].art === 'gate') getrennt = true;
+      const nah = kastenAbstand(kaesten[i], kaesten[j]);
+      if (nah >= LINIENBREITE_ABSTAND) continue;
+      // Getrennte Stücke: Der Abstand schließt die Kreuzung ein (Abstand 0)
+      if (getrennt) {
+        if (zugNaeherAls(stuecke[i].punkte, stuecke[j].punkte, LINIENBREITE_ABSTAND)) return true;
+        continue;
+      }
+      const schleife = j === i + 2 && stuecke[i + 1].schleife && stuecke[i].art === 'strecke';
+      if (schleife || nah > 0) continue;
+      const a = stuecke[i].punkte;
+      const b = stuecke[j].punkte;
+      for (let m = 0; m + 1 < a.length; m++) {
+        for (let n = 0; n + 1 < b.length; n++) {
+          if (schneidenSich(a[m], a[m + 1], b[n], b[n + 1])) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// Prüfer für die schrittweise Erzeugung der Stufe 3: "pruefen(elemente, bis)"
+// zeichnet die Elemente bis vor "bis", soweit noch nicht gezeichnet, und meldet,
+// ob die neuen Stücke frei liegen. "stand" und "zurueck" wie beim wegbauer.
+// Dazu darf kein neues Stück mehr als "oben" über den Start reichen: Das ist
+// keine Regel des Blatts, hält aber den Start oben (START_OBEN), sonst scheiterte
+// gut die Hälfte der fertigen Kandidaten daran.
+export const OBEN_SPIELRAUM = 120;
+
+export function schrittpruefer(startEnde = true, oben = OBEN_SPIELRAUM) {
+  const weg = wegbauer(0, startEnde);
+  const kaesten = [];
+  let gezeichnet = 0;
+  return {
+    stand() {
+      return { weg: weg.stand(), gezeichnet };
+    },
+    zurueck(s) {
+      weg.zurueck(s.weg);
+      kaesten.length = s.weg.stuecke;
+      gezeichnet = s.gezeichnet;
+    },
+    pruefen(elemente, bis) {
+      const ab = weg.stuecke.length;
+      for (; gezeichnet < bis; gezeichnet++) weg.schritt(elemente[gezeichnet], elemente[gezeichnet + 1]);
+      for (let j = ab; j < weg.stuecke.length; j++) kaesten.push(kasten(weg.stuecke[j].punkte));
+      for (let j = ab; j < weg.stuecke.length; j++) if (kaesten[j].minY < weg.marken[0].punkt.y - oben) return false;
+      const flugzeug = weg.marken.length ? flugzeugLage(weg.marken[0]) : null;
+      return !neuerKonflikt(weg.stuecke, kaesten, ab, flugzeug);
+    },
+  };
 }
 
 // Fläche einer Beschriftung als Kapsel: Achse längs der Zeilen durch die Blockmitte,

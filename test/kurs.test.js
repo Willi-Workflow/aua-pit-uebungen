@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normieren, gegenkurs, differenz, drehung, istGanzzahl, kursText,
-  himmelsrichtungGrad, himmelsrichtungName, HIMMELSRICHTUNGEN, SCHREIBWEISE,
+  himmelsrichtungGrad, himmelsrichtungName, HIMMELSRICHTUNGEN, SCHREIBWEISE, naechsteHimmelsrichtung,
 } from '../js/kurs.js';
 
 test('normieren bringt jeden Wert nach 0 bis 359', () => {
@@ -55,4 +55,15 @@ test('Himmelsrichtungen in beiden Schreibweisen', () => {
   assert.equal(himmelsrichtungName(1, 'englisch'), 'NNE');
   assert.equal(SCHREIBWEISE.textteil, 'deutsch');
   assert.equal(SCHREIBWEISE.zeichnung, 'englisch');
+});
+
+test('naechsteHimmelsrichtung: nächster Strich der Kompassrose', () => {
+  assert.equal(naechsteHimmelsrichtung(10), 0);
+  assert.equal(naechsteHimmelsrichtung(15), 1);
+  assert.equal(naechsteHimmelsrichtung(111), 5);
+  assert.equal(naechsteHimmelsrichtung(42), 2);
+  assert.equal(naechsteHimmelsrichtung(355), 0);
+  assert.equal(naechsteHimmelsrichtung(-5), 0);
+  assert.equal(naechsteHimmelsrichtung(348), 15);
+  assert.equal(naechsteHimmelsrichtung(202.5), 9);
 });

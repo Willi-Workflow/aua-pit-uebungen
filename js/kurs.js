@@ -44,3 +44,10 @@ export function himmelsrichtungGrad(index) {
 export function himmelsrichtungName(index, schreibweise) {
   return HIMMELSRICHTUNGEN[schreibweise][index];
 }
+
+// Index der nächstgelegenen Himmelsrichtung, 0 bis 15. Genau in der Mitte
+// zwischen zwei Richtungen (11,25° daneben) ist das nicht eindeutig; wer das
+// braucht, prüft es vorher.
+export function naechsteHimmelsrichtung(grad) {
+  return Math.round(normieren(grad) / 22.5) % 16;
+}
