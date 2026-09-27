@@ -842,6 +842,21 @@ a.knopf {
   color: var(--zweittext);
 }
 
+/* Hinweis auf selbst gewählte Zeiten mit dem Knopf, der sie wieder der
+   Schwierigkeit folgen lässt */
+.zeiten-eigen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+}
+
+.zeiten-eigen[hidden] {
+  display: none;
+}
+
 .meldung {
   min-height: 1.55em;
   margin: 16px 0 8px;

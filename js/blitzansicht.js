@@ -7,9 +7,10 @@
 //   #/blitzrechnen/kopfrechnen?probe=aufgabe|ergebnis|loesung
 //   #/blitzrechnen/stufe2?probe=anzeige|ausgeblendet|loesung
 // dazu wahlweise art=<Aufgabenart>, saat=<Text>, frage=<Nummer ab 0>,
-// antwort=eintippen|aufloesung, stellung=geschrieben|ton|beides.
+// antwort=eintippen|aufloesung, stellung=geschrieben|ton|beides,
+// schwierigkeit=leicht|normal|schwer.
 
-import { EINSTELLUNGEN, einstellungenLesen, einstellungenKurz } from './blitzeinstellungen.js';
+import { EINSTELLUNGEN, einstellungenLesen, einstellungenKurz, zeitenNachSchwierigkeit } from './blitzeinstellungen.js';
 import { KOPF_ARTEN, erzeugeKopfaufgabe } from './kopfrechnen.js';
 import { AUSSCHNITT_ARTEN, erzeugeAusschnitt, zeichneAusschnitt } from './ausschnitt.js';
 import { frageRichtig, loesungText, eingabeText, kursAnzeige, richtungName } from './antwort.js';
@@ -21,7 +22,7 @@ export const BEREICHE = {
     titel: 'Kopfrechnen mit Kursen',
     ort: 'Kopfrechnen',
     karte: 'Kurs plus oder minus eine Zahl, Gegenkurs, Himmelsrichtungen in Grad und umgekehrt, geschrieben oder per Ton',
-    text: 'Kurs plus oder minus eine Zahl, Gegenkurs, Himmelsrichtung in Grad, nächste Himmelsrichtung und GK plus oder minus, gemischt und ohne Ende.',
+    text: 'Kurs plus oder minus eine Zahl, Gegenkurs, Himmelsrichtung in Grad, nächste Himmelsrichtung, GK und Himmelsrichtung plus oder minus, bei schwer auch in zwei Schritten, gemischt und ohne Ende.',
   },
   stufe2: {
     titel: 'Blitzrechnen Stufe 2',
@@ -62,6 +63,21 @@ ${karten}
 </main>`;
 }
 
+// Welche Zeiten selbst gewählt sind; sie bleiben beim Wechsel der Schwierigkeit
+export function eigeneZeitenText(einstellungen) {
+  const namen = (einstellungen.eigeneZeiten || []).map((name) => ({ anzeigezeit: 'Anzeigezeit', antwortzeit: 'Antwortzeit' })[name]);
+  if (!namen.length) return '';
+  return `Selbst gewählt: ${namen.join(' und ')}, ${namen.length > 1 ? 'sie bleiben' : 'sie bleibt'} bei jeder Schwierigkeit.`;
+}
+
+// Zeile unter den Zeiten: Hinweis auf selbst gewählte Zeiten und ein Knopf, der
+// sie wieder der Schwierigkeit folgen lässt; ohne eigene Zeiten verborgen
+function eigeneZeitenZeile(einstellungen) {
+  const verborgen = (einstellungen.eigeneZeiten || []).length ? '' : ' hidden';
+  return `<p class="zeiten-eigen" data-zeiten-eigen${verborgen}><span data-zeiten-text>${eigeneZeitenText(einstellungen)}</span>`
+    + '<button type="button" class="knopf" data-zeiten-zuruecksetzen>Zeiten nach Schwierigkeit</button></p>';
+}
+
 function einstellungsseite(einstellungen) {
   const gruppen = Object.entries(EINSTELLUNGEN).map(([name, g]) => {
     const knoepfe = g.werte
@@ -69,7 +85,7 @@ function einstellungsseite(einstellungen) {
       .join('');
     return `<section class="gruppe"><h2 class="gruppe-titel" id="gruppe-${name}">${g.titel}</h2>`
       + `<div class="wahl" role="group" aria-labelledby="gruppe-${name}">${knoepfe}</div>`
-      + `<p class="gruppe-text">${g.text}</p></section>`;
+      + `<p class="gruppe-text">${g.text}</p>${name === 'antwortzeit' ? eigeneZeitenZeile(einstellungen) : ''}</section>`;
   }).join('\n');
   return `<main class="rahmen einstellungsseite" data-einstellungen>
 <h1 class="titel">Einstellungen</h1>
@@ -268,13 +284,14 @@ function probeEingabe(frage, richtig) {
 }
 
 function probeBuehne(name, abfrage, einstellungen) {
-  const e = { ...einstellungen };
+  let e = { ...einstellungen };
   if (EINSTELLUNGEN.antwortart.werte.includes(abfrage.antwort)) e.antwortart = abfrage.antwort;
   if (EINSTELLUNGEN.aufgabenstellung.werte.includes(abfrage.stellung)) e.aufgabenstellung = abfrage.stellung;
+  if (EINSTELLUNGEN.schwierigkeit.werte.includes(abfrage.schwierigkeit)) e = zeitenNachSchwierigkeit({ ...e, schwierigkeit: abfrage.schwierigkeit });
   const zufall = new Zufall(`probe/${name}/${abfrage.saat || 1}`);
   const leer = { richtig: 0, gesamt: 0, serie: 0 };
   if (name === 'kopfrechnen') {
-    const aufgabe = erzeugeKopfaufgabe(zufall, KOPF_ARTEN.includes(abfrage.art) ? abfrage.art : null);
+    const aufgabe = erzeugeKopfaufgabe(zufall, KOPF_ARTEN.includes(abfrage.art) ? abfrage.art : null, e.schwierigkeit);
     if (abfrage.probe === 'aufgabe') return kopfBuehne(aufgabe, e, { phase: 'aufgabe', angehalten: true }, leer);
     if (abfrage.probe === 'ergebnis') {
       const eingabe = abfrage.eingabe ?? probeEingabe(aufgabe, true);
@@ -285,7 +302,7 @@ function probeBuehne(name, abfrage, einstellungen) {
     return null;
   }
   const { stufe } = BEREICHE[name];
-  const a = erzeugeAusschnitt(zufall, stufe, AUSSCHNITT_ARTEN[stufe].includes(abfrage.art) ? abfrage.art : null);
+  const a = erzeugeAusschnitt(zufall, stufe, AUSSCHNITT_ARTEN[stufe].includes(abfrage.art) ? abfrage.art : null, e.schwierigkeit);
   if (abfrage.probe === 'anzeige') return ausschnittBuehne(a, e, { phase: 'anzeige', angehalten: true }, leer);
   if (abfrage.probe === 'ausgeblendet') {
     const frage = Math.max(0, Math.min(Number(abfrage.frage) || 0, a.fragen.length - 1));

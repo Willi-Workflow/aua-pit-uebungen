@@ -10,11 +10,13 @@
 // nacheinander mit je eigener Antwortzeit, bei der Auflösung alle zugleich mit
 // der Antwortzeit je Frage; dann der Ausschnitt mit den Lösungen daneben.
 
-import { EINSTELLUNGEN, einstellungenLesen, einstellungenSchreiben } from './blitzeinstellungen.js';
+import {
+  EINSTELLUNGEN, einstellungenLesen, einstellungenSchreiben, einstellungSetzen, zeitenZuruecksetzen,
+} from './blitzeinstellungen.js';
 import { erzeugeKopfaufgabe, klangPfad } from './kopfrechnen.js';
 import { erzeugeAusschnitt } from './ausschnitt.js';
 import { frageRichtig } from './antwort.js';
-import { BEREICHE, kopfBuehne, ausschnittBuehne } from './blitzansicht.js';
+import { BEREICHE, kopfBuehne, ausschnittBuehne, eigeneZeitenText } from './blitzansicht.js';
 import { Zufall } from './zufall.js';
 
 // Pause zwischen zwei Tonschnipseln in Millisekunden
@@ -30,20 +32,40 @@ export function blitzLaufen(wurzel) {
   return uebungLaufen(seite);
 }
 
+// Ein Klick setzt einen Wert. Eine neue Schwierigkeit bringt ihre Zeiten mit,
+// solange keine eigenen gewählt sind; deshalb werden danach alle Knöpfe neu
+// markiert, nicht nur die der geklickten Gruppe.
 function einstellungenBedienen(seite) {
-  const werte = einstellungenLesen();
+  let werte = einstellungenLesen();
   const meldung = seite.querySelector('[data-meldung]');
-  const klick = (ereignis) => {
-    const knopf = ereignis.target.closest('[data-einstellung]');
-    if (!knopf) return;
-    const name = knopf.dataset.einstellung;
-    const wert = EINSTELLUNGEN[name].werte.find((w) => String(w) === knopf.dataset.wert);
-    if (wert === undefined) return;
-    werte[name] = wert;
-    for (const k of seite.querySelectorAll(`[data-einstellung="${name}"]`)) k.setAttribute('aria-pressed', String(k === knopf));
+  const markieren = () => {
+    for (const k of seite.querySelectorAll('[data-einstellung]')) {
+      k.setAttribute('aria-pressed', String(String(werte[k.dataset.einstellung]) === k.dataset.wert));
+    }
+    const zeile = seite.querySelector('[data-zeiten-eigen]');
+    if (zeile) {
+      zeile.hidden = werte.eigeneZeiten.length === 0;
+      zeile.querySelector('[data-zeiten-text]').textContent = eigeneZeitenText(werte);
+    }
+  };
+  const speichern = () => {
     meldung.textContent = einstellungenSchreiben(werte)
       ? 'Gespeichert.'
       : 'Der Browser lässt kein Speichern zu, es gelten weiter die Vorgaben.';
+  };
+  const klick = (ereignis) => {
+    if (ereignis.target.closest('[data-zeiten-zuruecksetzen]')) {
+      werte = zeitenZuruecksetzen(werte);
+    } else {
+      const knopf = ereignis.target.closest('[data-einstellung]');
+      if (!knopf) return;
+      const name = knopf.dataset.einstellung;
+      const wert = EINSTELLUNGEN[name].werte.find((w) => String(w) === knopf.dataset.wert);
+      if (wert === undefined) return;
+      werte = einstellungSetzen(werte, name, wert);
+    }
+    markieren();
+    speichern();
   };
   seite.addEventListener('click', klick);
   return () => seite.removeEventListener('click', klick);
@@ -190,7 +212,7 @@ function uebungLaufen(seite) {
 
   function kopfNaechste() {
     tonStoppen();
-    z.aufgabe = erzeugeKopfaufgabe(z.zufall);
+    z.aufgabe = erzeugeKopfaufgabe(z.zufall, null, z.einstellungen.schwierigkeit);
     const mitTon = z.einstellungen.aufgabenstellung !== 'geschrieben';
     z.zustand = { phase: 'aufgabe', zeitLaeuft: !mitTon };
     zeigen();
@@ -244,7 +266,7 @@ function uebungLaufen(seite) {
   }
 
   function ausschnittNaechste() {
-    z.aufgabe = erzeugeAusschnitt(z.zufall, bereich.stufe);
+    z.aufgabe = erzeugeAusschnitt(z.zufall, bereich.stufe, null, z.einstellungen.schwierigkeit);
     z.zustand = { phase: 'anzeige' };
     zeigen();
     nach(z.einstellungen.anzeigezeit, ausblenden);
