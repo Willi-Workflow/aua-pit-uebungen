@@ -93,7 +93,7 @@ test('Blattansicht der Stufe 3: kein Textteil, Start und Kürzel über dem Parco
   assert.ok(!html.includes('class="textteil"'));
   assert.ok(!html.includes('Ausgangskurs'));
   assert.ok(html.includes('<svg xmlns="http://www.w3.org/2000/svg" class="parcours"'));
-  assert.ok(/<text class="fett" [^>]*><tspan x="0" dy="0">Start<\/tspan><\/text>/.test(html));
+  assert.ok(/<text class="fett" [^>]*><tspan x="0" dy="0">Start 2000 ft<\/tspan><\/text>/.test(html));
   assert.ok(/<text class="fett" [^>]*><tspan x="0" dy="0">Ende<\/tspan><\/text>/.test(html));
   assert.ok(html.includes('class="legende"'));
   assert.ok(ansichtFuer('#/stufe3/blatt/101').includes('Nicht gefunden'));
