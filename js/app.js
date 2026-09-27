@@ -74,6 +74,9 @@ function kopf(ort, zurueck, aktionen = '') {
   return `<header class="kopf"><div class="kopf-innen rahmen">${zurueckLink}${marke}${ortTeil}${rechts}</div></header>`;
 }
 
+// Blitzsymbol vor "Blitzrechnen": gefüllter Blitz in Tinte, 22 Einheiten hoch
+const BLITZ = '<svg class="blitz-zeichen" viewBox="0 0 14 22" width="14" height="22" aria-hidden="true"><path d="M 8.5 0 L 0 12.5 H 5.5 L 4 22 L 14 8.5 H 8 Z"/></svg>';
+
 function startseite() {
   return kopf(null, null)
     + `<main class="rahmen startseite">
@@ -81,7 +84,7 @@ function startseite() {
 <h1 class="titel-gross">Übungsblätter für die PIT-Übungen</h1>
 <p class="einleitung">Jedes Blatt hat zwölf Anweisungen im Textteil und einen gezeichneten Parcours, der daran anschließt. Wähle eine Stufe und ein Blatt, übe am Bildschirm oder drucke es auf A4 aus.</p>
 </div>
-<figure class="start-rose">${kursrose(280, true)}<figcaption>Ausgangskurs 090°, 2000 ft</figcaption><a class="knopf" href="#/blitzrechnen">Blitzrechnen</a></figure>
+<figure class="start-rose">${kursrose(280, true)}<figcaption>Ausgangskurs 090°, 2000 ft</figcaption><a class="karte blitz" href="#/blitzrechnen">${BLITZ}<span class="karte-titel">Blitzrechnen</span></a></figure>
 <nav class="stufen" aria-label="Stufen">
 <a class="karte" href="#/stufe2"><span class="karte-titel">Stufe 2</span><span class="karte-text">Textteil und Parcours, ${BLAETTER_JE_STUFE} Blätter, jedes dritte mit Gates</span></a>
 <a class="karte spaeter" href="#/stufe3"><span class="karte-titel">Stufe 3</span><span class="karte-text">Kommt in einem späteren Abschnitt</span></a>

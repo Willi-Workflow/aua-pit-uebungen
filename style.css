@@ -316,9 +316,22 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-.start-rose .knopf {
-  margin-top: 6px;
-  text-decoration: none;
+.start-rose .karte.blitz {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+}
+
+.blitz-zeichen {
+  flex: none;
+  fill: var(--tinte);
+}
+
+.karte.blitz:hover .blitz-zeichen {
+  fill: var(--akzent);
 }
 
 .stufen {
