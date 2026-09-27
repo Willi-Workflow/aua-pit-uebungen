@@ -1,10 +1,13 @@
 // Oberfläche: Adressanker auf Ansichten abbilden, Blatt anzeigen, drucken.
 // Adressen: #/  #/stufe2  #/stufe2/blatt/7  #/stufe3  #/stufe3/blatt/7  #/stufe2/endlos
+// Übungsmodus der Blattansicht im Prüfmodus: #/stufe3/blatt/6?probe=vollbild&schritt=8
 // Blitzrechnen: #/blitzrechnen  #/blitzrechnen/einstellungen  #/blitzrechnen/kopfrechnen
 // #/blitzrechnen/stufe2  #/blitzrechnen/stufe3, Inhalt aus blitzansicht.js, Ablauf aus blitzlauf.js
 
 import { erzeugeBlatt, hatGates, BLAETTER_JE_STUFE, STUFEN } from './blatt.js';
 import { zeichneParcours } from './zeichnung.js';
+import { rechenstellen, zaehlerText } from './loesungen.js';
+import { uebungsmodusLaufen } from './uebungsmodus.js';
 import { kursText } from './kurs.js';
 import { blitzInhalt } from './blitzansicht.js';
 import { blitzLaufen } from './blitzlauf.js';
@@ -124,7 +127,12 @@ function platzhalter(titel, zurueck, text) {
     + `<main class="rahmen hinweisseite"><h1 class="titel">${titel}</h1><p class="unterzeile">${text}</p></main>`;
 }
 
-function blattseite(stufe, nummer) {
+// Blattansicht. "Start" legt das Blatt als Übungsmodus über den ganzen
+// Bildschirm (uebungsmodus.js): Die Lösungen der Rechenstellen stehen verborgen
+// im Parcours und kommen eine nach der anderen. Der Textteil bleibt ohne
+// Lösungen, der Druck zeigt keine. Im Prüfmodus ("probe=vollbild") steht das
+// Blatt gleich im Übungsmodus, mit den ersten "schritt" Lösungen, ohne Ablauf.
+function blattseite(stufe, nummer, abfrage = {}) {
   let blatt;
   try {
     blatt = erzeugeBlatt(stufe, nummer);
@@ -132,17 +140,24 @@ function blattseite(stufe, nummer) {
     // Sollte nach der Adressprüfung nicht vorkommen; wenn doch, lieber eine Meldung als eine leere Seite
     return platzhalter('Fehler', `#/stufe${stufe}`, `Dieses Blatt konnte nicht erzeugt werden: ${fehler.message}`);
   }
-  const drucken = '<button type="button" class="knopf" data-aktion="drucken">Drucken</button>';
+  const stellen = rechenstellen(blatt);
+  const probe = abfrage.probe === 'vollbild';
+  const stand = probe ? Math.min(stellen.length, Math.max(0, Math.floor(Number(abfrage.schritt)) || 0)) : 0;
+  // Im Normalzustand bleibt das Blatt-Element, wie es war
+  const blattAnfang = probe ? '<article class="blatt vollbild" data-probe="vollbild">' : '<article class="blatt">';
+  const knoepfe = '<button type="button" class="knopf" data-aktion="vollbild">Start</button>'
+    + '<button type="button" class="knopf" data-aktion="drucken">Drucken</button>';
   // Zahl und Einheit nicht trennen, sonst steht auf dem Handy "15" am Zeilenende und "s" darunter
   const zeilen = blatt.textteil.zeilen.map((z) => `<li>${z.satz.replace(/(\d) (s|ft)\b/g, '$1\u00a0$2')}</li>`).join('');
-  return kopf(`Stufe ${stufe}, Blatt ${nummer}`, `#/stufe${stufe}`, drucken)
-    + `<main class="rahmen blattseite"><article class="blatt">
+  return kopf(`Stufe ${stufe}, Blatt ${nummer}`, `#/stufe${stufe}`, knoepfe)
+    + `<main class="rahmen blattseite">${blattAnfang}
 <h1>AUA PIT Stufe ${stufe}, Blatt ${nummer}</h1>
 <p class="ausgang">Ausgangskurs ${kursText(blatt.textteil.ausgangskurs)}°, ${blatt.textteil.ausgangshoehe} ft</p>
 ${stufe === 2 && hatGates(stufe, nummer) ? GATEHINWEIS : ''}
 <ol class="textteil">${zeilen}</ol>
-${zeichneParcours(blatt.parcours)}
+${zeichneParcours(blatt.parcours, { loesungen: stellen, loesungenSichtbar: stand })}
 ${LEGENDE}
+<div class="uebung-leiste"><span class="zaehler" data-zaehler aria-live="polite">${zaehlerText(stand, stellen.length)}</span><button type="button" class="knopf klein" data-aktion="beenden">Beenden</button></div>
 </article></main>`;
 }
 
@@ -152,7 +167,7 @@ function blitzseite(teile, abfrage) {
   return kopf(seite.ort, seite.zurueck) + seite.inhalt;
 }
 
-// Adressen dürfen nach einem "?" Werte tragen (Prüfmodus des Blitzrechnens)
+// Adressen dürfen nach einem "?" Werte tragen (Prüfmodus des Blitzrechnens und der Blattansicht)
 export function ansichtFuer(hash) {
   const [pfad, abfrage = ''] = hash.split('?');
   const teile = pfad.replace(/^#\/?/, '').split('/').filter(Boolean);
@@ -164,7 +179,7 @@ export function ansichtFuer(hash) {
   if (teile[1] === 'endlos') return platzhalter(`Stufe ${stufe}, Endlos`, `#/stufe${stufe}`, 'Der Endlosmodus kommt in einem späteren Abschnitt.');
   if (teile[1] === 'blatt') {
     const nummer = Number(teile[2]);
-    if (Number.isInteger(nummer) && nummer >= 1 && nummer <= BLAETTER_JE_STUFE) return blattseite(stufe, nummer);
+    if (Number.isInteger(nummer) && nummer >= 1 && nummer <= BLAETTER_JE_STUFE) return blattseite(stufe, nummer, Object.fromEntries(new URLSearchParams(abfrage)));
   }
   return platzhalter('Nicht gefunden', `#/stufe${stufe}`, 'Dieses Blatt gibt es nicht.');
 }
@@ -172,14 +187,18 @@ export function ansichtFuer(hash) {
 // Nur im Browser: In Node gibt es kein document, dort wird ansichtFuer allein geprüft
 if (typeof document !== 'undefined') {
   const wurzel = document.querySelector('#app');
-  // Beendet Zeitgeber und Ton einer laufenden Übung, bevor die nächste Ansicht kommt
+  // Beendet Zeitgeber und Ton einer laufenden Übung und den Übungsmodus eines
+  // Blatts, bevor die nächste Ansicht kommt
   let blitzStoppen = () => {};
+  let uebungStoppen = () => {};
 
   const anzeigen = () => {
     blitzStoppen();
+    uebungStoppen();
     wurzel.innerHTML = ansichtFuer(location.hash);
     window.scrollTo(0, 0);
     blitzStoppen = blitzLaufen(wurzel);
+    uebungStoppen = uebungsmodusLaufen(wurzel);
   };
 
   window.addEventListener('hashchange', anzeigen);

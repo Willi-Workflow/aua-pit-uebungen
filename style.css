@@ -534,6 +534,106 @@ button:focus-visible {
   vertical-align: middle;
 }
 
+/* Übungsmodus (uebungsmodus.js): Mit "Start" liegt das Blatt als feste Fläche
+   über dem ganzen Bildschirm, auch ohne Fullscreen-API. Textteil oben, darunter
+   der Parcours mit der ganzen übrigen Höhe; der Textteil wird mit der Höhe und
+   auf schmalen Bildschirmen kleiner, im Querformat ab 700 px Breite
+   zweispaltig. Zähler und "Beenden" oben rechts. Nur auf dem Bildschirm, der
+   Druck bleibt, wie er ist. */
+
+.uebung-leiste {
+  display: none;
+}
+
+.knopf.klein {
+  padding: 4px 10px;
+  font-size: 0.9rem;
+}
+
+@media screen {
+  html.vollbild-offen,
+  html.vollbild-offen body {
+    overflow: hidden;
+  }
+
+  .blatt.vollbild {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    width: auto;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    margin: 0;
+    padding: 12px 20px 16px;
+    border: none;
+    overflow: hidden;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .blatt.vollbild h1 {
+    margin: 0 0 2px;
+    padding-right: 11rem;
+    font-size: 1.15rem;
+  }
+
+  .blatt.vollbild .ausgang,
+  .blatt.vollbild .gatehinweis,
+  .blatt.vollbild .textteil {
+    font-size: clamp(11px, min(1.9vh, 3.3vw), 17px);
+    line-height: 1.35;
+  }
+
+  .blatt.vollbild .textteil {
+    margin: 6px 0 10px;
+  }
+
+  .blatt.vollbild .parcours {
+    flex: 1 1 0;
+    min-height: 0;
+    height: 0;
+    overflow: visible;
+  }
+
+  .blatt.vollbild .legende {
+    display: none;
+  }
+
+  .blatt.vollbild .uebung-leiste {
+    position: absolute;
+    top: 10px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .zaehler {
+    font-family: var(--schrift-schmal);
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--zweittext);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media screen and (min-width: 700px) and (min-aspect-ratio: 1/1) {
+  .blatt.vollbild .textteil {
+    columns: 2;
+    column-gap: 32px;
+  }
+
+  .blatt.vollbild .textteil li {
+    break-inside: avoid;
+  }
+}
+
 /* Unter 720 px: Startseite einspaltig, Rose zwischen Text und Stufen */
 
 @media (max-width: 719px) {
@@ -729,6 +829,12 @@ button:focus-visible {
     flex: 1 1 0;
     min-height: 0;
     height: 0;
+  }
+
+  /* Lösungen und Bedienung des Übungsmodus nie im Druck */
+  .parcours .loesung,
+  .uebung-leiste {
+    display: none !important;
   }
 }
 
