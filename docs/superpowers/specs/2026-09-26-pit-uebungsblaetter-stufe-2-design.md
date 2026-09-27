@@ -87,16 +87,22 @@ Bei Schablonen mit ausdrücklicher Drehrichtung (Links auf, Rechts auf, Linkskur
 
 **Segment**
 
-- Kurs: Grad (ganzzahlig, 000 bis 359), Himmelsrichtung, oder keine Angabe (dann relative Kursänderung an der Ecke davor)
+- Kurs: Grad (ganzzahlig, 000 bis 359), Himmelsrichtung, oder keine Angabe (dann relative Kursänderung an der Ecke davor oder Gradzahl an der Kurve davor)
 - Dauer: 10, 15, 20 oder 30 s, 30 s selten
 - Profil: horizontal, steigen, sinken
-- Rechenaufgabe: keine oder eine ganze Zahl von ±100 bis ±350, auch an Segmenten ohne Kurs (Vorlage: `+115` unter `/30"`)
+- Rechenaufgabe: keine oder eine ganze Zahl von ±100 bis ±490 (Stufe 3: bis ±350), auch an Segmenten ohne Kurs (Vorlage: `+115` unter `/30"`)
 
 **Vollkreis**
 
 - Drehrichtung links oder rechts
 - Profil je Hälfte, die beiden Hälften dürfen gleich oder verschieden sein
 - Kurs vor und nach dem Vollkreis ist derselbe
+
+**Gradzahl-Kurve** (seit 27.09.2026 auch in Stufe 2, wie in den beiden Handzeichnungen `PHOTO-2026-07-29-10-05-34.jpg` und `… 2.jpg`)
+
+- Nackter Drehwinkel an der Bogenmitte (`120`, `273`), Richtung aus der Zeichnung, eigenes Profil über Winkel / 3 s
+- Stufe 2: Winkel 30 bis 350, nie 180, rund ein Drittel Schleifen über 180° (Ziehung 37 %, auf den fertigen Blättern 181 von 556); Radius 24, Schleifen 35
+- Das Segment danach trägt nur die Zeit (`/15"`)
 
 **Ecke** zwischen zwei Elementen
 
@@ -106,23 +112,28 @@ Bei Schablonen mit ausdrücklicher Drehrichtung (Links auf, Rechts auf, Linkskur
 
 ### Mengen je Blatt
 
-- 18 bis 22 Segmente
+Seit 27.09.2026 nach Zählung der Vorlagen (Willi: "zu einfach und nicht oft genug auszurechnen"). Die PDF hat auf 18 Segmenten 2 relative Ecken und 5 Rechenaufgaben, die erste Handzeichnung 6 Kurven mit nacktem Winkel und 4 Gates mit 8 Relativwerten bis ±410, die zweite rund 11 Kurven mit nacktem Winkel und nur 5 absolute Kurse auf rund 16 Segmenten. Vorher hatte Stufe 2 je Blatt 3 bis 4 Kursberechnungen und 4 bis 5 Rechenaufgaben bis ±350, 12 von 19 Segmenten mit absolutem Kurs.
+
+- 18 bis 22 Segmente (mit Gates 15 bis 19)
 - 2 Vollkreise, nicht direkt hintereinander, nicht am Anfang oder Ende
-- 3 bis 4 Ecken mit relativer Kursänderung
-- 4 bis 5 Rechenaufgaben
-- 3 bis 4 Kurse als Himmelsrichtung, alle übrigen in Grad
+- 8 bis 11 Kursberechnungen: 3 bis 4 Ecken mit relativer Kursänderung und 5 bis 7 Gradzahl-Kurven (mit Gates 4 bis 6; bei nur 4 Kurven 4 relative Ecken)
+- Gates, Vollkreise und Kurven folgen auf Segment 2 bis Anzahl minus 2, je Stelle höchstens eines; zwischen zwei Gates mindestens zwei Segmente
+- 5 bis 7 Rechenaufgaben, Beträge 100 bis 490
+- 3 bis 4 Kurse als Himmelsrichtung, alle übrigen in Grad (im Mittel 7 von 19,5 Segmenten)
 - Profile etwa gleich verteilt, kein Profil öfter als dreimal hintereinander (Vollkreishälften zählen mit)
-- Höhe ab der Endhöhe des Textteils zwischen 1000 und 3000 ft, gerechnet mit 8 ft/s: Segmente mit ihrer Dauer, Vollkreishälften 60 s, Gate-Zeilen mit ihren Sekunden, Ecken ohne Höhenänderung. Die Profilwahl schließt Steig- oder Sinkflug aus, der den Rahmen verließe; bei Gate-Zeilen steht die Dauer dafür vor dem Profil fest.
+- Höhe ab der Endhöhe des Textteils zwischen 1000 und 3000 ft, gerechnet mit 8 ft/s: Segmente mit ihrer Dauer, Vollkreishälften 60 s, Kurven Winkel / 3 s, Gate-Zeilen mit ihren Sekunden, Ecken ohne Höhenänderung. Die Profilwahl schließt Steig- oder Sinkflug aus, der den Rahmen verließe; bei Gate-Zeilen steht die Dauer dafür vor dem Profil fest.
 
 ### Passform
 
-Die Zeichnung ist geografisch echt, deshalb ergeben zufällige Kurse oft Knäuel. Die Erzeugung zieht aus dem Zufallsstrom des Blatts **4000 Kandidaten**, ungedreht: Norden zeigt immer nach oben, wie in der Vorlage. Alle Prüfungen laufen auf dieser ungedrehten Geometrie, billige zuerst. Zulässig ist ein Kandidat, der alle Bedingungen erfüllt:
+Die Zeichnung ist geografisch echt, deshalb ergeben zufällige Kurse oft Knäuel. Die Erzeugung zieht aus dem Zufallsstrom des Blatts **1000 Kandidaten** (`KANDIDATEN_STUFE_2`; bis zu den Gradzahl-Kurven 12000 ungeprüfte), jeden wie in Stufe 3 Schritt für Schritt mit dem `schrittpruefer` gebaut (siehe Stufe 3, Erzeugung), ungedreht: Norden zeigt immer nach oben, wie in der Vorlage. Alle Prüfungen laufen auf dieser ungedrehten Geometrie, billige zuerst. Zulässig ist ein Kandidat, der alle Bedingungen erfüllt:
 
-1. Der Weg kreuzt sich nicht selbst (Kreisbögen als Polygonzüge, benachbarte Stücke zählen nicht; die Kreuzung von Ein- und Ausfahrt einer Schleife über 180° ist gewollt).
+1. Der Weg kreuzt sich nicht selbst (Kreisbögen als Polygonzüge, benachbarte Stücke zählen nicht; die Kreuzung von Ein- und Ausfahrt einer Schleife über 180° ist gewollt, aber wie in Stufe 3 nur sauber, mindestens 9 vor den äußeren Enden).
 2. Die Striche berühren sich höchstens: Mittellinien mindestens 9 Einheiten auseinander, sobald eine Strecke dazwischen liegt. Das Flugzeugsymbol am Start (Kreis mit Radius 14) ist dabei ein Hindernis für alle Stücke außer der ersten Strecke.
 3. Das Verhältnis Breite zu Höhe des Umrisses liegt zwischen 0,7 und 1,25.
 4. Der Start liegt im oberen Teil des Umrisses, höchstens 34 % der Höhe von oben (`START_OBEN`).
-5. Jede Beschriftung steht frei: Kein fremder Strich, keine andere Beschriftung und nicht das Flugzeugsymbol berühren sie. Angrenzende Schleifen und Vollkreishälften zählen dabei als fremd, nur die eigene Strecke und gewöhnliche Eckbögen nicht.
+5. Jede Beschriftung steht frei: Kein fremder Strich, keine andere Beschriftung und nicht das Flugzeugsymbol berühren sie. Angrenzende Schleifen und Vollkreishälften zählen dabei als fremd, nur die eigene Strecke und gewöhnliche Eckbögen nicht. Seit den Gradzahl-Kurven steht jede Beschriftung wie in Stufe 3 ihrem eigenen Stück deutlich näher als jedem fremden (Zuordnung).
+
+Gemessen nach den Gradzahl-Kurven: alle 100 Blätter zulässig, CPU-Zeit je Blatt im Median 181 ms, höchstens 323 ms; Druckschrift der Parcours-Beschriftungen im Median 7,9 pt, kleinste 5,1 pt (Blatt 39, einziges unter 6 pt), vorher 7,6 und 5,4 pt.
 
 Der Start liegt also nicht durch eine Drehung des Blatts oben, sondern weil die Auswahl unter den vielen probierten Verläufen nur einen mit dem Start im oberen Teil zulässt.
 
@@ -275,7 +286,7 @@ Die Zeichnung selbst wird zusätzlich per Sichtprüfung headless geprüft (Bilds
 
 ## Stufe 3
 
-Stand: 27.09.2026, seit dem zweiten Umbau am selben Tag mit Textteil und häufigerem Gegenkurs. Vorlagen im Ordner `Stufe 3/` (bleibt außerhalb des Repositorys): `AUA PIT Stufe 3.pdf`, das Gegenkursbeispiel (`PHOTO-2026-07-29-10-05-34 3.jpg`) und die Handzeichnung mit START und ZIEL (`WhatsApp Image 2026-08-08 at 16.24.30.jpeg`). Alle drei sind Stufe 3; ihre Elemente kommen gemischt über die 100 Blätter vor. Stufe 2 bleibt Byte für Byte, wie sie war: Stufe 3 hat eigene Zufallsschlüssel (`stufe-3/blatt-7`) und eigene Erzeugungspfade, eine Prüfung vergleicht einen Fingerabdruck aller 100 Blätter der Stufe 2. Bewusst geändert wurde seither nur Blatt 51 (Gate-Zeile `-180`, siehe Gates).
+Stand: 27.09.2026, seit dem zweiten Umbau am selben Tag mit Textteil und häufigerem Gegenkurs. Vorlagen im Ordner `Stufe 3/` (bleibt außerhalb des Repositorys): `AUA PIT Stufe 3.pdf`, das Gegenkursbeispiel (`PHOTO-2026-07-29-10-05-34 3.jpg`) und die Handzeichnung mit START und ZIEL (`WhatsApp Image 2026-08-08 at 16.24.30.jpeg`). Alle drei sind Stufe 3; ihre Elemente kommen gemischt über die 100 Blätter vor. Stufe 3 hat eigene Zufallsschlüssel (`stufe-3/blatt-7`). Die Textteile der Stufe 2 bleiben Byte für Byte, wie sie waren (Fingerabdruck in `test/blaetter.test.js`); ihr Parcours ist seit den Gradzahl-Kurven neu.
 
 ### Fachliche Regeln (von Willi bestätigt)
 
@@ -314,7 +325,7 @@ Alle Elemente der Stufe 2 (Segment mit Grad, Himmelsrichtung oder ohne Kurs, Vol
 
 ### Erzeugung
 
-`erzeugeElemente(zufall, einstellungen, start, pruefer)` bekommt je Stufe ein Einstellungsobjekt: `{ stufe: 2, mitGates }` zieht genau die Zufallszahlen wie bisher, `{ stufe: 3 }` den eigenen Pfad. Stufe 3 baut einen Kandidaten Schritt für Schritt (Segment und was ihm folgt) und prüft jeden Schritt sofort gegen den bisherigen Weg (`schrittpruefer` in `geometrie.js`: keine Kreuzung außer der sauberen an Schleifen, Mittellinien mindestens 9 auseinander, Flugzeugsymbol frei, nichts mehr als 120 Einheiten über dem Start). Scheitert ein Schritt viermal, wird der Schritt davor wiederholt; nach 60 gescheiterten Schritten ist der Kandidat verworfen. Ohne diese Prüfung kreuzten sich 99,6 % der Kandidaten; mit ihr kommen gut 60 % durch, und 1000 Kandidaten je Blatt reichen (`KANDIDATEN_STUFE_3`). Mit 1300 lag ein Blatt unter der Last der parallel laufenden Prüfungen knapp über 500 ms. Danach dieselbe Auswahl wie in Stufe 2: zulässig und höchste Füllung.
+`erzeugeElemente(zufall, einstellungen, start, pruefer)` bekommt je Stufe ein Einstellungsobjekt, `{ stufe: 2, mitGates }` oder `{ stufe: 3 }`, und baut nach dem Bauplan der Stufe (`planStufe2`, `planStufe3`) mit demselben Ablauf (`elementeSchrittweise`). Stufe 3 baut einen Kandidaten Schritt für Schritt (Segment und was ihm folgt) und prüft jeden Schritt sofort gegen den bisherigen Weg (`schrittpruefer` in `geometrie.js`: keine Kreuzung außer der sauberen an Schleifen, Mittellinien mindestens 9 auseinander, Flugzeugsymbol frei, nichts mehr als 120 Einheiten über dem Start). Scheitert ein Schritt viermal, wird der Schritt davor wiederholt; nach 60 gescheiterten Schritten ist der Kandidat verworfen. Ohne diese Prüfung kreuzten sich 99,6 % der Kandidaten; mit ihr kommen gut 60 % durch, und 1000 Kandidaten je Blatt reichen (`KANDIDATEN_STUFE_3`). Mit 1300 lag ein Blatt unter der Last der parallel laufenden Prüfungen knapp über 500 ms. Danach dieselbe Auswahl wie in Stufe 2: zulässig und höchste Füllung.
 
 Gemessen über die 100 Blätter nach dem zweiten Umbau: alle 100 zulässig, CPU-Zeit je Blatt allein im Median 197 ms, höchstens 310 ms (während der ganzen Prüfung im Median 250 ms, höchstens 298 ms). Druckschrift der Parcours-Beschriftungen im A4-Druck (Chrome im Druckmodus, gemessene Größe jedes Parcours-SVGs): Median 7,4 pt, kleinste 5,9 pt (Blatt 8), alle 100 auf einer Seite; nach derselben Messung vor dem Umbau Median 7,8 pt, kleinste 6,0 pt. Die zwölf Sätze kosten im Median also 0,4 pt. GK je Blatt: 22 Blätter mit 3, 53 mit 4, 25 mit 5 (vorher 21 Blätter ohne GK, 22 mit 1, 32 mit 2), zusammen 152 Segmente und 251 Gate-Zeilen (72 in Form A, 179 in Form C).
 

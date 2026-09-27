@@ -21,7 +21,9 @@ Die App speichert nichts außer den Einstellungen des Blitzrechnens, und die nur
 | weiß mit Rand | Sinkflug |
 | weiß mit Sprossen | Steigflug |
 
-`250°/15"` Kurs und Sekunden. `SSE/10"` Kurs als Himmelsrichtung. `/30"` ohne Kurs: der Kurs ergibt sich aus der relativen Kursänderung an der Ecke davor (`+90°`, `-156°`). Eine Zahl ohne Gradzeichen an einem Segment (`+230`) ist eine Rechenaufgabe: Kursanzeige plus oder minus die Zahl, Ergebnis laut sagen. Rechenaufgaben können auch an Segmenten ohne Kurs stehen (`/30"` mit `+115`), dann gilt der Kurs, der sich aus der Ecke davor ergibt.
+`250°/15"` Kurs und Sekunden. `SSE/10"` Kurs als Himmelsrichtung. `/30"` ohne Kurs: der Kurs ergibt sich aus der relativen Kursänderung an der Ecke davor (`+90°`, `-156°`) oder aus der Gradzahl an der Kurve davor. **Gradzahl an einer Kurve** (`300`, `145`, ohne Vorzeichen und Gradzeichen) wie in den Handzeichnungen: Die Kurve dreht um diesen Winkel in der gezeichneten Richtung, in ihrer eigenen Linienart; ab 180° ist sie eine Schleife, deren Ein- und Ausfahrt sich sauber kreuzen. Eine Zahl ohne Gradzeichen an einem Segment (`+230`) ist eine Rechenaufgabe: Kursanzeige plus oder minus die Zahl, Ergebnis laut sagen. Rechenaufgaben können auch an Segmenten ohne Kurs stehen (`/30"` mit `+115`), dann gilt der Kurs, der sich aus der Ecke oder Kurve davor ergibt.
+
+In Stufe 2 ist wie in den Vorlagen fast jeder Kurs auszurechnen: je Blatt 8 bis 11 Kursberechnungen, 3 bis 4 relative Ecken und 5 bis 7 Gradzahl-Kurven (Winkel 30 bis 350, rund ein Drittel Schleifen; auf Blättern mit Gates 4 bis 6), dazu 5 bis 7 Rechenaufgaben mit Beträgen von 100 bis 490, 3 bis 4 Himmelsrichtungen und zwei Vollkreise; die übrigen Segmente tragen einen Gradkurs.
 
 Ein Kasten an der Strecke ist ein Gate: Seine drei bis vier Zeilen werden ohne gezeichnete Linie der Reihe nach aus dem Gedächtnis geflogen, je Zeile ein Kurs (`+72` oder `-400` zum aktuellen Kurs gerechnet und auf kürzestem Weg gedreht, `SSW` oder `123°` direkt), ein Pfeil für Horizontal-, Steig- oder Sinkflug (`→`, `↗`, `↘`) und die Sekunden. Gates stehen in Stufe 2 auf jedem Blatt mit einer Nummer teilbar durch 3, in Stufe 3 auf jedem Blatt; danach geht es vom Kurs der letzten Zeile auf kürzestem Weg zum Kurs des nächsten Segments. Den Hinweis dazu ("Mit Gates: …") tragen nur die Gate-Blätter der Stufe 2; auf den Blättern der Stufe 3 steht über dem Parcours nur der Textteil, Kürzel und Regeln setzt sie voraus.
 
@@ -30,7 +32,6 @@ Ein Kasten an der Strecke ist ein Gate: Seine drei bis vier Zeilen werden ohne g
 Stufe 3 hat alle Zeichen der Stufe 2 und dazu:
 
 - **Start** und **Ende** stehen fett am Flugzeugsymbol und am Ende des letzten Segments. Die Höhe am Start ist die nach dem letzten Satz des Textteils.
-- **Gradzahl an einer Kurve** (`300`, `145`, ohne Vorzeichen und Gradzeichen): Die Kurve dreht um diesen Winkel in der gezeichneten Richtung, in ihrer eigenen Linienart; das Segment danach hat keinen Kurs (`/10"`), sein Kurs ist der Kurs davor plus oder minus der Winkel. Ab 180° ist die Kurve eine Schleife.
 - **HR** = nächste Himmelsrichtung. `HR/20"`: vom aktuellen Kurs auf die nächste Himmelsrichtung drehen (010° auf N), das ist eine kleine Ecke. `HR 111°/15"`: 111° auf die nächste Himmelsrichtung runden, hier ESE (112,5°).
 - **GK** = Gegenkurs. `GK/15"` fliegt den Gegenkurs des aktuellen Kurses; die Kehre davor ist gezeichnet. In Gates `GK` und `GK -19°` (Gegenkurs minus 19). Wie in der Handzeichnung kommt Gegenkurs je Blatt drei- bis fünfmal vor: ein bis zwei Segmente `GK/…`, nie zwei direkt hintereinander, und zwei bis drei Gate-Zeilen.
 - **anl. Kurs** = anliegender, also gerade geflogener Kurs: `anl. Kurs +98°` ist der aktuelle Kurs plus 98, `anl. Kurs +7×8` plus 56, `anl. Kurs +9×13` plus 117. Selten, höchstens einmal je Blatt.
@@ -64,7 +65,7 @@ Dann http://127.0.0.1:8765/ öffnen.
 
     node --test
 
-Braucht Node 20 oder neuer, keine Abhängigkeiten. Die Prüfungen erzeugen alle 100 Blätter beider Stufen und dauern gut eine Minute; eine davon stellt sicher, dass die Blätter der Stufe 2 Byte für Byte gleich bleiben. Für das Blitzrechnen rechnen sie je Stufe 200 Ausschnitte aus den gezeichneten Beschriftungen nach, prüfen jede Kopfaufgabe gegen ihren Text und jede Tonfolge gegen die Dateien unter `klaenge/`.
+Braucht Node 20 oder neuer, keine Abhängigkeiten. Die Prüfungen erzeugen alle 100 Blätter beider Stufen und dauern gut eine Minute; eine davon stellt sicher, dass die Textteile der Stufe 2 Byte für Byte gleich bleiben. Für das Blitzrechnen rechnen sie je Stufe 200 Ausschnitte aus den gezeichneten Beschriftungen nach, prüfen jede Kopfaufgabe gegen ihren Text und jede Tonfolge gegen die Dateien unter `klaenge/`.
 
 ## Logikprüfung
 
