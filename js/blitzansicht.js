@@ -28,14 +28,14 @@ export const BEREICHE = {
     ort: 'Stufe 2',
     stufe: 2,
     karte: 'Ein Ausschnitt wie auf dem Blatt, kurz zu sehen, dann aus dem Gedächtnis rechnen',
-    text: 'Ein Ausschnitt wie auf dem Blatt erscheint kurz, dann rechnest du aus dem Gedächtnis: Kurs nach einer Ecke, Rechenaufgabe, Himmelsrichtung in Grad oder die Kurse eines Gates.',
+    text: 'Ein Ausschnitt wie auf dem Blatt erscheint kurz, dann rechnest du aus dem Gedächtnis: Kurs nach einer Ecke oder einer Gradzahl-Kurve, Rechenaufgabe, Himmelsrichtung in Grad oder die Kurse eines Gates.',
   },
   stufe3: {
     titel: 'Blitzrechnen Stufe 3',
     ort: 'Stufe 3',
     stufe: 3,
-    karte: 'Dazu HR, GK, Gradzahl-Kurven, Gates in drei Formen und anl. Kurs',
-    text: 'Wie Stufe 2, dazu HR, GK, Gradzahl-Kurven, Gates in drei Formen mit dem Drehsinn zum nächsten Kurs und anl. Kurs.',
+    karte: 'Dazu HR, GK, Gates in drei Formen und anl. Kurs',
+    text: 'Wie Stufe 2, dazu HR, GK, Gates in drei Formen mit dem Drehsinn zum nächsten Kurs und anl. Kurs.',
   },
 };
 

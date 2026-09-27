@@ -164,13 +164,25 @@ for (const stufe of [2, 3]) {
   });
 }
 
-test('Ausschnitte Stufe 2: nur Elemente der Stufe 2, Gates mit drei Zeilen', () => {
+test('Ausschnitte Stufe 2: nur Elemente der Stufe 2, Gradzahl-Kurve nur als Aufgabe, Gates mit drei Zeilen', () => {
+  let kurven = 0;
+  const schleifen = { unter: 0, ueber: 0 };
   for (const a of ausschnitte[2]) {
     const svg = zeichneAusschnitt(a);
     assert.ok(!/>(HR|GK)[ /]/.test(svg), 'HR oder GK in Stufe 2');
-    assert.ok(!a.elemente.some((e) => e.art === 'kurve'));
+    const kurve = a.elemente.filter((e) => e.art === 'kurve');
+    assert.equal(kurve.length, a.art === 'kurve' ? 1 : 0, `${a.art}: Kurven`);
+    if (a.art === 'kurve') {
+      kurven += 1;
+      schleifen[kurve[0].winkel > 180 ? 'ueber' : 'unter'] += 1;
+      assert.ok(kurve[0].winkel >= 30 && kurve[0].winkel <= 350 && kurve[0].winkel !== 180);
+      assert.equal(a.fragen.length, 1);
+      assert.equal(a.fragen[0].text, 'Kurs nach der Kurve');
+    }
     if (a.art === 'gate') assert.equal(a.fragen.length, 3);
   }
+  assert.ok(kurven > 20, `nur ${kurven} Kurven-Ausschnitte`);
+  assert.ok(schleifen.unter > 0 && schleifen.ueber > 0, `Kurven und Schleifen: ${JSON.stringify(schleifen)}`);
 });
 
 test('Ausschnitte Stufe 3: Gates in allen drei Formen, Form A mit Frage nach dem Drehsinn', () => {
@@ -200,5 +212,7 @@ test('Ausschnitte: jede Art lässt sich gezielt erzeugen, gleicher Startwert gib
   assert.ok(/anl\. Kurs \+/.test(zeichneAusschnitt(anl)));
   const eins = zeichneAusschnitt(erzeugeAusschnitt(new Zufall('gleich'), 3));
   assert.equal(zeichneAusschnitt(erzeugeAusschnitt(new Zufall('gleich'), 3)), eins);
-  assert.throws(() => erzeugeAusschnitt(new Zufall('x'), 2, 'kurve'));
+  // Stufe 2 kennt die Gradzahl-Kurve, aber kein HR, GK und anl. Kurs
+  assert.equal(erzeugeAusschnitt(new Zufall('x'), 2, 'kurve').art, 'kurve');
+  for (const art of ['hr', 'hrKurs', 'gk', 'anl']) assert.throws(() => erzeugeAusschnitt(new Zufall('x'), 2, art));
 });

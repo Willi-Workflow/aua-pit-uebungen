@@ -126,6 +126,10 @@ test('Prüfmodus Ausschnitte: sichtbar, ausgeblendet mit Antwortfeld, Lösung da
   assert.equal(zaehle(ansichtFuer('#/blitzrechnen/stufe3?probe=ausgeblendet&art=hr'), /data-aktion="richtung"/g), 16);
   const aufloesung = ansichtFuer('#/blitzrechnen/stufe2?probe=loesung&antwort=aufloesung&art=relativ');
   assert.ok(aufloesung.includes('Hatte ich nicht</button>') && !aufloesung.includes('<li class="falsch">'));
+  // Stufe 2 mit Gradzahl-Kurve: nackter Winkel im Bild, gefragt ist der Kurs danach
+  const kurve = ansichtFuer('#/blitzrechnen/stufe2?probe=ausgeblendet&art=kurve');
+  assert.ok(kurve.includes('Kurs nach der Kurve') && kurve.includes('inputmode="numeric"'));
+  assert.ok(/<tspan x="0" dy="0">\d{2,3}<\/tspan>/.test(ansichtFuer('#/blitzrechnen/stufe2?probe=anzeige&art=kurve')), 'Gradzahl an der Kurve');
 });
 
 // ------------------------------------------------------------ Bühnen

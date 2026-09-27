@@ -15,9 +15,10 @@ import { normieren } from './kurs.js';
 
 // Aufgabenelemente je Stufe. "gate" ist in Stufe 2 ein Gate mit drei Zeilen,
 // in Stufe 3 eines der Formen A, B oder C; "anl" ist ein Gate der Form C mit
-// einer Zeile "anl. Kurs".
+// einer Zeile "anl. Kurs". "kurve" ist die Gradzahl-Kurve mit dem Segment ohne
+// Kurs danach, in beiden Stufen wie auf den Blättern.
 export const AUSSCHNITT_ARTEN = {
-  2: ['relativ', 'rechen', 'himmelsrichtung', 'gate'],
+  2: ['relativ', 'rechen', 'himmelsrichtung', 'kurve', 'gate'],
   3: ['relativ', 'rechen', 'himmelsrichtung', 'hr', 'hrKurs', 'gk', 'kurve', 'gate', 'anl'],
 };
 
