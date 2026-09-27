@@ -109,7 +109,9 @@ const NORD_ABSTAND = 8;
 // Platz, den das "N" um seinen Mittelpunkt braucht (Schrift 9, fett)
 const NORD_RADIUS = 6;
 
-export function zeichneParcours(parcours) {
+// "optionen.nordpfeil" false zeichnet ohne Nordpfeil (Ausschnitte im
+// Blitzrechnen, Norden ist dort immer oben); die Blätter zeichnen ihn immer.
+export function zeichneParcours(parcours, optionen = {}) {
   const { stuecke, marken, beschriftungen, umriss, drehung } = parcours.geometrie;
   const start = marken[0];
   const { mitte } = parcours.geometrie.flugzeug;
@@ -121,22 +123,25 @@ export function zeichneParcours(parcours) {
     const p = pfeil(mitte, drehung, NORDPFEIL_LAENGE, NORDPFEIL_SPITZE, NORDPFEIL_BREITE);
     return { ...p, n: { x: p.kopf.x + p.v.x * NORD_ABSTAND, y: p.kopf.y + p.v.y * NORD_ABSTAND } };
   };
-  // Wie weit Pfeil und "N" links von ihrer Mitte reichen
-  const probe = nordpfeil({ x: 0, y: 0 });
-  const links = Math.min(probe.ende.x, probe.kopf.x, probe.links.x, probe.rechts.x, probe.n.x - NORD_RADIUS);
-  const nord = nordpfeil({ x: maxX + Math.max(NORDPFEIL_VERSATZ, NORDPFEIL_LUFT - links), y: minY + NORDPFEIL_VERSATZ });
-  const { n } = nord;
-  // Die viewBox wächst um Pfeil und "N", wie um das Flugzeugsymbol
-  for (const p of [nord.ende, nord.kopf, nord.links, nord.rechts]) {
-    minX = Math.min(minX, p.x - 1);
-    minY = Math.min(minY, p.y - 1);
-    maxX = Math.max(maxX, p.x + 1);
-    maxY = Math.max(maxY, p.y + 1);
+  let nord = null;
+  if (optionen.nordpfeil !== false) {
+    // Wie weit Pfeil und "N" links von ihrer Mitte reichen
+    const probe = nordpfeil({ x: 0, y: 0 });
+    const links = Math.min(probe.ende.x, probe.kopf.x, probe.links.x, probe.rechts.x, probe.n.x - NORD_RADIUS);
+    nord = nordpfeil({ x: maxX + Math.max(NORDPFEIL_VERSATZ, NORDPFEIL_LUFT - links), y: minY + NORDPFEIL_VERSATZ });
+    const { n } = nord;
+    // Die viewBox wächst um Pfeil und "N", wie um das Flugzeugsymbol
+    for (const p of [nord.ende, nord.kopf, nord.links, nord.rechts]) {
+      minX = Math.min(minX, p.x - 1);
+      minY = Math.min(minY, p.y - 1);
+      maxX = Math.max(maxX, p.x + 1);
+      maxY = Math.max(maxY, p.y + 1);
+    }
+    minX = Math.min(minX, n.x - NORD_RADIUS);
+    minY = Math.min(minY, n.y - NORD_RADIUS);
+    maxX = Math.max(maxX, n.x + NORD_RADIUS);
+    maxY = Math.max(maxY, n.y + NORD_RADIUS);
   }
-  minX = Math.min(minX, n.x - NORD_RADIUS);
-  minY = Math.min(minY, n.y - NORD_RADIUS);
-  maxX = Math.max(maxX, n.x + NORD_RADIUS);
-  maxY = Math.max(maxY, n.y + NORD_RADIUS);
   const x = minX - RAND;
   const y = minY - RAND;
   const breite = maxX - minX + 2 * RAND;
@@ -150,8 +155,10 @@ export function zeichneParcours(parcours) {
     ...marken.map(marke),
     flugzeug(mitte, start),
     ...beschriftungen.map(beschriftung),
-    `<path class="nordpfeil" d="${nord.pfad(zahl)}"/>`,
-    `<text class="nord" transform="translate(${zahl(n.x)} ${zahl(n.y)})">N</text>`,
+    ...(nord ? [
+      `<path class="nordpfeil" d="${nord.pfad(zahl)}"/>`,
+      `<text class="nord" transform="translate(${zahl(nord.n.x)} ${zahl(nord.n.y)})">N</text>`,
+    ] : []),
   ];
   return `<svg xmlns="http://www.w3.org/2000/svg" class="parcours" viewBox="${zahl(x)} ${zahl(y)} ${zahl(breite)} ${zahl(hoehe)}" role="img" aria-label="Parcours">
 <style>
