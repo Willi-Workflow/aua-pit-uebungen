@@ -116,13 +116,15 @@ Bei Schablonen mit ausdrücklicher Drehrichtung (Links auf, Rechts auf, Linkskur
 
 ### Passform
 
-Die Zeichnung ist geografisch echt, deshalb ergeben zufällige Kurse oft Knäuel. Die Erzeugung zieht aus dem Zufallsstrom des Blatts **3000 Kandidaten**. Jeder wird zuerst so gedreht, dass sein Start oben liegt (siehe Zeichnung); alle Prüfungen laufen auf der gedrehten Geometrie, billige zuerst. Zulässig ist ein Kandidat, der alle Bedingungen erfüllt:
+Die Zeichnung ist geografisch echt, deshalb ergeben zufällige Kurse oft Knäuel. Die Erzeugung zieht aus dem Zufallsstrom des Blatts **4000 Kandidaten**, ungedreht: Norden zeigt immer nach oben, wie in der Vorlage. Alle Prüfungen laufen auf dieser ungedrehten Geometrie, billige zuerst. Zulässig ist ein Kandidat, der alle Bedingungen erfüllt:
 
 1. Der Weg kreuzt sich nicht selbst (Kreisbögen als Polygonzüge, benachbarte Stücke zählen nicht; die Kreuzung von Ein- und Ausfahrt einer Schleife über 180° ist gewollt).
 2. Die Striche berühren sich höchstens: Mittellinien mindestens 9 Einheiten auseinander, sobald eine Strecke dazwischen liegt. Das Flugzeugsymbol am Start (Kreis mit Radius 14) ist dabei ein Hindernis für alle Stücke außer der ersten Strecke.
 3. Das Verhältnis Breite zu Höhe des Umrisses liegt zwischen 0,7 und 1,25.
-4. Der Start liegt im oberen Drittel des Umrisses, höchstens 34 % der Höhe von oben.
+4. Der Start liegt im oberen Teil des Umrisses, höchstens 34 % der Höhe von oben (`START_OBEN`).
 5. Jede Beschriftung steht frei: Kein fremder Strich, keine andere Beschriftung und nicht das Flugzeugsymbol berühren sie. Angrenzende Schleifen und Vollkreishälften zählen dabei als fremd, nur die eigene Strecke und gewöhnliche Eckbögen nicht.
+
+Der Start liegt also nicht durch eine Drehung des Blatts oben, sondern weil die Auswahl unter den vielen probierten Verläufen nur einen mit dem Start im oberen Teil zulässt.
 
 Unter den zulässigen gewinnt der mit der höchsten Füllung (Weglänge je Umrisskante), bei Gleichstand der frühere. Ist keiner zulässig, gewinnt der mit den wenigsten Kreuzungen, dann dem größten Strichabstand, den wenigsten verdeckten Beschriftungen, dem Start oben und dem Seitenverhältnis am nächsten an 1. Die Kandidatensuche ist Teil des bestimmten Zufallsstroms, gleiche Blattnummer ergibt also immer denselben Kandidaten.
 
@@ -177,9 +179,9 @@ Ein Gate ist ein eigenes Element der Kette:
 
 ## Zeichnung
 
-SVG, Segmentlänge proportional zur Dauer. Das Blatt ist so gedreht, dass der Start oben liegt; das Papier der Handzeichnung darf ebenso beliebig gedreht sein. Jede Richtung wird als Kurs minus Drehung gezeichnet. Die Drehung ist der Kurs vom Mittelpunkt des ungedrehten Wegs zum Start, auf ganze Grad gerundet, so dass der Start über der Mitte liegt. Der Mittelpunkt ist der des Wegs ohne Beschriftungen: Mit Beschriftungen wiche die Drehung im Median um 1°, höchstens um 10° ab, die Suche bräuchte aber fast viermal so lange (458 statt 122 ms je Blatt). Kurse, Drehrichtungen und Beschriftungstexte bleiben unverändert; Gate-Kästen und Beschriftungen an Ecken bleiben waagerecht.
+SVG, Segmentlänge proportional zur Dauer. Norden zeigt immer nach oben, wie in der Vorlage; das Blatt wird nicht gedreht. Der Start liegt trotzdem oben, weil die Kandidatensuche (siehe Passform) unter den probierten Verläufen nur die mit dem Start im oberen Teil des Umrisses zulässt, höchstens `START_OBEN` von der Höhe. Technisch kann die Geometrie gedreht werden (Parameter `drehung` der Funktion `geometrie`, Standardwert 0), die Blätter nutzen das nicht.
 
-Ein Nordpfeil oben rechts neben dem Umriss zeigt, wo Norden liegt, wie in der Handzeichnung: Länge 44, Spitze als Dreieck, ein fettes N 8 Einheiten vor der Spitze, Mitte 30 Einheiten rechts und unterhalb der oberen rechten Ecke. Zeigt Norden nach links, rückt der Pfeil so weit nach rechts, dass Pfeil und N 8 Einheiten Abstand zum Umriss halten. Ein Flugzeugsymbol 19 Einheiten hinter dem Start zeigt in Richtung des ersten Segments. Beide zählen nicht zum Umriss, die `viewBox` wächst um sie.
+Ein Nordpfeil oben rechts neben dem Umriss zeigt nach Norden, wie in der Handzeichnung: Länge 44, Spitze als Dreieck, ein fettes N 8 Einheiten vor der Spitze, Mitte 30 Einheiten rechts und unterhalb der oberen rechten Ecke. Da Norden in der Zeichnung immer oben liegt, zeigt der Pfeil auf jedem Blatt nach oben. Ein Flugzeugsymbol 19 Einheiten hinter dem Start zeigt in Richtung des ersten Segments. Beide zählen nicht zum Umriss, die `viewBox` wächst um sie.
 
 Startwerte für die Geometrie (in Einheiten des SVG-Koordinatensystems, im Bau anpassbar):
 
