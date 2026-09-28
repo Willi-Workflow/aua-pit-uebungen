@@ -43,7 +43,7 @@ Jede Beschriftung steht deutlich näher an ihrem eigenen Strich als an jedem and
 
 ## Übungsmodus
 
-In der Blattansicht beider Stufen steht neben "Drucken" der Knopf **Start**. Er legt das Blatt über den ganzen Bildschirm: Textteil oben, darunter der Parcours so groß, wie die übrige Höhe erlaubt (der Textteil wird dafür kleiner und im Querformat ab 700 px Breite zweispaltig). Das Vollbild kommt über die Fullscreen-API (mit webkit-Rückfall); zusätzlich legt die Klasse `vollbild` das Blatt als feste Fläche über alles, damit es auch ohne die API geht, etwa auf dem iPhone.
+In der Blattansicht beider Stufen steht neben "Drucken" der Knopf **Start**. Er zeigt das Blatt als A4-Seite hochkant auf dunklem Grund über den ganzen Bildschirm, aufgebaut wie im Druck: Textteil oben, darunter der Parcours. Die Seite passt sich der Bildschirmhöhe an, ist aber mindestens 840 px breit (höchstens Bildschirmbreite); ist sie dann höher als der Bildschirm, scrollt man. Das Vollbild kommt über die Fullscreen-API (mit webkit-Rückfall) für die ganze Seite; zusätzlich legt die Klasse `vollbild` das Blatt als feste Fläche über alles, damit es auch ohne die API geht, etwa auf dem iPhone.
 
 Im Vollbild ersetzt jeder Druck auf die **Leertaste**, jedes **Tippen** oder **Klicken** die schwarze Angabe der nächsten Rechenstelle durch ihre Lösung, rot und fett an genau derselben Stelle, der Reihe nach vom Start bis zum Ende. **Rücktaste** und **Pfeil links** nehmen die letzte Lösung zurück und bringen die schwarze Angabe wieder, **Escape**, "Beenden" oder das Verlassen des Vollbilds über den Browser beenden den Modus, und alle schwarzen Angaben stehen wieder da. Oben rechts zählt "3 / 11" mit. Der Textteil bleibt ohne Lösungen, der Druck zeigt weder Lösungen noch Start-Knopf.
 
