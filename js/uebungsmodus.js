@@ -1,7 +1,9 @@
-// Übungsmodus der Blattansicht im Browser. "Start" legt das Blatt über den
-// ganzen Bildschirm: über die Fullscreen-API (mit webkit-Rückfall) und immer
-// mit der Klasse "vollbild", die das Blatt als feste Fläche über alles legt,
-// damit es auch ohne die API geht (iPhone). Leertaste, Tippen und Klicken
+// Übungsmodus der Blattansicht im Browser. "Start" schaltet die ganze Seite
+// über die Fullscreen-API (mit webkit-Rückfall) in den Vollbildmodus und legt
+// das Blatt mit der Klasse "vollbild" als A4-Seite mittig über alles, damit es
+// auch ohne die API geht (iPhone). Die Seite selbst wird Vollbild, nicht das
+// Blatt, weil der Browser ein Vollbild-Element auf den ganzen Bildschirm zieht
+// und es dann nicht mehr A4 wäre. Leertaste, Tippen und Klicken
 // zeigen die nächste Lösung, Rücktaste und Pfeil links blenden die letzte aus,
 // Escape, "Beenden" oder das Verlassen des Vollbilds über den Browser beenden
 // den Modus und blenden alle Lösungen aus. Die Logik der Tasten steht in
@@ -51,7 +53,8 @@ export function uebungsmodusLaufen(wurzel) {
     document.documentElement.classList.add('vollbild-offen');
     // Sonst löste die Leertaste den Knopf "Start" noch einmal aus
     if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
-    versuchen(blatt.requestFullscreen || blatt.webkitRequestFullscreen, blatt);
+    const seite = document.documentElement;
+    versuchen(seite.requestFullscreen || seite.webkitRequestFullscreen, seite);
   };
 
   const beenden = () => {
@@ -97,7 +100,7 @@ export function uebungsmodusLaufen(wurzel) {
   const vollbildGewechselt = () => {
     const element = vollbildElement();
     if (aktiv && !element) beenden();
-    else if (!aktiv && element === blatt) versuchen(document.exitFullscreen || document.webkitExitFullscreen, document);
+    else if (!aktiv && element === document.documentElement) versuchen(document.exitFullscreen || document.webkitExitFullscreen, document);
   };
 
   wurzel.addEventListener('click', klick);

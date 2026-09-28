@@ -150,13 +150,13 @@ function blattseite(stufe, nummer, abfrage = {}) {
   // Zahl und Einheit nicht trennen, sonst steht auf dem Handy "15" am Zeilenende und "s" darunter
   const zeilen = blatt.textteil.zeilen.map((z) => `<li>${z.satz.replace(/(\d) (s|ft)\b/g, '$1\u00a0$2')}</li>`).join('');
   return kopf(`Stufe ${stufe}, Blatt ${nummer}`, `#/stufe${stufe}`, knoepfe)
-    + `<main class="rahmen blattseite">${blattAnfang}
+    + `<main class="rahmen blattseite">${blattAnfang}<div class="blatt-seite">
 <h1>AUA PIT Stufe ${stufe}, Blatt ${nummer}</h1>
 <p class="ausgang">Ausgangskurs ${kursText(blatt.textteil.ausgangskurs)}°, ${blatt.textteil.ausgangshoehe} ft</p>
 ${stufe === 2 && hatGates(stufe, nummer) ? GATEHINWEIS : ''}
 <ol class="textteil">${zeilen}</ol>
 ${zeichneParcours(blatt.parcours, { loesungen: stellen, loesungenSichtbar: stand })}
-${LEGENDE}
+${LEGENDE}</div>
 <div class="uebung-leiste"><span class="zaehler" data-zaehler aria-live="polite">${zaehlerText(stand, stellen.length)}</span><button type="button" class="knopf klein" data-aktion="beenden">Beenden</button></div>
 </article></main>`;
 }

@@ -534,12 +534,20 @@ button:focus-visible {
   vertical-align: middle;
 }
 
-/* Übungsmodus (uebungsmodus.js): Mit "Start" liegt das Blatt als feste Fläche
-   über dem ganzen Bildschirm, auch ohne Fullscreen-API. Textteil oben, darunter
-   der Parcours mit der ganzen übrigen Höhe; der Textteil wird mit der Höhe und
-   auf schmalen Bildschirmen kleiner, im Querformat ab 700 px Breite
-   zweispaltig. Zähler und "Beenden" oben rechts. Nur auf dem Bildschirm, der
-   Druck bleibt, wie er ist. */
+/* Übungsmodus (uebungsmodus.js): Mit "Start" liegt über dem ganzen Bildschirm
+   ein dunkler Grund, auch ohne Fullscreen-API, darauf das Blatt als A4-Seite
+   hochkant (.blatt-seite). Die Seite passt sich der Bildschirmhöhe an, ist aber
+   mindestens 840 px breit, damit sie lesbar bleibt; ist sie dann höher als der
+   Bildschirm, scrollt man (Willis Wunsch). Nie breiter als der Bildschirm.
+   Aufbau wie im Druck: Textteil einspaltig oben, darunter der Parcours mit der
+   übrigen Höhe, unten die Legende. Schriftgrößen folgen der Seitenhöhe (cqh).
+   Zähler und "Beenden" stehen fest oben rechts am Bildschirm. Außerhalb des
+   Übungsmodus ist .blatt-seite ohne eigene Box (display: contents), Ansicht und
+   Druck bleiben also, wie sie sind. */
+
+.blatt-seite {
+  display: contents;
+}
 
 .uebung-leiste {
   display: none;
@@ -560,16 +568,17 @@ button:focus-visible {
     position: fixed;
     inset: 0;
     z-index: 100;
-    display: flex;
-    flex-direction: column;
+    display: block;
     width: auto;
     max-width: none;
-    height: 100vh;
-    height: 100dvh;
+    height: auto;
     margin: 0;
-    padding: 12px 20px 16px;
+    padding: 12px;
     border: none;
-    overflow: hidden;
+    /* Dunkler Grund um die Seite wie in einem Betrachter */
+    background: #3f4652;
+    overflow-x: hidden;
+    overflow-y: auto;
     cursor: pointer;
     touch-action: manipulation;
     -webkit-user-select: none;
@@ -577,21 +586,38 @@ button:focus-visible {
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* A4 hochkant: so breit, dass die Höhe auf den Bildschirm passt, aber
+     mindestens 840 px und höchstens Bildschirmbreite; Höhe im Verhältnis 297 zu 210 */
+  .blatt.vollbild .blatt-seite {
+    --seite-breite: min(calc(100vw - 24px), max(calc((100vh - 24px) * 210 / 297), 840px));
+    --seite-breite: min(calc(100vw - 24px), max(calc((100dvh - 24px) * 210 / 297), 840px));
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: var(--seite-breite);
+    height: calc(var(--seite-breite) * 297 / 210);
+    margin: 0 auto;
+    /* Seitenrand wie der Druckrand von 12 mm auf 210 mm */
+    padding: calc(var(--seite-breite) * 12 / 210);
+    background: #fff;
+    container-type: size;
+    overflow: hidden;
+  }
+
   .blatt.vollbild h1 {
-    margin: 0 0 2px;
-    padding-right: 11rem;
-    font-size: 1.15rem;
+    margin: 0 0 0.3cqh;
+    font-size: max(12px, 1.9cqh);
   }
 
   .blatt.vollbild .ausgang,
   .blatt.vollbild .gatehinweis,
   .blatt.vollbild .textteil {
-    font-size: clamp(11px, min(1.9vh, 3.3vw), 17px);
+    font-size: max(9px, 1.35cqh);
     line-height: 1.35;
   }
 
   .blatt.vollbild .textteil {
-    margin: 6px 0 10px;
+    margin: 1cqh 0 1.4cqh;
   }
 
   .blatt.vollbild .parcours {
@@ -602,13 +628,19 @@ button:focus-visible {
   }
 
   .blatt.vollbild .legende {
-    display: none;
+    margin-top: 0.8cqh;
+    font-size: max(8px, 1.15cqh);
   }
 
   .blatt.vollbild .uebung-leiste {
-    position: absolute;
+    position: fixed;
     top: 10px;
-    right: 16px;
+    right: 14px;
+    z-index: 1;
+    padding: 6px 8px 6px 12px;
+    background: #fff;
+    border: 1px solid var(--linie);
+    border-radius: 4px;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -620,17 +652,6 @@ button:focus-visible {
     font-size: 0.95rem;
     color: var(--zweittext);
     font-variant-numeric: tabular-nums;
-  }
-}
-
-@media screen and (min-width: 700px) and (min-aspect-ratio: 1/1) {
-  .blatt.vollbild .textteil {
-    columns: 2;
-    column-gap: 32px;
-  }
-
-  .blatt.vollbild .textteil li {
-    break-inside: avoid;
   }
 }
 
