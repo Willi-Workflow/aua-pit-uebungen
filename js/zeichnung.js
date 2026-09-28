@@ -206,12 +206,22 @@ function gateLoesungLaenge(b, text) {
   return fettBreite(text) > frei ? frei : null;
 }
 
+// Inhalt einer Lösung: der Wert rot und fett (Farbe und Schnitt des Texts), der
+// Rest davor und danach (Dauer, Pfeil, "über N auf") schwarz in normalem Schnitt
+function loesungsInhalt(s) {
+  const wert = s.wert ?? s.text;
+  const stelle = s.text.indexOf(wert);
+  if (stelle < 0) return s.text;
+  const schwarz = (teil) => (teil ? `<tspan class="schwarz">${teil}</tspan>` : '');
+  return `${schwarz(s.text.slice(0, stelle))}${wert}${schwarz(s.text.slice(stelle + wert.length))}`;
+}
+
 function loesung(s, i, sichtbar, b, umriss) {
   const { transform, anker } = textLage(b);
   const klasse = `loesung${umriss ? ' umriss' : ''}${anker === 'start' ? ' start' : ''}${i < sichtbar ? ' gezeigt' : ''}`;
   const laenge = b.gate ? gateLoesungLaenge(b, s.text) : null;
   const stauchen = laenge ? ` textLength="${zahl(laenge)}" lengthAdjust="spacingAndGlyphs"` : '';
-  return `<text class="${klasse}" data-schritt="${i + 1}" transform="${transform}" y="${zahl(s.zeile * ZEILENABSTAND)}"${stauchen}>${s.text}</text>`;
+  return `<text class="${klasse}" data-schritt="${i + 1}" transform="${transform}" y="${zahl(s.zeile * ZEILENABSTAND)}"${stauchen}>${loesungsInhalt(s)}</text>`;
 }
 
 // "optionen.nordpfeil" false zeichnet ohne Nordpfeil (Ausschnitte im
@@ -234,6 +244,8 @@ export function zeichneParcours(parcours, optionen = {}) {
   const uebung = loesungen
     ? `\n.parcours .loesung { display: none; font: 700 ${LOESUNG_SCHRIFT}px system-ui, -apple-system, sans-serif; fill: ${LOESUNG_FARBE}; }`
       + `\n.parcours .loesung.umriss { fill: #fff; stroke: #fff; stroke-width: ${LOESUNG_UMRISS}px; stroke-linejoin: round; }`
+      + '\n.parcours .loesung .schwarz { fill: #000; font-weight: 400; }'
+      + '\n.parcours .loesung.umriss .schwarz { fill: #fff; }'
       + '\n.parcours .loesung.start { text-anchor: start; }'
       + '\n.parcours .loesung.gezeigt { display: inline; }'
       + '\n.parcours .ersetzt { visibility: hidden; }'

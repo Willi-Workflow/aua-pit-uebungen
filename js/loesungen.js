@@ -17,6 +17,8 @@
 //   HR 111°/ (die Himmelsrichtung wie auf dem Blatt, "ESE/15""), GK/ (der Kurs,
 //   "067°/15"") und die Anschlusszeile eines Gates der Form A ("über N auf K"
 //   wird "über N auf 048°")
+// Rot ist nur der ausgerechnete Wert ("wert"); Dauer, Pfeil und Wörter wie
+// "über N auf" bleiben schwarz (Willis Wunsch).
 // Himmelsrichtungen und Gradkurse als Angabe ohne GK sind keine Rechenstelle,
 // Vollkreise auch nicht. Halbe Grade (nach Himmelsrichtungen) mit Komma, "202,5°".
 
@@ -30,9 +32,9 @@ function grad(kurs) {
 }
 
 // Alle Rechenstellen eines Blatts ({ parcours } aus erzeugeBlatt) in der
-// Reihenfolge des Parcours. Je Stelle { art, text, bezug, beschriftung, zeile,
+// Reihenfolge des Parcours. Je Stelle { art, text, wert, bezug, beschriftung, zeile,
 // x, y, winkel, anker }: "art" ist 'kurs', 'rechen', 'gate', 'anschluss',
-// 'gegenkurs', 'hr' oder 'gk', "text" die Lösung, "bezug" die Zeile, die sie
+// 'gegenkurs', 'hr' oder 'gk', "text" die Lösung, "wert" der rote Teil darin, "bezug" die Zeile, die sie
 // ersetzt, "beschriftung" deren Beschriftung als Nummer in
 // geometrie.beschriftungen und "zeile" die Nummer der Zeile ab 0. x, y, winkel
 // und anker ('middle' oder bei Gates 'start', wie text-anchor) sind der
@@ -52,13 +54,14 @@ export function rechenstellen(blatt) {
     return b;
   };
   const stellen = [];
-  const stelle = (b, zeile, art, text) => {
+  const stelle = (b, zeile, art, text, wert = text) => {
     const lage = textLage(b);
     const r = (lage.winkel * Math.PI) / 180;
     const dy = zeile * ZEILENABSTAND;
     stellen.push({
       art,
       text,
+      wert,
       bezug: b.zeilen[zeile],
       beschriftung: alle.indexOf(b),
       zeile,
@@ -82,9 +85,12 @@ export function rechenstellen(blatt) {
     }
     if (e.art === 'gate') {
       const b = holen((b2) => b2.gate && b2.zeilen.length === e.zeilen.length + (e.anschluss ? 1 : 0), 'Gate');
-      e.zeilen.forEach((z, j) => stelle(b, j, 'gate', gateZeileMitWert(z, e.form, grad(z.kursDanach))));
+      e.zeilen.forEach((z, j) => stelle(b, j, 'gate', gateZeileMitWert(z, e.form, grad(z.kursDanach)), grad(z.kursDanach)));
       // K ist der Kurs des nächsten gezeichneten Segments
-      if (e.anschluss) stelle(b, e.zeilen.length, 'anschluss', b.zeilen[e.zeilen.length].replace(/K$/, grad(elemente[n + 1].kurs)));
+      if (e.anschluss) {
+        const k = grad(elemente[n + 1].kurs);
+        stelle(b, e.zeilen.length, 'anschluss', b.zeilen[e.zeilen.length].replace(/K$/, k), k);
+      }
       kursDa = false;
       continue;
     }
@@ -93,10 +99,13 @@ export function rechenstellen(blatt) {
     }
     const b = holen((b2) => !b2.gate && b2.mitte !== null && b2.kurs === e.kurs, `Segment ${e.kurs}`);
     const dauer = `/${e.dauer}"`;
-    if (e.anzeige === 'keine') stelle(b, 0, 'kurs', `${grad(e.kurs)}${dauer}`);
-    else if (e.anzeige === 'hr' || e.anzeige === 'hrKurs') stelle(b, 0, 'hr', `${himmelsrichtungName(e.himmelsrichtung, SCHREIBWEISE.zeichnung)}${dauer}`);
-    else if (e.anzeige === 'gk') stelle(b, 0, 'gk', `${grad(e.kurs)}${dauer}`);
-    else if (e.alsGegenkurs) stelle(b, 0, 'gegenkurs', `${grad(e.kurs)}${dauer}`);
+    const kurs = grad(e.kurs);
+    if (e.anzeige === 'keine') stelle(b, 0, 'kurs', `${kurs}${dauer}`, kurs);
+    else if (e.anzeige === 'hr' || e.anzeige === 'hrKurs') {
+      const richtung = himmelsrichtungName(e.himmelsrichtung, SCHREIBWEISE.zeichnung);
+      stelle(b, 0, 'hr', `${richtung}${dauer}`, richtung);
+    } else if (e.anzeige === 'gk') stelle(b, 0, 'gk', `${kurs}${dauer}`, kurs);
+    else if (e.alsGegenkurs) stelle(b, 0, 'gegenkurs', `${kurs}${dauer}`, kurs);
     if (e.rechenaufgabe !== null) stelle(b, 1, 'rechen', kursAnzeige(normieren(e.kurs + e.rechenaufgabe)));
     kursDa = true;
     ohneEcke = false;

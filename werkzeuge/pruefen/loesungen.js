@@ -80,10 +80,12 @@ export function loesungWert(art, text, bezug) {
 export function loesungenLesen(svgText, umriss = false) {
   const stil = svgText.match(/\.parcours \.loesung \{[^}]*font: 700 ([\d.]+)px/);
   const schrift = stil ? Number(stil[1]) : null;
-  const muster = new RegExp(`<text class="loesung${umriss ? ' umriss' : ''}( start)?( gezeigt)?" data-schritt="(\\d+)" transform="([^"]+)" y="([-\\d.]+)"(?: textLength="([\\d.]+)" lengthAdjust="spacingAndGlyphs")?>([^<]+)</text>`, 'g');
+  // Rot ist der Text selbst, Dauer, Pfeil und "über N auf" stehen schwarz in
+  // tspans mit der Klasse "schwarz"; gelesen wird der ganze Text
+  const muster = new RegExp(`<text class="loesung${umriss ? ' umriss' : ''}( start)?( gezeigt)?" data-schritt="(\\d+)" transform="([^"]+)" y="([-\\d.]+)"(?: textLength="([\\d.]+)" lengthAdjust="spacingAndGlyphs")?>((?:[^<]|<tspan class="schwarz">[^<]*</tspan>)+)</text>`, 'g');
   return [...svgText.matchAll(muster)].map((m) => ({
     schritt: Number(m[3]), anker: m[1] ? 'start' : 'mitte', gezeigt: Boolean(m[2]), transform: m[4], t: transformLesen(m[4]),
-    dy: Number(m[5]), laenge: m[6] === undefined ? null : Number(m[6]), text: m[7], schrift,
+    dy: Number(m[5]), laenge: m[6] === undefined ? null : Number(m[6]), text: m[7].replace(/<\/?tspan[^>]*>/g, ''), schrift,
   }));
 }
 

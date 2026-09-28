@@ -48,11 +48,19 @@ test('Stufe 3, Blatt 6: Gegenkurs-Angaben, Anschlusszeilen, GK/, HR und Form C',
 
 // Rote Lösungen und weiße Umrisse eines SVG mit Lösungen: Klasse, Schritt,
 // transform, Zeilenhöhe, gestauchte Länge, Text
-const ROT = /<text class="loesung( start)?( gezeigt)?" data-schritt="(\d+)" transform="([^"]+)" y="([-\d.]+)"((?: textLength="[\d.]+" lengthAdjust="spacingAndGlyphs")?)>([^<]+)<\/text>/g;
-const UMRISS = /<text class="loesung umriss( start)?( gezeigt)?" data-schritt="(\d+)" transform="([^"]+)" y="([-\d.]+)"((?: textLength="[\d.]+" lengthAdjust="spacingAndGlyphs")?)>([^<]+)<\/text>/g;
+// Inhalt einer Lösung: rot ist der Text selbst, schwarz (Dauer, Pfeil, "über N
+// auf") steht in tspans mit der Klasse "schwarz"
+const INHALT = '((?:[^<]|<tspan class="schwarz">[^<]*<\\/tspan>)+)';
+const LAGE = 'data-schritt="(\\d+)" transform="([^"]+)" y="([-\\d.]+)"((?: textLength="[\\d.]+" lengthAdjust="spacingAndGlyphs")?)';
+const ROT = new RegExp(`<text class="loesung( start)?( gezeigt)?" ${LAGE}>${INHALT}<\\/text>`, 'g');
+const UMRISS = new RegExp(`<text class="loesung umriss( start)?( gezeigt)?" ${LAGE}>${INHALT}<\\/text>`, 'g');
 
 function roteLesen(svg, muster = ROT) {
-  return [...svg.matchAll(muster)].map((m) => ({ anker: m[1] ? 'start' : 'middle', gezeigt: Boolean(m[2]), schritt: Number(m[3]), transform: m[4], y: Number(m[5]), laenge: m[6], text: m[7] }));
+  return [...svg.matchAll(muster)].map((m) => ({
+    anker: m[1] ? 'start' : 'middle', gezeigt: Boolean(m[2]), schritt: Number(m[3]), transform: m[4], y: Number(m[5]), laenge: m[6],
+    text: m[7].replace(/<\/?tspan[^>]*>/g, ''),
+    rot: m[7].replace(/<tspan class="schwarz">[^<]*<\/tspan>/g, ''),
+  }));
 }
 
 // Schwarze Zeilen aller Beschriftungen: Klasse und transform ihres Textelements,
@@ -86,6 +94,7 @@ test('Zeichnung: jede Lösung hat genau eine schwarze Zeile an derselben Stelle,
     rote.forEach((l, i) => {
       assert.equal(l.schritt, i + 1);
       assert.equal(l.text, stellen[i].text);
+      assert.equal(l.rot, stellen[i].wert, `Schritt ${l.schritt}: nur der Wert ist rot`);
       const gegen = schwarze.filter((z) => z.schritt === l.schritt);
       assert.equal(gegen.length, 1, `Schritt ${l.schritt}: ${gegen.length} schwarze Zeilen`);
       const [z] = gegen;
