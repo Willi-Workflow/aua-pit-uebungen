@@ -45,25 +45,28 @@ Jede Beschriftung steht deutlich näher an ihrem eigenen Strich als an jedem and
 
 In der Blattansicht beider Stufen steht neben "Drucken" der Knopf **Start**. Er legt das Blatt über den ganzen Bildschirm: Textteil oben, darunter der Parcours so groß, wie die übrige Höhe erlaubt (der Textteil wird dafür kleiner und im Querformat ab 700 px Breite zweispaltig). Das Vollbild kommt über die Fullscreen-API (mit webkit-Rückfall); zusätzlich legt die Klasse `vollbild` das Blatt als feste Fläche über alles, damit es auch ohne die API geht, etwa auf dem iPhone.
 
-Im Vollbild zeigt jeder Druck auf die **Leertaste**, jedes **Tippen** oder **Klicken** an der nächsten Rechenstelle die Lösung, rot und fett mit weißem Umriss, der Reihe nach vom Start bis zum Ende. **Rücktaste** und **Pfeil links** blenden die letzte wieder aus, **Escape**, "Beenden" oder das Verlassen des Vollbilds über den Browser beenden den Modus, und alle Lösungen verschwinden. Oben rechts zählt "3 / 11" mit. Der Textteil bleibt ohne Lösungen, der Druck zeigt weder Lösungen noch Start-Knopf.
+Im Vollbild ersetzt jeder Druck auf die **Leertaste**, jedes **Tippen** oder **Klicken** die schwarze Angabe der nächsten Rechenstelle durch ihre Lösung, rot und fett an genau derselben Stelle, der Reihe nach vom Start bis zum Ende. **Rücktaste** und **Pfeil links** nehmen die letzte Lösung zurück und bringen die schwarze Angabe wieder, **Escape**, "Beenden" oder das Verlassen des Vollbilds über den Browser beenden den Modus, und alle schwarzen Angaben stehen wieder da. Oben rechts zählt "3 / 11" mit. Der Textteil bleibt ohne Lösungen, der Druck zeigt weder Lösungen noch Start-Knopf.
 
 Rechenstellen (`js/loesungen.js`, ohne DOM):
 
-| Stelle | Lösung |
-|---|---|
-| Segment ohne Kurs nach einer relativen Ecke (`+117°`) oder Gradzahl-Kurve (`139`) | Kurs, `247°` |
-| Rechenaufgabe (`+230`) | Kurs des Segments plus Zahl, `= 117` |
-| jede Zeile eines Gates | Kurs nach der Zeile, `202,5°` |
-| Stufe 3: Kursangabe als Gegenkurs (`GK 247°/15"`) | `067°` |
-| Stufe 3: `HR/20"`, `HR 111°/15"` | Himmelsrichtung wie auf dem Blatt, `ESE` |
-| Stufe 3: `GK/15"` | Kurs |
-| Stufe 3: Anschlusszeile (`über N auf K`) | `K = 048°` |
+| Stelle | schwarz | rot |
+|---|---|---|
+| Segment ohne Kurs nach einer relativen Ecke (`+117°`) oder Gradzahl-Kurve (`139`), Ecke und Kurve bleiben | `/15"` | `247°/15"` |
+| Rechenaufgabe unter einem Segment, die Zeile darüber bleibt | `+230` | `117` |
+| jede Zeile eines Gates, Pfeil und Zeit bleiben | `+72 → 10"`, `SSW ↘ 10"` | `162° → 10"`, `202,5° ↘ 10"` |
+| Stufe 3: Gate-Zeile der Form C | `↗ NNE +102° 15"`, `→ anl. Kurs +9×13 20"` | `↗ 124,5° 15"`, `→ 150° 20"` |
+| Stufe 3: Kursangabe als Gegenkurs | `GK 247°/15"` | `067°/15"` |
+| Stufe 3: HR | `HR 111°/15"`, `HR/20"` | `ESE/15"`, `ESE/20"` |
+| Stufe 3: Kehre | `GK/15"` | `067°/15"` |
+| Stufe 3: Anschlusszeile | `über N auf K` | `über N auf 048°` |
 
 Himmelsrichtungen und Gradkurse als Angabe ohne GK sind keine Rechenstelle, Vollkreise auch nicht. Je Blatt sind es im Mittel 18,6 Stellen in Stufe 2 und 32,4 in Stufe 3.
 
-Jede Lösung steht an ihrer Beschriftung: bei Segmenten rechts neben der Zeile, als eigene Zeile außen über oder unter der Angabe oder links davon, bei Gates rechts neben der Zeile außerhalb des Kastens, sonst links. Gewählt wird die Lage, die die eigene Beschriftung frei lässt, im Zeichenfeld bleibt und am wenigsten fremde Beschriftungen, Kästen, Symbole und schon gesetzte Lösungen verdeckt, dann am wenigsten Linien; gesetzt werden erst die Gates, dann die Segmente. Linien darf eine Lösung überdecken; fremde Beschriftungen, Kästen oder andere Lösungen berühren nach der gemessenen Tinte 29 von 1860 Lösungen der Stufe 2 und 52 von 3240 der Stufe 3. `zeichneParcours` zeichnet die Lösungen mit der Option `loesungen` als verborgene Gruppe obenauf, erst alle weißen Umrisse, dann alle roten Texte; ohne die Option bleibt das SVG Zeichen für Zeichen, wie es war.
+Jede Lösung ersetzt genau eine Zeile einer Beschriftung und steht mit demselben `transform` (Ursprung und Drehung), derselben Zeilenhöhe, demselben Anker (Gate-Text linksbündig, sonst mittig) und in derselben Schriftgröße 9 da, nur fett und rot. `zeichneParcours` markiert mit der Option `loesungen` jede ersetzte Zeile mit `data-ersetzt` und zeichnet die Lösungen als verborgene Gruppe obenauf (`data-schritt`), erst alle weißen Umrisse, dann alle roten Texte. Beim Aufdecken bekommt die Lösung die Klasse `gezeigt` und ihre Zeile die Klasse `ersetzt` (`visibility: hidden`, die übrigen Zeilen bleiben stehen); im Druck sind alle Zeilen sichtbar und keine Lösung. Ohne die Option bleibt das SVG Zeichen für Zeichen, wie es war, und im Normalzustand sieht die Blattansicht aus wie vorher.
 
-**Prüfmodus** für Bildschirmfotos: `#/stufe3/blatt/6?probe=vollbild&schritt=8` zeigt das Blatt im Vollbildzustand mit den ersten 8 Lösungen, ohne Fullscreen-API und ohne Ablauf.
+Eine Lösung ist meist breiter als ihre Zeile (`247°/15"` statt `/15"`). Wo sie dabei über einen Strich reicht, hält der weiße Umriss sie lesbar; nach der gemessenen Tinte reichen 158 von 1860 Lösungen der Stufe 2 und 62 von 3240 der Stufe 3 tiefer als ihre Zeile in Striche, Querstriche oder den Nordpfeil, 49 und 29 berühren fremde Beschriftungen, Kästen oder andere Lösungen. Eine Gate-Lösung, die an den Kastenrand reichen würde (vor allem `über N auf 048°`), wird auf die Breite des Kastens gestaucht (`textLength`): in Stufe 2 eine von 368, in Stufe 3 219 von 1261, höchstens auf 75 %.
+
+**Prüfmodus** für Bildschirmfotos: `#/stufe3/blatt/6?probe=vollbild&schritt=8` zeigt das Blatt im Vollbildzustand, die ersten 8 Zeilen schon durch ihre Lösungen ersetzt, ohne Fullscreen-API und ohne Ablauf.
 
 ## Blitzrechnen
 
@@ -103,7 +106,7 @@ Dann http://127.0.0.1:8765/ öffnen.
 
     node --test
 
-Braucht Node 20 oder neuer, keine Abhängigkeiten. Die Prüfungen erzeugen alle 100 Blätter beider Stufen und dauern gut eine Minute; eine davon stellt sicher, dass die Textteile der Stufe 2 Byte für Byte gleich bleiben, eine andere hält den Fingerabdruck aller 200 Blätter fest (Textteil, Zeichnung, Vorschaubild). Für den Übungsmodus rechnen sie jede Lösung aller 200 Blätter mit dem Prüfwerkzeug aus dem gedruckten SVG nach (Anzahl, Art, Wert, Reihenfolge) und prüfen ihre Lage an der eigenen Beschriftung (`werkzeuge/pruefen/loesungen.js`). Für das Blitzrechnen rechnen sie je Stufe 200 Ausschnitte und je Stufe und Schwierigkeit 100 weitere aus den gezeichneten Beschriftungen nach und lesen dort auch die Wertebereiche ab; beim Kopfrechnen erzeugen sie je Schwierigkeit 500 Aufgaben je Art und prüfen Wertebereiche, Lösung und Tonfolge gegen den Aufgabentext und die Dateien unter `klaenge/`.
+Braucht Node 20 oder neuer, keine Abhängigkeiten. Die Prüfungen erzeugen alle 100 Blätter beider Stufen und dauern gut eine Minute; eine davon stellt sicher, dass die Textteile der Stufe 2 Byte für Byte gleich bleiben, eine andere hält den Fingerabdruck aller 200 Blätter fest (Textteil, Zeichnung, Vorschaubild). Für den Übungsmodus rechnen sie jede Lösung aller 200 Blätter mit dem Prüfwerkzeug aus dem gedruckten SVG nach (Anzahl, Art, Wert, Reihenfolge) und prüfen, dass jede genau eine schwarze Zeile ersetzt und genau an deren Stelle steht (`werkzeuge/pruefen/loesungen.js`). Für das Blitzrechnen rechnen sie je Stufe 200 Ausschnitte und je Stufe und Schwierigkeit 100 weitere aus den gezeichneten Beschriftungen nach und lesen dort auch die Wertebereiche ab; beim Kopfrechnen erzeugen sie je Schwierigkeit 500 Aufgaben je Art und prüfen Wertebereiche, Lösung und Tonfolge gegen den Aufgabentext und die Dateien unter `klaenge/`.
 
 ## Logikprüfung
 
@@ -125,7 +128,7 @@ oder `npm run pruefen -- 3`. Das Werkzeug erzeugt alle 100 Blätter einer Stufe 
 | `js/zeichnung.js` | SVG aus dem Parcours, für Ausschnitte ohne Nordpfeil |
 | `js/blatt.js` | Blatt aus Stufe und Nummer |
 | `js/app.js` | Adressen und Ansichten |
-| `js/loesungen.js` | Übungsmodus: Rechenstellen mit Lösung und Lage, Tastenlogik |
+| `js/loesungen.js` | Übungsmodus: Rechenstellen mit Lösung und ersetzter Zeile, Tastenlogik |
 | `js/uebungsmodus.js` | Übungsmodus: Vollbild, Tasten und Tippen im Browser |
 | `js/schwierigkeit.js` | Blitzrechnen: Wertebereiche und Vorgabezeiten je Schwierigkeit |
 | `js/kopfrechnen.js` | Blitzrechnen: Kopfaufgaben mit Text, Lösung und Tonfolge |
