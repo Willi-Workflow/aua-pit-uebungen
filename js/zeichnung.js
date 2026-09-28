@@ -46,25 +46,35 @@ function gateKasten(s) {
   return `<rect class="gate" x="${zahl(x)}" y="${zahl(y)}" width="${zahl(Math.max(...xs) - x)}" height="${zahl(Math.max(...ys) - y)}"/>`;
 }
 
-function tspans(zeilen) {
+// Zeilen einer Beschriftung. "ersetzt" (Übungsmodus) nennt je Zeile, die eine
+// Lösung ersetzt, deren Schritt und ob sie schon verborgen ist
+function tspans(zeilen, ersetzt = []) {
   return zeilen
-    .map((text, i) => `<tspan x="0" dy="${i === 0 ? 0 : ZEILENABSTAND}">${text}</tspan>`)
+    .map((text, i) => {
+      const e = ersetzt[i];
+      const zusatz = e ? ` data-ersetzt="${e.schritt}"${e.verborgen ? ' class="ersetzt"' : ''}` : '';
+      return `<tspan x="0" dy="${i === 0 ? 0 : ZEILENABSTAND}"${zusatz}>${text}</tspan>`;
+    })
     .join('');
 }
 
-// Gate-Text linksbündig 5 Einheiten nach dem linken Kastenrand, der Block
-// senkrecht mittig im Kasten
-function gateText(b) {
-  const x = b.x - b.halbeBreite + 5;
-  const y = b.y - ((b.zeilen.length - 1) * ZEILENABSTAND) / 2;
-  return `<text class="gate" transform="translate(${zahl(x)} ${zahl(y)})">${tspans(b.zeilen)}</text>`;
+// Ursprung, Drehung und Anker eines Beschriftungstexts. Gate-Text linksbündig
+// 5 Einheiten nach dem linken Kastenrand, der Block senkrecht mittig im Kasten,
+// ohne Drehung; jede andere Beschriftung mittig an ihrem Punkt, gedreht. Die
+// Lösungen des Übungsmodus stehen mit demselben transform an ihrer Zeile.
+export function textLage(b) {
+  if (b.gate) {
+    const x = b.x - b.halbeBreite + 5;
+    const y = b.y - ((b.zeilen.length - 1) * ZEILENABSTAND) / 2;
+    return { x, y, winkel: 0, anker: 'start', transform: `translate(${zahl(x)} ${zahl(y)})` };
+  }
+  return { x: b.x, y: b.y, winkel: b.winkel, anker: 'middle', transform: `translate(${zahl(b.x)} ${zahl(b.y)}) rotate(${zahl(b.winkel)})` };
 }
 
-// "Start" und "Ende" (Stufe 3) fett, sonst wie jede Beschriftung
-function beschriftung(b) {
-  if (b.gate) return gateText(b);
-  const klasse = b.fett ? ' class="fett"' : '';
-  return `<text${klasse} transform="translate(${zahl(b.x)} ${zahl(b.y)}) rotate(${zahl(b.winkel)})">${tspans(b.zeilen)}</text>`;
+// "Start" und "Ende" (Stufe 3) fett, Gates mit eigener Klasse, sonst wie jede Beschriftung
+function beschriftung(b, ersetzt) {
+  const klasse = b.gate ? ' class="gate"' : b.fett ? ' class="fett"' : '';
+  return `<text${klasse} transform="${textLage(b).transform}">${tspans(b.zeilen, ersetzt)}</text>`;
 }
 
 // Flugzeugsymbol am Anfang des Parcours, Nase in gezeichneter Richtung des ersten Segments.
@@ -157,31 +167,61 @@ export function druckschrift(geometrie, hoehe = DRUCKFLAECHE.hoehe) {
   return 9 * 0.75 * Math.min(DRUCKFLAECHE.breite / feld.breite, hoehe / feld.hoehe);
 }
 
-// Übungsmodus der Blattansicht (loesungen.js): Die Lösungen stehen fett in Rot
-// mit weißem Umriss, eine Einheit größer als die Beschriftungen, und sind
-// verborgen, bis die Klasse "gezeigt" sie einblendet. Die weißen Umrisse liegen
-// als eigene Lage unter allen roten Texten: Mit paint-order: stroke an jedem
-// Text deckte der Umriss einer Gate-Zeile das Komma der Zeile darüber halb ab.
-export const LOESUNG_SCHRIFT = 10;
+// Übungsmodus der Blattansicht (loesungen.js): Jede Lösung ersetzt eine Zeile
+// einer Beschriftung. Sie steht dort mit demselben transform, derselben Zeilenhöhe,
+// demselben Anker und in derselben Schriftgröße, nur fett und rot, und ist
+// verborgen, bis die Klasse "gezeigt" sie einblendet; die Klasse "ersetzt"
+// verbirgt dann die schwarze Zeile (visibility, damit die übrigen Zeilen stehen
+// bleiben, wo sie sind). Eine Lösung ist meist breiter als ihre Zeile ("247°/15""
+// statt "/15""); wo sie dabei über einen Strich reicht, hält ein weißer Umriss
+// sie lesbar. Die Umrisse liegen als eigene Lage unter allen roten Texten, damit
+// der Umriss einer Zeile nie die Lösung der Zeile darüber anschneidet.
+export const LOESUNG_SCHRIFT = 9;
 export const LOESUNG_FARBE = '#c0262d';
 const LOESUNG_UMRISS = 2.5;
 
-// Eine Lösung als Text, "anker" 'start' (beginnt an x, y), 'end' (endet dort)
-// oder 'middle' (mittig dort); "umriss" für die weiße Lage darunter
-const ANKER_KLASSE = { start: '', end: ' ende', middle: ' mitte' };
+// Eine Gate-Zeile als Lösung ist oft breiter als die breiteste Zeile, nach der
+// der Kasten bemessen ist ("über N auf 048°" statt "über N auf K"). Reicht sie
+// näher als KASTEN_LUFT an den inneren Rand des Kastens, wird sie auf die Länge
+// bis dahin gestaucht (textLength), statt über den Kasten hinauszuragen.
+// Gemessen wird mit dem Vorschub der Zeichen in Schrift 9 fett, in Chrome
+// gemessen (system-ui auf macOS, wie in werkzeuge/pruefen/tinte.js); ein
+// großzügigerer Schätzwert würde Zeilen, die passen, auf die Länge strecken.
+// Unbekannte Zeichen zählen wie das breiteste, das W.
+const KASTEN_LUFT = 1;
+const FETT_VORSCHUB = {
+  0: 6.33, 1: 4.77, 2: 5.96, 3: 6.19, 4: 6.35, 5: 6.14, 6: 6.32, 7: 5.61, 8: 6.41, 9: 6.32,
+  '°': 4.53, '"': 5.29, ',': 3.3, '.': 3.3, ' ': 2.49, '→': 8.66, '↗': 7.35, '↘': 7.35,
+  N: 7.08, S: 6.25, W: 9.25, a: 5.48, b: 6.03, e: 5.58, f: 3.84, k: 5.58, r: 4.08, u: 5.81, z: 5.26, ü: 5.81,
+};
 
-function loesung(s, i, sichtbar, umriss) {
-  const klasse = `loesung${umriss ? ' umriss' : ''}${ANKER_KLASSE[s.anker]}${i < sichtbar ? ' gezeigt' : ''}`;
-  return `<text class="${klasse}" data-schritt="${i + 1}" transform="translate(${zahl(s.x)} ${zahl(s.y)}) rotate(${zahl(s.winkel)})">${s.text}</text>`;
+function fettBreite(text) {
+  let summe = 0;
+  for (const zeichen of text) summe += FETT_VORSCHUB[zeichen] ?? FETT_VORSCHUB.W;
+  return summe;
+}
+
+function gateLoesungLaenge(b, text) {
+  const frei = 2 * b.halbeBreite - 5 - 0.75 - KASTEN_LUFT;
+  return fettBreite(text) > frei ? frei : null;
+}
+
+function loesung(s, i, sichtbar, b, umriss) {
+  const { transform, anker } = textLage(b);
+  const klasse = `loesung${umriss ? ' umriss' : ''}${anker === 'start' ? ' start' : ''}${i < sichtbar ? ' gezeigt' : ''}`;
+  const laenge = b.gate ? gateLoesungLaenge(b, s.text) : null;
+  const stauchen = laenge ? ` textLength="${zahl(laenge)}" lengthAdjust="spacingAndGlyphs"` : '';
+  return `<text class="${klasse}" data-schritt="${i + 1}" transform="${transform}" y="${zahl(s.zeile * ZEILENABSTAND)}"${stauchen}>${s.text}</text>`;
 }
 
 // "optionen.nordpfeil" false zeichnet ohne Nordpfeil (Ausschnitte im
 // Blitzrechnen, Norden ist dort immer oben); die Blätter zeichnen ihn immer.
 // "optionen.loesungen" (Liste aus rechenstellen in loesungen.js) zeichnet die
 // Lösungen des Übungsmodus als verborgene Gruppe obenauf, einzeln über
-// "data-schritt" einzublenden; die ersten "optionen.loesungenSichtbar" stehen
-// schon da (Prüfmodus). Ohne "loesungen" bleibt das SVG Zeichen für Zeichen,
-// wie es war.
+// "data-schritt" einzublenden, und markiert die Zeilen, die sie ersetzen, mit
+// "data-ersetzt"; die ersten "optionen.loesungenSichtbar" stehen schon da, ihre
+// Zeilen sind verborgen (Prüfmodus). Ohne "loesungen" bleibt das SVG Zeichen
+// für Zeichen, wie es war.
 export function zeichneParcours(parcours, optionen = {}) {
   const { stuecke, marken, beschriftungen } = parcours.geometrie;
   const start = marken[0];
@@ -192,27 +232,32 @@ export function zeichneParcours(parcours, optionen = {}) {
   const fett = beschriftungen.some((b) => b.fett) ? '\n.parcours text.fett { font-weight: 700; }' : '';
   const loesungen = optionen.loesungen || null;
   const uebung = loesungen
-    ? `\n.parcours .loesung { display: none; font: 700 ${LOESUNG_SCHRIFT}px system-ui, -apple-system, sans-serif; fill: ${LOESUNG_FARBE}; text-anchor: start; dominant-baseline: middle; }`
+    ? `\n.parcours .loesung { display: none; font: 700 ${LOESUNG_SCHRIFT}px system-ui, -apple-system, sans-serif; fill: ${LOESUNG_FARBE}; }`
       + `\n.parcours .loesung.umriss { fill: #fff; stroke: #fff; stroke-width: ${LOESUNG_UMRISS}px; stroke-linejoin: round; }`
-      + '\n.parcours .loesung.ende { text-anchor: end; }'
-      + '\n.parcours .loesung.mitte { text-anchor: middle; }'
+      + '\n.parcours .loesung.start { text-anchor: start; }'
       + '\n.parcours .loesung.gezeigt { display: inline; }'
+      + '\n.parcours .ersetzt { visibility: hidden; }'
     : '';
   const sichtbar = optionen.loesungenSichtbar || 0;
+  // Je Beschriftung die Zeilen, die eine Lösung ersetzt
+  const ersetzt = beschriftungen.map(() => []);
+  (loesungen || []).forEach((s, i) => {
+    ersetzt[s.beschriftung][s.zeile] = { schritt: i + 1, verborgen: i < sichtbar };
+  });
   const teile = [
     ...stuecke.filter((s) => s.art !== 'gate').map(stueck),
     ...stuecke.filter((s) => s.art === 'gate').map(gateKasten),
     ...marken.map(marke),
     flugzeug(mitte, start),
-    ...beschriftungen.map(beschriftung),
+    ...beschriftungen.map((b, i) => beschriftung(b, ersetzt[i])),
     ...(nord ? [
       `<path class="nordpfeil" d="${nord.pfad(zahl)}"/>`,
       `<text class="nord" transform="translate(${zahl(nord.n.x)} ${zahl(nord.n.y)})">N</text>`,
     ] : []),
     ...(loesungen ? [
       '<g class="loesungen">',
-      ...loesungen.map((s, i) => loesung(s, i, sichtbar, true)),
-      ...loesungen.map((s, i) => loesung(s, i, sichtbar, false)),
+      ...loesungen.map((s, i) => loesung(s, i, sichtbar, beschriftungen[s.beschriftung], true)),
+      ...loesungen.map((s, i) => loesung(s, i, sichtbar, beschriftungen[s.beschriftung], false)),
       '</g>',
     ] : []),
   ];

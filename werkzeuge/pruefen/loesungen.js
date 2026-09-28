@@ -1,17 +1,18 @@
 // Lösungen des Übungsmodus (js/loesungen.js) gegen die Nachrechnung: Was eine
 // Pilotin aus dem gedruckten Blatt an Lösungen erwartet, der Reihe nach, und ob
-// jede gezeichnete Lösung dicht an ihrer Beschriftung steht, die eigene frei
-// lässt und im Zeichenfeld bleibt. Die Lage wird aus dem gezeichneten SVG
-// gelesen, die Tinte aus den in Chrome gemessenen Zeichenmaßen berechnet.
-// Genutzt von test/blaetter.test.js für alle 200 Blätter.
+// jede gezeichnete Lösung genau eine schwarze Zeile ersetzt und genau an deren
+// Stelle steht (gleicher transform, gleiche Zeilenhöhe, gleicher Anker, gleiche
+// Schriftgröße). Gelesen wird aus dem gezeichneten SVG, die Tinte aus den in
+// Chrome gemessenen Zeichenmaßen berechnet. Genutzt von test/blaetter.test.js
+// für alle 200 Blätter.
 
 import { zeichneParcours } from '../../js/zeichnung.js';
 import { rechenstellen } from '../../js/loesungen.js';
 import { svgLesen } from './svg.js';
 import { textteilPruefen } from './textteil.js';
 import { parcoursPruefen } from './parcours.js';
-import { GLYPHEN, GRUNDLINIE } from './tinte.js';
-import { ENGLISCH, norm, anwenden, transformLesen, polygonPolygon } from './grundlagen.js';
+import { GLYPHEN, zeileTinte, tintenPolygon } from './tinte.js';
+import { ENGLISCH, norm, transformLesen, polygonPolygon } from './grundlagen.js';
 
 // Was eine Pilotin an Lösungen erwartet, aus den nachgerechneten Kursen
 // (flugKurse aus parcoursPruefen): je Gate-Zeile den Kurs danach, vor dem
@@ -36,56 +37,94 @@ export function erwarteteLoesungen(flugKurse) {
   return liste;
 }
 
-// Schreibweise je Art: "247°", "202,5°", "= 117", "K = 048°", "ESE"
-const MUSTER = {
-  kurs: /^(\d{3}(?:,5)?)°$/,
-  gate: /^(\d{3}(?:,5)?)°$/,
-  gegenkurs: /^(\d{3}(?:,5)?)°$/,
-  gk: /^(\d{3}(?:,5)?)°$/,
-  rechen: /^= (\d{3}(?:,5)?)$/,
-  anschluss: /^K = (\d{3}(?:,5)?)°$/,
-  hr: /^([NESW]{1,3})$/,
+// Schreibweise je Art, als Paar aus Muster der Lösung und Muster der Zeile, die
+// sie ersetzt. Die erste Gruppe der Lösung ist der Wert, die übrigen müssen den
+// Gruppen der Zeile gleichen: Dauer, Pfeil, Anfang der Anschlusszeile.
+// "247°/15"" für "/15"", "GK 247°/15"", "GK/15"", "ESE/15"" für "HR/15"" und
+// "HR 111°/15"", "117" für "+230", "162° → 10"" für "+72 → 10"", "↗ 124,5° 15""
+// für "↗ NNE +102° 15"", "über N auf 048°" für "über N auf K"
+const G = '(\\d{3}(?:,5)?)';
+const P = '([→↗↘])';
+const SCHREIBWEISEN = {
+  kurs: [new RegExp(`^${G}°(/\\d+")$`), /^(\/\d+")$/],
+  gegenkurs: [new RegExp(`^${G}°(/\\d+")$`), /^GK [^/]+(\/\d+")$/],
+  gk: [new RegExp(`^${G}°(/\\d+")$`), /^GK(\/\d+")$/],
+  hr: [/^([NESW]{1,3})(\/\d+")$/, /^HR(?: \d{3}°)?(\/\d+")$/],
+  rechen: [new RegExp(`^${G}$`), /^[+-]\d+$/],
+  gate: [new RegExp(`^${G}° ${P} (\\d+")$`), new RegExp(`^.+ ${P} (\\d+")$`)],
+  gateC: [new RegExp(`^${P} ${G}° (\\d+")$`), new RegExp(`^${P} .+ (\\d+")$`)],
+  anschluss: [/^(über N|über S|kürz\. W\.) auf (\d{3}(?:,5)?)°$/, /^(über N|über S|kürz\. W\.) auf K$/],
 };
 
-// Wert einer Lösung in Grad, null bei falscher Schreibweise
-export function loesungWert(art, text) {
-  const m = MUSTER[art] && text.match(MUSTER[art]);
-  if (!m) return null;
-  if (art === 'hr') return ENGLISCH.includes(m[1]) ? ENGLISCH.indexOf(m[1]) * 22.5 : null;
-  return Number(m[1].replace(',', '.'));
+// Wert einer Lösung in Grad, null bei falscher Schreibweise oder wenn sie nicht
+// zur ersetzten Zeile "bezug" passt. Gate-Zeilen der Form C beginnen mit dem Pfeil.
+export function loesungWert(art, text, bezug) {
+  const schluessel = art === 'gate' && /^[→↗↘]/.test(bezug) ? 'gateC' : art;
+  const [muster, bezugMuster] = SCHREIBWEISEN[schluessel] || [];
+  const m = muster && text.match(muster);
+  const b = bezugMuster && bezug.match(bezugMuster);
+  if (!m || !b) return null;
+  // Wert und übrige Gruppen trennen: bei Form C und der Anschlusszeile steht der Wert an zweiter Stelle
+  const wertIndex = schluessel === 'gateC' || schluessel === 'anschluss' ? 2 : 1;
+  const rest = m.slice(1).filter((_, i) => i + 1 !== wertIndex);
+  if (rest.join('|') !== b.slice(1).join('|')) return null;
+  const wert = m[wertIndex];
+  if (art === 'hr') return ENGLISCH.includes(wert) ? ENGLISCH.indexOf(wert) * 22.5 : null;
+  return Number(wert.replace(',', '.'));
 }
 
-// Die gezeichneten roten Lösungen eines SVG in ihrer Reihenfolge: Text, Anker
-// und Lage aus dem transform, dazu die Schriftgröße aus dem Stil
-export function loesungenLesen(svgText) {
+// Die roten Lösungen eines SVG mit Option "loesungen" in ihrer Reihenfolge:
+// Schritt, Text, Anker, transform, Zeilenhöhe "dy", gestauchte Länge oder null,
+// gezeigt oder nicht, dazu die Schriftgröße aus dem Stil. Mit "umriss" die
+// weißen Umrisse darunter.
+export function loesungenLesen(svgText, umriss = false) {
   const stil = svgText.match(/\.parcours \.loesung \{[^}]*font: 700 ([\d.]+)px/);
   const schrift = stil ? Number(stil[1]) : null;
-  const anker = { '': 'start', ' ende': 'end', ' mitte': 'middle' };
-  return [...svgText.matchAll(/<text class="loesung( ende| mitte)?" data-schritt="(\d+)" transform="([^"]+)">([^<]+)<\/text>/g)]
-    .map((m) => ({ schritt: Number(m[2]), anker: anker[m[1] || ''], t: transformLesen(m[3]), text: m[4], schrift }));
+  const muster = new RegExp(`<text class="loesung${umriss ? ' umriss' : ''}( start)?( gezeigt)?" data-schritt="(\\d+)" transform="([^"]+)" y="([-\\d.]+)"(?: textLength="([\\d.]+)" lengthAdjust="spacingAndGlyphs")?>([^<]+)</text>`, 'g');
+  return [...svgText.matchAll(muster)].map((m) => ({
+    schritt: Number(m[3]), anker: m[1] ? 'start' : 'mitte', gezeigt: Boolean(m[2]), transform: m[4], t: transformLesen(m[4]),
+    dy: Number(m[5]), laenge: m[6] === undefined ? null : Number(m[6]), text: m[7], schrift,
+  }));
 }
 
-// Tinte einer gezeichneten Lösung (fett) als Polygon in Koordinaten der
-// Zeichnung, aus den Zeichenmaßen in Schrift 9 hochgerechnet, ringsum um
-// "rand" verkleinert. "=" misst wie "+".
-export function loesungTinte(l, rand = 0) {
-  const tabelle = GLYPHEN.fett;
-  const glyph = (z) => tabelle[z] || (z === '=' ? tabelle['+'] : tabelle.W);
-  const zeichen = [...l.text];
-  let vorschub = 0; let oben = 0; let unten = 0;
-  for (const z of zeichen) {
-    const g = glyph(z);
-    vorschub += g[0];
-    if (z !== ' ') { oben = Math.max(oben, g[1]); unten = Math.max(unten, g[2]); }
+// Vorschub einer Lösung in Schrift 9 fett
+function fettVorschub(text) {
+  return [...text].reduce((summe, zeichen) => summe + (GLYPHEN.fett[zeichen] || GLYPHEN.fett.W)[0], 0);
+}
+
+// Tinte einer roten Lösung (fett) im Koordinatensystem ihres Textelements; mit
+// textLength gestaucht (bei Anker 'start' zum Anfang hin)
+function loesungZeile(l) {
+  const z = zeileTinte(l.text, true, l.anker, l.dy);
+  if (l.laenge === null) return z;
+  const k = l.laenge / fettVorschub(l.text);
+  return { ...z, x0: z.x0 * k, x1: z.x1 * k };
+}
+
+// Die schwarzen Zeilen mit "data-ersetzt": Schritt, Text, Zeilenhöhe im
+// Textelement, verborgen oder nicht, dazu Nummer, Klasse und transform des
+// Textelements. Die Nummer zählt die Textelemente wie svgLesen.
+export function ersetzteLesen(svgText) {
+  const liste = [];
+  let nummer = 0;
+  for (const m of svgText.matchAll(/<text(?: class="([^"]+)")? transform="([^"]+)">(.*?)<\/text>/g)) {
+    let dy = 0;
+    for (const z of m[3].matchAll(/<tspan x="0" dy="([-\d.]+)"((?: data-ersetzt="\d+")?(?: class="ersetzt")?)>(.*?)<\/tspan>/g)) {
+      dy += Number(z[1]);
+      const e = z[2].match(/data-ersetzt="(\d+)"/);
+      if (e) liste.push({ schritt: Number(e[1]), text: z[3], dy, verborgen: z[2].includes('class="ersetzt"'), nummer, klasse: m[1] || '', transform: m[2] });
+    }
+    nummer += 1;
   }
-  const anfang = l.anker === 'start' ? 0 : l.anker === 'end' ? -vorschub : -vorschub / 2;
-  const k = l.schrift / 9;
-  const letztes = glyph(zeichen[zeichen.length - 1]);
-  const x0 = (anfang - glyph(zeichen[0])[3]) * k + rand;
-  const x1 = (anfang + vorschub - (letztes[0] - letztes[4])) * k - rand;
-  const y0 = (GRUNDLINIE - oben) * k + rand;
-  const y1 = (GRUNDLINIE + unten) * k - rand;
-  return [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }].map((p) => anwenden(l.t, p));
+  return liste;
+}
+
+// Das SVG mit Lösungen ohne Gruppe, Stilzeilen und Markierungen der Lösungen
+export function ohneLoesungen(svgText) {
+  return svgText
+    .replace(/\n<g class="loesungen">[\s\S]*?<\/g>/, '')
+    .replace(/\n\.parcours \.(loesung|ersetzt)[^\n]*/g, '')
+    .replace(/ data-ersetzt="\d+"( class="ersetzt")?/g, '');
 }
 
 function imViewBox(vb, poly) {
@@ -93,20 +132,27 @@ function imViewBox(vb, poly) {
   return poly.every((p) => p.x >= x && p.x <= x + b && p.y >= y && p.y <= y + h);
 }
 
+// Tinte einer Zeile als Polygon, ringsum um "rand" verkleinert
+function tinte(t, z, rand = 0) {
+  return tintenPolygon(t, { x0: z.x0 + rand, x1: z.x1 - rand, y0: z.y0 + rand, y1: z.y1 - rand });
+}
+
 // Ein Blatt (aus erzeugeBlatt): Nachrechnung aus Sätzen und SVG,
 // Rechenstellen, gezeichnete Lösungen. "fehler" sammelt jede Abweichung.
-// Gezählt werden Lösungen links ('end') und als eigene Zeile außen ('middle')
-// und Lösungen, deren Tinte mehr als 0,3 in fremde Tinte, einen fremden Kasten
-// oder eine andere Lösung reicht (übereinander stehende Lösungen berühren sich
-// mit dem Komma um 0,1).
+// Gezählt werden Lösungen, die breiter sind als ihre Zeile, gestauchte
+// Gate-Lösungen, Gate-Lösungen, deren Tinte an oder über den Kastenrand reicht, Lösungen, deren Tinte mehr als 0,3
+// in fremde Tinte, einen fremden Kasten oder eine andere Lösung reicht, und
+// Lösungen, die tiefer als ihre Zeile in einen Strich, Querstrich oder den
+// Nordpfeil reichen.
 export function blattAbgleichen(blatt) {
   const { stufe, nummer } = blatt;
-  const svg = svgLesen(zeichneParcours(blatt.parcours));
+  const ohne = zeichneParcours(blatt.parcours);
+  const svg = svgLesen(ohne);
   const text = textteilPruefen(blatt.textteil.zeilen.map((z) => z.satz));
   const erg = parcoursPruefen(blatt, svg, { kurs: text.kurs, hoehe: text.hoehe }, stufe);
   const stellen = rechenstellen(blatt);
   const soll = erwarteteLoesungen(erg.flugKurse);
-  const ergebnis = { stellen: stellen.length, fehler: [], fremd: 0, links: 0, aussen: 0 };
+  const ergebnis = { stellen: stellen.length, fehler: [], breiter: 0, gestaucht: 0, kasten: 0, fremd: 0, striche: 0, beispiele: [] };
   const fehler = (meldung) => ergebnis.fehler.push(`Stufe ${stufe}, Blatt ${nummer}: ${meldung}`);
 
   // Anzahl, Art, Wert und Reihenfolge wie die Nachrechnung
@@ -114,71 +160,89 @@ export function blattAbgleichen(blatt) {
   stellen.forEach((s, i) => {
     if (!soll[i]) return;
     if (s.art !== soll[i].art) fehler(`Stelle ${i + 1}: Art ${s.art}, nachgerechnet ${soll[i].art}`);
-    const wert = loesungWert(s.art, s.text);
-    if (wert === null) fehler(`Stelle ${i + 1}: Schreibweise ${s.text}`);
+    const wert = loesungWert(s.art, s.text, s.bezug);
+    if (wert === null) fehler(`Stelle ${i + 1}: Schreibweise ${s.text} für ${s.bezug}`);
     else if (Math.abs(norm(wert - soll[i].wert + 180) - 180) >= 0.01) fehler(`Stelle ${i + 1} (${s.art} an ${s.bezug}): ${s.text}, nachgerechnet ${soll[i].wert}`);
   });
 
-  // Lage: jede Lösung an ihrer Beschriftung; deren Reihenfolge in der
-  // Zeichnung ist die entlang des Parcours. Gate-Lösungen außerhalb des
-  // Kastens auf der Höhe ihrer Zeile, die übrigen neben ihrer Zeile oder als
-  // eigene Zeile außen, ohne die eigene Beschriftung zu berühren
-  const texte = svg.texte.filter((t) => t.klasse !== 'nord');
-  const gezeichnet = loesungenLesen(zeichneParcours(blatt.parcours, { loesungen: stellen }));
-  if (gezeichnet.map((l) => l.text).join('|') !== stellen.map((s) => s.text).join('|')) fehler('gezeichnete Lösungen weichen ab');
-  if (gezeichnet.some((l, i) => l.schritt !== i + 1)) fehler('Schritte nicht 1, 2, 3, …');
-  const tinten = gezeichnet.map((l) => loesungTinte(l));
-  let vorheriger = -1;
-  stellen.forEach((s, i) => {
-    if (!gezeichnet[i]) return;
-    const stelle = `Stelle ${i + 1} (${s.text} an ${s.bezug})`;
-    const gate = s.art === 'gate' || s.art === 'anschluss';
-    const passend = texte
-      .map((t, j) => ({ t, j }))
-      .filter(({ t }) => (t.klasse === 'gate') === gate && t.zeilen[s.zeile] === s.bezug)
-      .map((x) => ({ ...x, abstand: polygonPolygon(tinten[i], gate ? x.t.kasten.poly : x.t.tinte[s.zeile]) }))
-      .sort((a, b) => a.abstand - b.abstand);
-    if (!passend.length) {
-      fehler(`${stelle}: keine Beschriftung mit dieser Zeile`);
+  // Gegenpart: jede Lösung ersetzt genau eine schwarze Zeile, und jede
+  // markierte Zeile gehört zu genau einer Lösung
+  const mit = zeichneParcours(blatt.parcours, { loesungen: stellen });
+  if (ohneLoesungen(mit) !== ohne) fehler('das SVG mit Lösungen weicht außerhalb der Lösungen vom Blatt ab');
+  const rote = loesungenLesen(mit);
+  const schwarze = ersetzteLesen(mit);
+  if (rote.map((l) => l.text).join('|') !== stellen.map((s) => s.text).join('|')) fehler('gezeichnete Lösungen weichen ab');
+  const umrisse = loesungenLesen(mit, true);
+  if (JSON.stringify(umrisse) !== JSON.stringify(rote)) fehler('weiße Umrisse stehen nicht genau unter den Lösungen');
+  if (rote.some((l, i) => l.schritt !== i + 1)) fehler('Schritte nicht 1, 2, 3, …');
+  if (schwarze.length !== rote.length) fehler(`${schwarze.length} markierte Zeilen für ${rote.length} Lösungen`);
+  const schrift = (ohne.match(/\.parcours text \{ font: ([\d.]+)px/) || [])[1];
+  if (rote.length && String(rote[0].schrift) !== schrift) fehler(`Schrift der Lösungen ${rote[0].schrift}, der Beschriftungen ${schrift}`);
+
+  const texte = svg.texte;
+  const rotTinte = rote.map((l) => tinte(l.t, loesungZeile(l)));
+  let vorherige = -1;
+  rote.forEach((l, i) => {
+    const s = stellen[i];
+    if (!s) return;
+    const stelle = `Stelle ${i + 1} (${s.text} für ${s.bezug})`;
+    const gegen = schwarze.filter((z) => z.schritt === l.schritt);
+    if (gegen.length !== 1) {
+      fehler(`${stelle}: ${gegen.length} schwarze Zeilen dazu`);
       return;
     }
-    const { t, j, abstand } = passend[0];
-    if (j < vorheriger) fehler(`${stelle}: steht vor der Beschriftung der vorigen Stelle`);
-    vorheriger = j;
-    const l = gezeichnet[i];
-    if (gate) {
-      if (!(abstand > 0 && abstand < 6)) fehler(`${stelle}: Abstand zum Kasten ${abstand.toFixed(2)}`);
-      const zeileY = t.t.y + t.dys.slice(0, s.zeile + 1).reduce((a, b) => a + b, 0);
-      if (Math.abs(l.t.y - zeileY) >= 0.02) fehler(`${stelle}: Höhe ${l.t.y} statt ${zeileY}`);
-    } else {
-      if (!(abstand > 0 && abstand < 8)) fehler(`${stelle}: Abstand zur eigenen Zeile ${abstand.toFixed(2)}`);
-      t.tinte.forEach((poly, k) => {
-        if (polygonPolygon(tinten[i], poly) === 0) fehler(`${stelle}: verdeckt die eigene Zeile ${t.zeilen[k]}`);
-      });
-      if (Math.abs(l.t.w - t.t.w) >= 0.01) fehler(`${stelle}: Winkel ${l.t.w} statt ${t.t.w}`);
+    const [z] = gegen;
+    if (z.text !== s.bezug) fehler(`${stelle}: ersetzt ${z.text}`);
+    if (z.transform !== l.transform) fehler(`${stelle}: transform ${l.transform} statt ${z.transform}`);
+    if (Math.abs(z.dy - l.dy) >= 1e-9) fehler(`${stelle}: Zeilenhöhe ${l.dy} statt ${z.dy}`);
+    if ((z.klasse === 'gate') !== (l.anker === 'start')) fehler(`${stelle}: Anker ${l.anker} an ${z.klasse || 'Segment'}`);
+    // Gestaucht werden nur Gate-Lösungen, und nie gestreckt
+    if (l.laenge !== null && (z.klasse !== 'gate' || l.laenge >= fettVorschub(l.text))) fehler(`${stelle}: textLength ${l.laenge} bei Vorschub ${fettVorschub(l.text).toFixed(2)}`);
+    if (z.verborgen || l.gezeigt) fehler(`${stelle}: ohne Übungsstand schon ersetzt`);
+    if (z.nummer < vorherige) fehler(`${stelle}: steht vor der Beschriftung der vorigen Stelle`);
+    vorherige = z.nummer;
+
+    // Tinte der Lösung gegen ihre Zeile, den eigenen Kasten und alles Fremde
+    const t = texte[z.nummer];
+    const zeile = t.zeilen.indexOf(z.text);
+    const rot = loesungZeile(l);
+    const schwarz = t.tinteLokal[zeile];
+    if (!imViewBox(svg.vb, rotTinte[i])) fehler(`${stelle}: ragt aus dem Zeichenfeld`);
+    const beispiel = (art) => ergebnis.beispiele.push(`Blatt ${nummer}, ${stelle}: ${art}`);
+    if (rot.x1 - rot.x0 > schwarz.x1 - schwarz.x0 + 0.01) ergebnis.breiter += 1;
+    if (l.laenge !== null) ergebnis.gestaucht += 1;
+    if (t.klasse === 'gate') {
+      const k = t.kasten;
+      const innen = rotTinte[i].every((p) => p.x > k.x + 0.75 && p.x < k.x + k.w - 0.75 && p.y > k.y + 0.75 && p.y < k.y + k.h - 0.75);
+      if (!innen) { ergebnis.kasten += 1; beispiel('reicht an den Kastenrand'); }
     }
-    if (!imViewBox(svg.vb, tinten[i])) fehler(`${stelle}: ragt aus dem Zeichenfeld`);
-    const innen = loesungTinte(l, 0.3);
-    const fremd = texte.some((u) => u !== t && (u.klasse === 'gate' ? polygonPolygon(innen, u.kasten.poly) === 0 : u.tinte.some((p) => polygonPolygon(innen, p) === 0)))
-      || tinten.some((p, k) => k !== i && polygonPolygon(innen, p) === 0);
-    if (fremd) ergebnis.fremd += 1;
-    if (l.anker === 'end') ergebnis.links += 1;
-    if (l.anker === 'middle') ergebnis.aussen += 1;
+    const innen = tinte(l.t, rot, 0.3);
+    const fremd = texte.some((u) => {
+      if (u.klasse === 'gate' && u !== t && polygonPolygon(innen, u.kasten.poly) === 0) return true;
+      return u.tinte.some((p, k) => (u !== t || k !== zeile) && polygonPolygon(innen, p) === 0);
+    }) || rotTinte.some((p, k) => k !== i && polygonPolygon(innen, p) === 0);
+    if (fremd) { ergebnis.fremd += 1; beispiel('berührt Fremdes'); }
+    // Striche, Querstriche, Nordpfeil: nur was tiefer reicht als die schwarze Zeile
+    const tiefe = (polys, klasse, zeilen) => {
+      const je = new Map();
+      for (const x of erg.lesbar({ klasse, zeilen }, polys)) if (!x.mit.startsWith('Gate-Kasten')) je.set(x.mit, Math.max(je.get(x.mit) || 0, x.tief));
+      return je;
+    };
+    const vorher = tiefe([t.tinte[zeile]], t.klasse, [z.text]);
+    const nachher = tiefe([rotTinte[i]], t.klasse, [l.text]);
+    if ([...nachher].some(([mit, d]) => d >= 0.8 && d > (vorher.get(mit) || 0) + 0.3)) { ergebnis.striche += 1; beispiel(`reicht in ${[...nachher].map(([m, d]) => `${m} ${d.toFixed(1)}`).join(', ')}`); }
   });
   return ergebnis;
 }
 
 // Mehrere Blätter, zusammengezählt
 export function blaetterAbgleichen(blaetter) {
-  const summe = { stellen: 0, fehler: [], fremd: 0, blaetterFremd: 0, links: 0, aussen: 0 };
+  const summe = { stellen: 0, fehler: [], breiter: 0, gestaucht: 0, kasten: 0, fremd: 0, striche: 0, beispiele: [] };
   for (const blatt of blaetter) {
     const e = blattAbgleichen(blatt);
-    summe.stellen += e.stellen;
+    for (const feld of ['stellen', 'breiter', 'gestaucht', 'kasten', 'fremd', 'striche']) summe[feld] += e[feld];
     summe.fehler.push(...e.fehler);
-    summe.fremd += e.fremd;
-    if (e.fremd) summe.blaetterFremd += 1;
-    summe.links += e.links;
-    summe.aussen += e.aussen;
+    summe.beispiele.push(...e.beispiele);
   }
   return summe;
 }

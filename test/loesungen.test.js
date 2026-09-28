@@ -9,61 +9,151 @@ import { readFileSync } from 'node:fs';
 import { erzeugeBlatt } from '../js/blatt.js';
 import { zeichneParcours } from '../js/zeichnung.js';
 import { rechenstellen, tasteZuAktion, naechsterStand, zaehlerText } from '../js/loesungen.js';
+import { standZeigen } from '../js/uebungsmodus.js';
 import { ansichtFuer } from '../js/app.js';
 
 // Stufe 2, Blatt 3, von Hand nachgerechnet: 101 - 160 = 301, 301 + 235 = 176,
 // 301 + 211 = 152, 152 + 317 = 109, 109 - 104 = 005, 131 + 86 = 217,
-// 217 + 186 = 043, Gate 132°, 132 - 220 = 272, 356°
-test('Stufe 2, Blatt 3: Arten und Texte der ersten Rechenstellen', () => {
+// 217 + 186 = 043, Gate 132°, 132 - 220 = 272, 356°. Jede Lösung ersetzt ihre
+// Zeile ganz: Dauer, Pfeil und Zeit bleiben, wie sie auf dem Blatt stehen.
+test('Stufe 2, Blatt 3: Arten, ersetzte Zeilen und Lösungen der ersten Rechenstellen', () => {
   const stellen = rechenstellen(erzeugeBlatt(2, 3));
   assert.equal(stellen.length, 24);
-  assert.deepEqual(stellen.slice(0, 10).map((s) => `${s.art} ${s.text}`), [
-    'kurs 301°', 'rechen = 176', 'kurs 152°', 'kurs 109°', 'rechen = 005', 'kurs 217°', 'rechen = 043', 'gate 132°', 'gate 272°', 'gate 356°',
+  assert.deepEqual(stellen.slice(0, 10).map((s) => `${s.art} ${s.bezug} | ${s.text}`), [
+    'kurs /10" | 301°/10"', 'rechen +235 | 176', 'kurs /30" | 152°/30"', 'kurs /15" | 109°/15"', 'rechen -104 | 005',
+    'kurs /10" | 217°/10"', 'rechen +186 | 043', 'gate 132° ↘ 20" | 132° ↘ 20"', 'gate -220 ↘ 15" | 272° ↘ 15"', 'gate 356° ↗ 15" | 356° ↗ 15"',
   ]);
   // Halbe Grade nach einer Himmelsrichtung mit Komma
-  assert.ok(stellen.some((s) => s.text === '150,5°') && stellen.some((s) => s.text === '= 037,5'));
+  assert.ok(stellen.some((s) => s.text === '150,5°/30"') && stellen.some((s) => s.text === '037,5'));
+  assert.ok(stellen.some((s) => s.bezug === '+306 → 15"' && s.text === '193,5° → 15"'));
 });
 
-test('Stufe 3, Blatt 6: Gegenkurs-Angaben, Anschlusszeilen, GK/ und HR', () => {
+test('Stufe 3, Blatt 6: Gegenkurs-Angaben, Anschlusszeilen, GK/, HR und Form C', () => {
   const stellen = rechenstellen(erzeugeBlatt(3, 6));
-  const texte = stellen.map((s) => `${s.art} ${s.text} (${s.bezug})`);
-  assert.equal(texte[0], 'gegenkurs 225° (GK NE/20")');
-  assert.equal(texte[1], 'gegenkurs 252° (GK 072°/15")');
-  assert.ok(texte.includes('anschluss K = 144° (über S auf K)'));
-  assert.ok(texte.includes('gk 241° (GK/15")'));
-  assert.ok(texte.includes('hr S (HR 182°/10")'));
-  assert.ok(texte.includes('gate 202,5° (SSW ↘ 10")'));
+  const texte = stellen.map((s) => `${s.art} ${s.bezug} | ${s.text}`);
+  assert.equal(texte[0], 'gegenkurs GK NE/20" | 225°/20"');
+  assert.equal(texte[1], 'gegenkurs GK 072°/15" | 252°/15"');
+  assert.ok(texte.includes('anschluss über S auf K | über S auf 144°'));
+  assert.ok(texte.includes('anschluss kürz. W. auf K | kürz. W. auf 130°'));
+  assert.ok(texte.includes('gk GK/15" | 241°/15"'));
+  assert.ok(texte.includes('hr HR 182°/10" | S/10"'));
+  assert.ok(texte.includes('gate SSW ↘ 10" | 202,5° ↘ 10"'));
+  assert.ok(texte.includes('gate GK → 10" | 232° → 10"'));
+  // Form C mit dem Pfeil voran: Pfeil und Zeit bleiben, der Wert wird ersetzt
+  assert.ok(texte.includes('gate ↘ ESE -28° 25" | ↘ 084,5° 25"'));
+  assert.ok(texte.includes('gate → GK 20" | → 303° 20"'));
   // Himmelsrichtung ohne GK ist keine Rechenstelle
   assert.ok(!stellen.some((s) => s.bezug === 'NE/15"'));
 });
 
-test('Zeichnung: ohne Option Zeichen für Zeichen wie bisher, mit Option nur um die Lösungen ergänzt', () => {
+// Rote Lösungen und weiße Umrisse eines SVG mit Lösungen: Klasse, Schritt,
+// transform, Zeilenhöhe, gestauchte Länge, Text
+const ROT = /<text class="loesung( start)?( gezeigt)?" data-schritt="(\d+)" transform="([^"]+)" y="([-\d.]+)"((?: textLength="[\d.]+" lengthAdjust="spacingAndGlyphs")?)>([^<]+)<\/text>/g;
+const UMRISS = /<text class="loesung umriss( start)?( gezeigt)?" data-schritt="(\d+)" transform="([^"]+)" y="([-\d.]+)"((?: textLength="[\d.]+" lengthAdjust="spacingAndGlyphs")?)>([^<]+)<\/text>/g;
+
+function roteLesen(svg, muster = ROT) {
+  return [...svg.matchAll(muster)].map((m) => ({ anker: m[1] ? 'start' : 'middle', gezeigt: Boolean(m[2]), schritt: Number(m[3]), transform: m[4], y: Number(m[5]), laenge: m[6], text: m[7] }));
+}
+
+// Schwarze Zeilen aller Beschriftungen: Klasse und transform ihres Textelements,
+// Zeilenhöhe (Summe der dy), Text, Schritt aus data-ersetzt, verborgen
+function schwarzeLesen(svg) {
+  const zeilen = [];
+  for (const m of svg.matchAll(/<text(?: class="([^"]+)")? transform="([^"]+)">(<tspan.*?)<\/text>/g)) {
+    let dy = 0;
+    for (const z of m[3].matchAll(/<tspan x="0" dy="([\d.]+)"(?: data-ersetzt="(\d+)")?( class="ersetzt")?>([^<]*)<\/tspan>/g)) {
+      dy += Number(z[1]);
+      zeilen.push({ klasse: m[1] || '', transform: m[2], dy, schritt: z[2] ? Number(z[2]) : null, verborgen: Boolean(z[3]), text: z[4] });
+    }
+  }
+  return zeilen;
+}
+
+// Ersetzt eine Lösung ihre Zeile, stehen beide an genau derselben Stelle:
+// gleicher transform (Ursprung und Drehung), gleiche Zeilenhöhe, gleicher Anker
+// (Gate-Text linksbündig, sonst mittig) und gleiche Schriftgröße
+test('Zeichnung: jede Lösung hat genau eine schwarze Zeile an derselben Stelle, ohne Option wie bisher', () => {
   for (const [stufe, nummer] of [[2, 3], [2, 7], [3, 6], [3, 50]]) {
     const { parcours } = erzeugeBlatt(stufe, nummer);
     const ohne = zeichneParcours(parcours);
     assert.equal(zeichneParcours(parcours, {}), ohne);
     const stellen = rechenstellen({ parcours });
     const mit = zeichneParcours(parcours, { loesungen: stellen });
-    const texte = [...mit.matchAll(/<text class="loesung( ende| mitte)?" data-schritt="(\d+)" transform="([^"]+)">([^<]+)<\/text>/g)];
-    const umrisse = [...mit.matchAll(/<text class="loesung umriss( ende| mitte)?" data-schritt="(\d+)" transform="([^"]+)">([^<]+)<\/text>/g)];
-    assert.equal(texte.length, stellen.length);
-    texte.forEach((m, i) => {
-      assert.equal(Number(m[2]), i + 1);
-      assert.equal(m[4], stellen[i].text);
-      // Der weiße Umriss liegt als eigene Lage darunter, gleich gesetzt
-      assert.deepEqual(umrisse[i].slice(1), m.slice(1));
+    const rote = roteLesen(mit);
+    const schwarze = schwarzeLesen(mit);
+    assert.equal(rote.length, stellen.length);
+    assert.equal(schwarze.filter((z) => z.schritt !== null).length, stellen.length, 'jede markierte Zeile gehört zu einer Lösung');
+    rote.forEach((l, i) => {
+      assert.equal(l.schritt, i + 1);
+      assert.equal(l.text, stellen[i].text);
+      const gegen = schwarze.filter((z) => z.schritt === l.schritt);
+      assert.equal(gegen.length, 1, `Schritt ${l.schritt}: ${gegen.length} schwarze Zeilen`);
+      const [z] = gegen;
+      assert.equal(z.text, stellen[i].bezug);
+      assert.equal(l.transform, z.transform, `Schritt ${l.schritt}: Ursprung oder Drehung`);
+      assert.equal(l.y, z.dy, `Schritt ${l.schritt}: Zeile`);
+      assert.equal(l.anker, z.klasse === 'gate' ? 'start' : 'middle', `Schritt ${l.schritt}: Anker`);
     });
+    // Der weiße Umriss liegt als eigene Lage darunter, gleich gesetzt
+    assert.deepEqual(roteLesen(mit, UMRISS), rote);
     assert.ok(mit.lastIndexOf('class="loesung umriss') < mit.search(/<text class="loesung(?! umriss)/), 'Umrisse vor den roten Texten');
-    assert.ok(!/class="loesung[^"]*gezeigt"/.test(mit), 'ohne loesungenSichtbar ist keine Lösung eingeblendet');
-    // Ohne Gruppe und Stilzeilen der Lösungen bleibt genau das bisherige SVG
-    const zurueck = mit.replace(/\n<g class="loesungen">[\s\S]*?<\/g>/, '').replace(/\n\.parcours \.loesung[^\n]*/g, '');
+    assert.ok(!/class="loesung[^"]*gezeigt"/.test(mit) && !mit.includes('class="ersetzt"'), 'ohne loesungenSichtbar ist nichts ersetzt');
+    // Ohne Gruppe, Stilzeilen und Markierungen bleibt genau das bisherige SVG
+    const zurueck = mit
+      .replace(/\n<g class="loesungen">[\s\S]*?<\/g>/, '')
+      .replace(/\n\.parcours \.(loesung|ersetzt)[^\n]*/g, '')
+      .replace(/ data-ersetzt="\d+"/g, '');
     assert.equal(zurueck, ohne);
-    // Verborgen, bis "gezeigt" sie einblendet; rot, fett, weißer Umriss
-    assert.ok(/\.parcours \.loesung \{ display: none; font: 700 10px [^}]*fill: #c0262d;/.test(mit));
+    // Gleiche Schriftgröße wie die Beschriftungen, fett und rot; der Anker kommt
+    // von den Beschriftungen (mittig), bei Gates linksbündig wie der Gate-Text
+    const schrift = ohne.match(/\.parcours text \{ font: ([\d.]+)px/)[1];
+    const stil = mit.match(/\.parcours \.loesung \{ ([^}]*)\}/)[1];
+    assert.ok(stil.startsWith('display: none; ') && stil.includes(`font: 700 ${schrift}px`) && stil.includes('fill: #c0262d;') && !stil.includes('text-anchor'), stil);
+    assert.ok(mit.includes('.parcours .loesung.start { text-anchor: start; }') && ohne.includes('.parcours text.gate { text-anchor: start; }'));
     assert.ok(/\.parcours \.loesung\.umriss \{ fill: #fff; stroke: #fff; stroke-width: 2\.5px;/.test(mit));
     assert.ok(mit.includes('.parcours .loesung.gezeigt { display: inline; }'));
+    assert.ok(mit.includes('.parcours .ersetzt { visibility: hidden; }'), 'die ersetzte Zeile behält ihren Platz');
+    // Prüfstand 3: genau die ersten drei Lösungen gezeigt und ihre Zeilen verborgen
     const drei = zeichneParcours(parcours, { loesungen: stellen, loesungenSichtbar: 3 });
-    assert.deepEqual([...drei.matchAll(/class="loesung(?! umriss)[^"]*gezeigt" data-schritt="(\d+)"/g)].map((m) => Number(m[1])), [1, 2, 3]);
+    assert.deepEqual(roteLesen(drei).filter((l) => l.gezeigt).map((l) => l.schritt), [1, 2, 3]);
+    assert.deepEqual(schwarzeLesen(drei).filter((z) => z.verborgen).map((z) => z.schritt), [1, 2, 3]);
+  }
+});
+
+// Eine zu breite Gate-Lösung wird gestaucht, statt über den Kasten zu ragen
+test('Zeichnung: Gate-Lösungen breiter als ihr Kasten gestaucht, Segmente nie', () => {
+  const { parcours } = erzeugeBlatt(3, 6);
+  const mit = zeichneParcours(parcours, { loesungen: rechenstellen({ parcours }) });
+  const rote = roteLesen(mit);
+  const gestaucht = rote.filter((l) => l.laenge);
+  assert.ok(gestaucht.length >= 1 && gestaucht.every((l) => l.anker === 'start'), JSON.stringify(gestaucht));
+  assert.ok(gestaucht.some((l) => l.text === 'über S auf 144°'));
+});
+
+// Elemente wie im Browser, nur mit dataset und classList
+function element(daten) {
+  const klassen = new Set();
+  return { dataset: daten, classList: { toggle: (k, an) => (an ? klassen.add(k) : klassen.delete(k)), contains: (k) => klassen.has(k) } };
+}
+
+test('Aufdecken verbirgt genau die schwarze Zeile der Lösung, zurück bringt sie wieder', () => {
+  const { parcours } = erzeugeBlatt(3, 6);
+  const stellen = rechenstellen({ parcours });
+  const svg = zeichneParcours(parcours, { loesungen: stellen });
+  const rote = roteLesen(svg).map((l) => ({ ...l, el: element({ schritt: String(l.schritt) }) }));
+  const umrisse = roteLesen(svg, UMRISS).map((l) => ({ ...l, el: element({ schritt: String(l.schritt) }) }));
+  const schwarze = schwarzeLesen(svg).filter((z) => z.schritt !== null).map((z) => ({ ...z, el: element({ ersetzt: String(z.schritt) }) }));
+  const loesungen = [...umrisse, ...rote].map((l) => l.el);
+  const ersetzte = schwarze.map((z) => z.el);
+  for (const stand of [1, 2, 17, 35, 34, 5, 0]) {
+    standZeigen(loesungen, ersetzte, stand);
+    for (const l of [...rote, ...umrisse]) assert.equal(l.el.classList.contains('gezeigt'), l.schritt <= stand, `Stand ${stand}, Lösung ${l.schritt}`);
+    for (const z of schwarze) {
+      // Verborgen ist die Zeile genau dann, wenn ihre Lösung gezeigt ist
+      const loesung = rote.find((l) => l.schritt === z.schritt);
+      assert.equal(z.el.classList.contains('ersetzt'), loesung.el.classList.contains('gezeigt'), `Stand ${stand}, Zeile ${z.text}`);
+      assert.equal(z.el.classList.contains('ersetzt'), z.schritt <= stand);
+    }
   }
 });
 
@@ -77,6 +167,8 @@ test('Blattansicht beider Stufen: Knopf Start neben Drucken, Lösungen verborgen
     const anzahl = (html.match(/<text class="loesung[ "](?!umriss)/g) || []).length;
     assert.ok(anzahl > 10, `${hash}: ${anzahl} Lösungen`);
     assert.ok(!/class="loesung[^"]*gezeigt"/.test(html), `${hash}: eine Lösung ist eingeblendet`);
+    assert.equal((html.match(/ data-ersetzt="\d+"/g) || []).length, anzahl);
+    assert.ok(!html.includes('class="ersetzt"'), `${hash}: eine schwarze Zeile ist verborgen`);
     assert.ok(html.includes(`<span class="zaehler" data-zaehler aria-live="polite">0 / ${anzahl}</span>`));
     // Der Textteil trägt keine Lösungen
     const textteil = html.slice(html.indexOf('<ol class="textteil">'), html.indexOf('</ol>'));
@@ -90,6 +182,8 @@ test('Prüfmodus: probe=vollbild zeigt das Blatt im Vollbild mit den ersten Lös
   const gezeigt = [...html.matchAll(/class="loesung(?! umriss)[^"]*gezeigt" data-schritt="(\d+)"/g)].map((m) => Number(m[1]));
   assert.deepEqual(gezeigt, [1, 2, 3, 4, 5, 6, 7, 8]);
   assert.equal((html.match(/class="loesung umriss[^"]*gezeigt"/g) || []).length, 8, 'Umrisse mit eingeblendet');
+  // Die schwarzen Zeilen dieser acht Lösungen sind ersetzt, keine andere
+  assert.deepEqual([...html.matchAll(/data-ersetzt="(\d+)" class="ersetzt"/g)].map((m) => Number(m[1])), [1, 2, 3, 4, 5, 6, 7, 8]);
   const anzahl = (html.match(/<text class="loesung[ "](?!umriss)/g) || []).length;
   assert.ok(html.includes(`>8 / ${anzahl}</span>`));
   // Grenzen: mehr als alle zeigt alle, ohne Zahl keine
@@ -116,12 +210,14 @@ function mediaBloecke(css, art) {
 }
 
 // Der Druck zeigt nie Lösungen: im SVG verborgen, im Druck zusätzlich mit
-// !important ausgeblendet, der Vollbildzustand gilt nur auf dem Bildschirm
-test('Druck: Lösungen und Bedienung verborgen, Vollbild nur auf dem Bildschirm', () => {
+// !important ausgeblendet, die schwarzen Zeilen dagegen immer sichtbar; der
+// Vollbildzustand gilt nur auf dem Bildschirm
+test('Druck: Lösungen und Bedienung verborgen, alle schwarzen Zeilen da, Vollbild nur auf dem Bildschirm', () => {
   const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
   const druck = mediaBloecke(css, 'print');
   assert.equal(druck.length, 1);
   assert.ok(/\.parcours \.loesung,\s*\.uebung-leiste \{\s*display: none !important;/.test(css.slice(...druck[0])), 'Druckregel fehlt');
+  assert.ok(/\.parcours \.ersetzt \{\s*visibility: visible !important;/.test(css.slice(...druck[0])), 'Druckregel für ersetzte Zeilen fehlt');
   const bildschirm = mediaBloecke(css, 'screen');
   const regeln = [...css.matchAll(/\.vollbild[^{]*\{/g)];
   assert.ok(regeln.length >= 5);

@@ -203,13 +203,21 @@ function gateAusdruck(kurs) {
 // (Handzeichnung) mit dem Pfeil voran wie "↗ NNE +102° 15"".
 function gateZeileText(zeile, form) {
   const { kurs } = zeile;
-  if (form === 'c') return `${GATE_PFEILE[zeile.profil]} ${gateAusdruck(kurs)} ${zeile.dauer}"`;
+  if (form === 'c') return gateZeileMitWert(zeile, form, gateAusdruck(kurs));
   let wert;
   if (kurs.typ === 'relativ') wert = form === 'a' ? `${vorzeichenText(kurs.wert)}°` : vorzeichenText(kurs.wert);
   else if (kurs.typ === 'himmelsrichtung') wert = himmelsrichtungName(kurs.index, SCHREIBWEISE.zeichnung);
   else if (kurs.typ === 'gk' || kurs.typ === 'gkPlus') wert = gateAusdruck(kurs);
   else wert = `${kursText(kurs.grad)}°`;
-  return `${wert} ${GATE_PFEILE[zeile.profil]} ${zeile.dauer}"`;
+  return gateZeileMitWert(zeile, form, wert);
+}
+
+// Zeile eines Gates mit dem Wert "wert" an der Stelle des ersten Werts, Pfeil
+// und Dauer wie auf dem Blatt; der Übungsmodus (loesungen.js) setzt so die
+// Lösung "162° → 10"" an die Stelle von "+72 → 10"", bei Form C "↗ 124,5° 15""
+export function gateZeileMitWert(zeile, form, wert) {
+  const pfeil = GATE_PFEILE[zeile.profil];
+  return form === 'c' ? `${pfeil} ${wert} ${zeile.dauer}"` : `${wert} ${pfeil} ${zeile.dauer}"`;
 }
 
 // Alle Zeilen eines Gates, bei Form A als letzte die Anschlusszeile

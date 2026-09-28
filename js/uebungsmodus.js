@@ -4,10 +4,11 @@
 // auch ohne die API geht (iPhone). Die Seite selbst wird Vollbild, nicht das
 // Blatt, weil der Browser ein Vollbild-Element auf den ganzen Bildschirm zieht
 // und es dann nicht mehr A4 wäre. Leertaste, Tippen und Klicken
-// zeigen die nächste Lösung, Rücktaste und Pfeil links blenden die letzte aus,
-// Escape, "Beenden" oder das Verlassen des Vollbilds über den Browser beenden
-// den Modus und blenden alle Lösungen aus. Die Logik der Tasten steht in
-// loesungen.js. Im Prüfmodus (data-probe) steht der Zustand still.
+// zeigen die nächste Lösung an der Stelle der schwarzen Zeile, die sie
+// ersetzt, Rücktaste und Pfeil links nehmen die letzte zurück und bringen ihre
+// Zeile wieder, Escape, "Beenden" oder das Verlassen des Vollbilds über den
+// Browser beenden den Modus und stellen alle Zeilen wieder her. Die Logik der
+// Tasten steht in loesungen.js. Im Prüfmodus (data-probe) steht der Zustand still.
 
 import { tasteZuAktion, naechsterStand, zaehlerText } from './loesungen.js';
 
@@ -27,6 +28,14 @@ function versuchen(methode, ziel) {
   }
 }
 
+// Stand "stand": Die roten Lösungen (data-schritt) bis dahin sind gezeigt, die
+// schwarzen Zeilen, die sie ersetzen (data-ersetzt), verborgen, alle übrigen
+// umgekehrt. Braucht von jedem Element nur dataset und classList.
+export function standZeigen(loesungen, ersetzte, stand) {
+  for (const l of loesungen) l.classList.toggle('gezeigt', Number(l.dataset.schritt) <= stand);
+  for (const z of ersetzte) z.classList.toggle('ersetzt', Number(z.dataset.ersetzt) <= stand);
+}
+
 // Startet die Bedienung, wenn die Ansicht ein Blatt zeigt, und liefert eine
 // Funktion, die sie wieder beendet
 export function uebungsmodusLaufen(wurzel) {
@@ -34,13 +43,14 @@ export function uebungsmodusLaufen(wurzel) {
   if (!blatt || blatt.hasAttribute('data-probe') || !blatt.querySelector('.loesung')) return () => {};
   // Jede Lösung steht zweimal da, als weißer Umriss und als roter Text
   const loesungen = [...blatt.querySelectorAll('.loesung')];
+  const ersetzte = [...blatt.querySelectorAll('[data-ersetzt]')];
   const anzahl = blatt.querySelectorAll('.loesung:not(.umriss)').length;
   const zaehler = blatt.querySelector('[data-zaehler]');
   let aktiv = false;
   let stand = 0;
 
   const zeigen = () => {
-    for (const l of loesungen) l.classList.toggle('gezeigt', Number(l.dataset.schritt) <= stand);
+    standZeigen(loesungen, ersetzte, stand);
     if (zaehler) zaehler.textContent = zaehlerText(stand, anzahl);
   };
 

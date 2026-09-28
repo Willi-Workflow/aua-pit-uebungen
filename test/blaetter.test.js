@@ -476,16 +476,19 @@ test('Stufe 3: Gegenkurs mindestens dreimal je Blatt, meist vier- bis fünfmal',
 // Übungsmodus: Jede Lösung aller 200 Blätter wie nachgerechnet. Das
 // Prüfwerkzeug rechnet jedes Blatt nur aus Sätzen und gedrucktem SVG nach;
 // Anzahl, Art, Wert und Reihenfolge der Rechenstellen müssen dazu passen, jede
-// Lösung steht dicht an ihrer Beschriftung, lässt die eigene frei und bleibt im
-// Zeichenfeld (werkzeuge/pruefen/loesungen.js). Hier, weil die Blätter schon
+// Lösung ersetzt genau eine schwarze Zeile und steht genau an deren Stelle
+// (transform, Zeilenhöhe, Anker, Schriftgröße), bleibt im Zeichenfeld und bei
+// Gates im Kasten (werkzeuge/pruefen/loesungen.js). Hier, weil die Blätter schon
 // erzeugt sind: Eine zweite Erzeugung in einer eigenen Prüfdatei lief parallel
 // und hob die CPU-Zeit je Blatt oben über 500 ms.
 for (const [stufe, liste] of [[2, blaetter], [3, blaetter3]]) {
-  test(`Übungsmodus Stufe ${stufe}: Lösungen aller 100 Blätter wie nachgerechnet, in Parcours-Reihenfolge an ihrer Beschriftung`, () => {
+  test(`Übungsmodus Stufe ${stufe}: Lösungen aller 100 Blätter wie nachgerechnet, jede an der Stelle der Zeile, die sie ersetzt`, () => {
     const e = blaetterAbgleichen(liste);
-    console.log(`Übungsmodus Stufe ${stufe}: ${e.stellen} Rechenstellen, im Mittel ${(e.stellen / BLAETTER_JE_STUFE).toFixed(1)} je Blatt; ${e.links} links, ${e.aussen} als Zeile außen; ${e.fremd} berühren fremde Beschriftungen, Kästen oder Lösungen (auf ${e.blaetterFremd} Blättern)`);
+    console.log(`Übungsmodus Stufe ${stufe}: ${e.stellen} Rechenstellen, im Mittel ${(e.stellen / BLAETTER_JE_STUFE).toFixed(1)} je Blatt; ${e.breiter} breiter als ihre Zeile, ${e.gestaucht} Gate-Lösungen gestaucht; ${e.fremd} berühren fremde Beschriftungen, Kästen oder Lösungen; ${e.striche} reichen tiefer als ihre Zeile in Striche, Querstriche oder den Nordpfeil; ${e.kasten} Gate-Lösungen am Kastenrand`);
     assert.deepEqual(e.fehler.slice(0, 10), [], `${e.fehler.length} Abweichungen`);
-    // Fremdes zu berühren ist im Übungsmodus hinnehmbar, soll aber selten bleiben
+    assert.equal(e.kasten, 0, e.beispiele.filter((b) => b.includes('Kasten')).slice(0, 5).join('; '));
+    // Eine Lösung ist meist breiter als ihre Zeile und darf dabei Fremdes
+    // berühren; das soll selten bleiben
     assert.ok(e.fremd <= 0.03 * e.stellen, `${e.fremd} von ${e.stellen} Lösungen berühren Fremdes`);
   });
 }

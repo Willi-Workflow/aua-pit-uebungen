@@ -129,9 +129,10 @@ function platzhalter(titel, zurueck, text) {
 
 // Blattansicht. "Start" legt das Blatt als Übungsmodus über den ganzen
 // Bildschirm (uebungsmodus.js): Die Lösungen der Rechenstellen stehen verborgen
-// im Parcours und kommen eine nach der anderen. Der Textteil bleibt ohne
-// Lösungen, der Druck zeigt keine. Im Prüfmodus ("probe=vollbild") steht das
-// Blatt gleich im Übungsmodus, mit den ersten "schritt" Lösungen, ohne Ablauf.
+// im Parcours und ersetzen eine nach der anderen die schwarze Zeile an ihrer
+// Stelle. Der Textteil bleibt ohne Lösungen, der Druck zeigt keine. Im
+// Prüfmodus ("probe=vollbild") steht das Blatt gleich im Übungsmodus, die
+// ersten "schritt" Zeilen schon ersetzt, ohne Ablauf.
 function blattseite(stufe, nummer, abfrage = {}) {
   let blatt;
   try {

@@ -835,7 +835,8 @@ export function parcoursPruefen(b, svg, textEnde, stufe) {
     });
     if (fremdD < eigenD) befund('Hinweis', 'Parcours', 'Beschriftung näher am eigenen Strich als an fremden', t.lesung.roh, `eigener Strich ${eigenD.toFixed(1)}, ${fremdName} ${fremdD.toFixed(1)} (Mittellinie zu Tinte), fremder Strich ${fremdWinkel.toFixed(0)}° zur Schrift`, 'eigener Strich am nächsten', { x: t.t.x, y: t.t.y });
   }
-  return { flugKurse, drehung, zahl, profile, anteilWeg, anteilMitText, verhaeltnis, sichtBefunde, hoeheEnde: hoehe };
+  // "lesbar" misst auch fremde Zeilen gegen Striche, Querstriche und Nordpfeil (Lösungen des Übungsmodus)
+  return { flugKurse, drehung, zahl, profile, anteilWeg, anteilMitText, verhaeltnis, sichtBefunde, hoeheEnde: hoehe, lesbar };
 }
 
 // Lage von Einfahrt "ein" und Ausfahrt "aus" einer Schleife: null bei einer

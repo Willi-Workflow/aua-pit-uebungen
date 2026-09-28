@@ -852,10 +852,15 @@ button:focus-visible {
     height: 0;
   }
 
-  /* Lösungen und Bedienung des Übungsmodus nie im Druck */
+  /* Lösungen und Bedienung des Übungsmodus nie im Druck, die schwarzen Zeilen,
+     die eine Lösung ersetzt, immer */
   .parcours .loesung,
   .uebung-leiste {
     display: none !important;
+  }
+
+  .parcours .ersetzt {
+    visibility: visible !important;
   }
 }
 
