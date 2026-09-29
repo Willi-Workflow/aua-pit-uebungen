@@ -67,17 +67,16 @@ function drehsinn(anschluss, von, nach) {
   return bisGrenze > 0 && bisGrenze < rechtsHerum ? 'rechts' : 'links';
 }
 
-// Rechnet die Lösungen nur aus dem gezeichneten Ausschnitt nach: Beschriftungen,
-// Gate-Text, Kurvenbogen. Die Felder des Erzeugers bleiben außen vor, nur die Art
-// sagt, welche Beschriftung die Aufgabe ist.
-function nachrechnen(svgText, art) {
+// Rechnet die Lösungen nur aus dem nach, was Hannah sieht: der Ankunftskurs aus
+// der Zeile über dem Ausschnitt ("ankunft"), dazu Beschriftungen, Gate-Text und
+// Kurvenbogen. Ankunfts- und Folgesegment sind unbeschriftet, außer das
+// Folgesegment nach einem Gate mit Anschlusszeile (dort steht K). Die Felder des
+// Erzeugers bleiben außen vor, nur die Art sagt, welche Beschriftung die Aufgabe ist.
+function nachrechnen(svgText, art, ankunft) {
   const svg = svgLesen(svgText);
   const texte = svg.texte;
   const segmente = texte.filter((t) => t.klasse === '' && /\/\d+"$/.test(t.zeilen[0]));
-  const erstes = segmente[0].zeilen[0].match(/^(\d{3})°\/\d+"$/);
-  assert.ok(erstes && segmente[0].zeilen.length === 1, `Startsegment ohne Kurs: ${segmente[0].zeilen.join(' | ')}`);
-  const ankunft = Number(erstes[1]);
-  const mitte = segmente[1];
+  const mitte = segmente[0];
   if (art === 'relativ') {
     const ecke = texte.filter((t) => /^[+-]\d+°$/.test(t.zeilen[0]));
     assert.equal(ecke.length, 1);
@@ -129,7 +128,12 @@ function nachrechnen(svgText, art) {
     kurs = gateZeile(z, kurs);
     loesungen.push(kurs);
   }
-  if (anschluss) loesungen.push(drehsinn(anschluss, kurs, segmentKurs(segmente[segmente.length - 1].zeilen[0])));
+  if (anschluss) {
+    assert.equal(segmente.length, 1, 'nach einem Gate mit Anschlusszeile steht nur K');
+    loesungen.push(drehsinn(anschluss, kurs, segmentKurs(segmente[0].zeilen[0])));
+  } else {
+    assert.equal(segmente.length, 0, 'Ankunfts- und Folgesegment ohne Beschriftung');
+  }
   return { ankunft, loesungen, zeilen };
 }
 
@@ -137,8 +141,7 @@ for (const stufe of [2, 3]) {
   test(`Ausschnitte Stufe ${stufe}: ${ANZAHL} Lösungen stimmen mit der Nachrechnung aus den Beschriftungen überein`, () => {
     for (const a of ausschnitte[stufe]) {
       const svg = zeichneAusschnitt(a);
-      const nach = nachrechnen(svg, a.art);
-      assert.equal(a.ankunft, nach.ankunft, `${a.art}: Ankunft`);
+      const nach = nachrechnen(svg, a.art, a.ankunft);
       assert.deepEqual(a.fragen.map((f) => f.loesung), nach.loesungen, `${a.art}: Lösungen`);
     }
   });
@@ -237,7 +240,7 @@ test('Ausschnitte: jede Art lässt sich gezielt erzeugen, gleicher Startwert gib
       for (let i = 0; i < 10; i++) {
         const a = erzeugeAusschnitt(new Zufall(`gezielt-${stufe}-${art}-${i}`), stufe, art);
         assert.equal(a.art, art);
-        assert.deepEqual(a.fragen.map((f) => f.loesung), nachrechnen(zeichneAusschnitt(a), art).loesungen);
+        assert.deepEqual(a.fragen.map((f) => f.loesung), nachrechnen(zeichneAusschnitt(a), art, a.ankunft).loesungen);
       }
     }
   }
@@ -337,7 +340,7 @@ for (const stufe of [2, 3]) {
       for (const a of nachSchwierigkeit[stufe][s]) {
         assert.equal(a.schwierigkeit, s);
         arten.add(a.art);
-        const nach = nachrechnen(zeichneAusschnitt(a), a.art);
+        const nach = nachrechnen(zeichneAusschnitt(a), a.art, a.ankunft);
         assert.equal(a.ankunft, nach.ankunft, `${a.art}: Ankunft`);
         assert.deepEqual(a.fragen.map((f) => f.loesung), nach.loesungen, `${s}, ${a.art}: Lösungen`);
         const geo = a.geometrie;
@@ -359,7 +362,7 @@ test('Ausschnitte nach Schwierigkeit: jede Art gezielt, Rechenaufgaben mit Über
         for (let i = 0; i < 5; i++) {
           const a = erzeugeAusschnitt(new Zufall(`gezielt-${s}-${stufe}-${art}-${i}`), stufe, art, s);
           assert.equal(a.art, art);
-          assert.deepEqual(a.fragen.map((f) => f.loesung), nachrechnen(zeichneAusschnitt(a), art).loesungen, `${s}, ${art}`);
+          assert.deepEqual(a.fragen.map((f) => f.loesung), nachrechnen(zeichneAusschnitt(a), art, a.ankunft).loesungen, `${s}, ${art}`);
           wertebereichePruefen(a, s);
         }
       }

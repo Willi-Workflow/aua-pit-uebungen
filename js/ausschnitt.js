@@ -138,6 +138,21 @@ export function erzeugeAusschnitt(zufall, stufe, art = null, schwierigkeit = VOR
   throw new Error(`Kein Ausschnitt der Art ${gewaehlt} gefunden`);
 }
 
+// Beschriftet ist nur das Stück mit der Rechnung: Das Segment, auf dem man
+// ankommt, und das Folgesegment bleiben ohne Beschriftung. Den Ankunftskurs
+// nennt die Zeile über dem Ausschnitt (Willis Wunsch, damit nichts doppelt
+// dasteht und kein fertiger Kurs ablenkt). Ausnahme: Nach einem Gate mit
+// Anschlusszeile ("über N auf K") braucht man K, das Folgesegment bleibt dann
+// beschriftet.
 export function zeichneAusschnitt(ausschnitt) {
-  return zeichneParcours({ geometrie: ausschnitt.geometrie }, { nordpfeil: false });
+  const { geometrie, elemente } = ausschnitt;
+  const segmente = geometrie.beschriftungen.filter((b) => !b.gate && !b.fett && b.mitte);
+  const erstes = segmente[0];
+  const letztes = segmente[segmente.length - 1];
+  const mitK = elemente.some((e) => e.art === 'gate' && e.anschluss);
+  const weg = new Set();
+  if (erstes && erstes.kurs === elemente[0].kurs) weg.add(erstes);
+  if (!mitK && letztes && letztes !== erstes && letztes.kurs === elemente[elemente.length - 1].kurs) weg.add(letztes);
+  const beschriftungen = geometrie.beschriftungen.filter((b) => !weg.has(b));
+  return zeichneParcours({ geometrie: { ...geometrie, beschriftungen } }, { nordpfeil: false });
 }
