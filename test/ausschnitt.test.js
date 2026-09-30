@@ -68,7 +68,7 @@ function drehsinn(anschluss, von, nach) {
 }
 
 // Rechnet die Lösungen nur aus dem nach, was Hannah sieht: der Ankunftskurs aus
-// der Zeile über dem Ausschnitt ("ankunft"), dazu Beschriftungen, Gate-Text und
+// der Ankunft vor dem Ausschnitt ("ankunft"), dazu Beschriftungen, Gate-Text und
 // Kurvenbogen. Ankunfts- und Folgesegment sind unbeschriftet, außer das
 // Folgesegment nach einem Gate mit Anschlusszeile (dort steht K). Die Felder des
 // Erzeugers bleiben außen vor, nur die Art sagt, welche Beschriftung die Aufgabe ist.

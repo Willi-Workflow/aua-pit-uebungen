@@ -8,7 +8,10 @@ import { VORGABEZEITEN } from '../js/schwierigkeit.js';
 import { Zufall } from '../js/zufall.js';
 import { baueKopfaufgabe } from '../js/kopfrechnen.js';
 import { erzeugeAusschnitt } from '../js/ausschnitt.js';
-import { kopfBuehne, ausschnittBuehne, zaehlerLeiste, blitzInhalt, eigeneZeitenText } from '../js/blitzansicht.js';
+import {
+  kopfBuehne, ausschnittBuehne, zaehlerLeiste, blitzInhalt, eigeneZeitenText, AUSSCHNITT_PHASEN, phasenZeit, ausschnittAblauf,
+} from '../js/blitzansicht.js';
+import { kursrose } from '../js/kursrose.js';
 
 function speicher(anfang = {}) {
   const daten = new Map(Object.entries(anfang));
@@ -225,7 +228,7 @@ test('Prüfmodus: Schwierigkeit über die Adresse, mit ihren Zeiten und Werteber
 test('Prüfmodus Ausschnitte: sichtbar, ausgeblendet mit Antwortfeld, Lösung daneben', () => {
   for (const stufe of [2, 3]) {
     const anzeige = ansichtFuer(`#/blitzrechnen/stufe${stufe}?probe=anzeige&art=gate`);
-    assert.ok(/<figcaption class="ankunft">Ankunft auf Kurs \d{3}<\/figcaption>/.test(anzeige));
+    assert.ok(!anzeige.includes('Ankunft') && !anzeige.includes('class="ankunft'), 'keine Ankunftszeile auf dem Ausschnitt');
     assert.ok(anzeige.includes('<svg') && !anzeige.includes('class="ausschnitt ausgeblendet"'));
     const aus = ansichtFuer(`#/blitzrechnen/stufe${stufe}?probe=ausgeblendet&art=gate`);
     assert.ok(aus.includes('class="ausschnitt ausgeblendet"') && aus.includes('Ausschnitt ausgeblendet'));
@@ -262,7 +265,7 @@ test('Bühne Kopfrechnen: Zähler, Zeitbalken, Ergebnis richtig und falsch, Aufl
   assert.ok(/data-wert="ja" aria-pressed="true"/.test(auf) && auf.includes('<strong>117</strong>'));
 });
 
-test('Bühne Ausschnitt: Ankunft über der Zeichnung, Fragen nacheinander, Drehsinn mit links und rechts', () => {
+test('Bühne Ausschnitt: Ankunft vor der Zeichnung, Fragen nacheinander, Drehsinn mit links und rechts', () => {
   let formA = null;
   for (let i = 0; !formA; i++) {
     const a = erzeugeAusschnitt(new Zufall(`form-a-${i}`), 3, 'gate');
@@ -270,8 +273,12 @@ test('Bühne Ausschnitt: Ankunft über der Zeichnung, Fragen nacheinander, Drehs
   }
   const e = { ...VORGABEN };
   const stand = { richtig: 0, gesamt: 0, serie: 0 };
+  const kurs = String(formA.ankunft).padStart(3, '0');
+  const ankunft = ausschnittBuehne(formA, e, { phase: 'ankunft' }, stand);
+  assert.ok(ankunft.includes(`<p class="aufgabe-text">Ankunft auf Kurs ${kurs}</p>`));
+  assert.ok(/class="zeitbalken laeuft"[^>]*><span style="animation-duration: 5s"/.test(ankunft));
   const anzeige = ausschnittBuehne(formA, e, { phase: 'anzeige' }, stand);
-  assert.ok(anzeige.includes(`Ankunft auf Kurs ${String(formA.ankunft).padStart(3, '0')}`));
+  assert.ok(!anzeige.includes('Ankunft'), 'der Ausschnitt nennt den Ankunftskurs nicht');
   assert.ok(/class="zeitbalken laeuft"[^>]*><span style="animation-duration: 5s"/.test(anzeige));
   const letzte = formA.fragen.length - 1;
   const antworten = formA.fragen.slice(0, letzte).map((f) => ({ eingabe: '000', richtig: false }));
@@ -282,4 +289,105 @@ test('Bühne Ausschnitt: Ankunft über der Zeichnung, Fragen nacheinander, Drehs
   const loesung = ausschnittBuehne(formA, e, { phase: 'loesung', antworten: [...antworten, { eingabe: formA.fragen[letzte].loesung, richtig: true }] }, stand);
   assert.equal(zaehle(loesung, /<li class="(richtig|falsch)">/g), formA.fragen.length);
   assert.ok(!loesung.includes('class="ausschnitt ausgeblendet"'));
+});
+
+// ------------------------------------------------------------ Ankunft
+
+// Kurs aus dem großen Text der Ankunft
+const ankunftKurs = (html) => html.match(/<p class="aufgabe-text">Ankunft auf Kurs (\d{3})<\/p>/)[1];
+
+test('Ablauf eines Ausschnitts: Ankunft, Anzeige, ausgeblendet, Lösung mit ihren Zeiten', () => {
+  assert.deepEqual(AUSSCHNITT_PHASEN, ['ankunft', 'anzeige', 'ausgeblendet', 'loesung']);
+  const gate = erzeugeAusschnitt(new Zufall('ablauf-gate'), 2, 'gate');
+  const ecke = erzeugeAusschnitt(new Zufall('ablauf-ecke'), 2, 'relativ');
+  assert.equal(gate.fragen.length, 3);
+  const e = { ...VORGABEN };
+  // Eintippen: je Frage ein Schritt mit eigener Antwortzeit
+  assert.deepEqual(ausschnittAblauf(gate, e), [
+    { phase: 'ankunft', sekunden: 5 },
+    { phase: 'anzeige', sekunden: 5 },
+    { phase: 'ausgeblendet', sekunden: 10, frage: 0 },
+    { phase: 'ausgeblendet', sekunden: 10, frage: 1 },
+    { phase: 'ausgeblendet', sekunden: 10, frage: 2 },
+    { phase: 'loesung', sekunden: 0 },
+  ]);
+  // Auflösung: gleicher Ablauf, alle Fragen zugleich mit der Antwortzeit je Frage
+  assert.deepEqual(ausschnittAblauf(gate, { ...e, antwortart: 'aufloesung' }), [
+    { phase: 'ankunft', sekunden: 5 },
+    { phase: 'anzeige', sekunden: 5 },
+    { phase: 'ausgeblendet', sekunden: 30, frage: null },
+    { phase: 'loesung', sekunden: 0 },
+  ]);
+  // Die Ankunft dauert die Anzeigezeit, auch eine selbst gewählte oder die der Schwierigkeit
+  const schwer = einstellungSetzen(einstellungenLesen(null), 'schwierigkeit', 'schwer');
+  assert.deepEqual(ausschnittAblauf(ecke, schwer).map((s) => [s.phase, s.sekunden]), [['ankunft', 3], ['anzeige', 3], ['ausgeblendet', 8], ['loesung', 0]]);
+  const eigen = einstellungSetzen(schwer, 'anzeigezeit', 8);
+  assert.deepEqual(ausschnittAblauf(ecke, eigen).slice(0, 2).map((s) => s.sekunden), [8, 8]);
+  // Jede Phase kommt in der Reihenfolge von AUSSCHNITT_PHASEN, die Ankunft zuerst
+  for (const [a, einstellungen] of [[gate, e], [ecke, { ...e, antwortart: 'aufloesung' }]]) {
+    const ablauf = ausschnittAblauf(a, einstellungen);
+    const folge = ablauf.map((s) => s.phase).filter((p, i, alle) => alle.indexOf(p) === i);
+    assert.deepEqual(folge, AUSSCHNITT_PHASEN);
+    for (const s of ablauf) assert.equal(s.sekunden, phasenZeit(s.phase, einstellungen, a.fragen.length), s.phase);
+  }
+  // Der Zeitbalken jeder Bühne läuft genau die Zeit ihres Schritts, die Lösung ohne Balken
+  const stand = { richtig: 0, gesamt: 0, serie: 0 };
+  for (const schritt of ausschnittAblauf(gate, e)) {
+    const zustand = { phase: schritt.phase, frage: schritt.frage ?? null, antworten: [] };
+    const buehne = ausschnittBuehne(gate, e, zustand, stand);
+    if (schritt.sekunden) assert.ok(buehne.includes(`data-sekunden="${schritt.sekunden}"><span style="animation-duration: ${schritt.sekunden}s"`), schritt.phase);
+    else assert.ok(buehne.includes('<div class="zeitbalken leer"'), schritt.phase);
+  }
+});
+
+test('Prüfmodus Ankunft: Kurs groß, daneben die Kursanzeige auf diesem Kurs, Zeitbalken angehalten', () => {
+  for (const stufe of [2, 3]) {
+    for (const saat of [4, 7, 12]) {
+      const html = ansichtFuer(`#/blitzrechnen/stufe${stufe}?probe=ankunft&saat=${saat}`);
+      assert.ok(html.includes('data-probe="ankunft"') && html.includes('class="rahmen blitzseite laeuft"'));
+      const kurs = ankunftKurs(html);
+      // Die Rose ist die der Startseite, gedreht auf den Ankunftskurs
+      assert.ok(html.includes(kursrose(220, true, Number(kurs))), `Stufe ${stufe}, Saat ${saat}: Rose auf ${kurs}`);
+      assert.ok(html.indexOf('class="ankunft-text"') < html.indexOf('class="ankunft-rose"'), 'Rose neben dem Text');
+      assert.ok(/<span style="animation-duration: 5s; animation-delay: -2s"><\/span>/.test(html), 'Anzeigezeit, angehalten');
+      assert.ok(html.includes('class="zeitbalken laeuft angehalten"'));
+      // Noch kein Ausschnitt und keine Fragen
+      assert.ok(!html.includes('class="parcours"') && !html.includes('class="ausschnitt'), 'kein Ausschnitt');
+      assert.ok(!html.includes('inputmode') && !html.includes('data-aktion="weiter"'));
+      assert.ok(html.includes('mit Klick, Tippen oder Leertaste sofort'));
+      // Gleicher Ausschnitt wie in den übrigen Zuständen derselben Saat: die Lösung nennt denselben Kurs
+      const loesung = ansichtFuer(`#/blitzrechnen/stufe${stufe}?probe=loesung&saat=${saat}`);
+      assert.ok(loesung.includes(`<p class="ankunft-zeile"><span class="frage-text">Ankunft</span><span class="loesung-wert">${kurs}</span></p>`), `Stufe ${stufe}, Saat ${saat}: Ankunft in der Lösung`);
+    }
+  }
+  // Schwierigkeit über die Adresse: Ankunft mit der Anzeigezeit der Schwierigkeit
+  assert.ok(/<span style="animation-duration: 8s/.test(ansichtFuer('#/blitzrechnen/stufe2?probe=ankunft&schwierigkeit=leicht')));
+  assert.ok(/<span style="animation-duration: 3s/.test(ansichtFuer('#/blitzrechnen/stufe3?probe=ankunft&schwierigkeit=schwer')));
+  // Beim Kopfrechnen gibt es keine Ankunft, die Adresse zeigt die Startfläche
+  assert.ok(ansichtFuer('#/blitzrechnen/kopfrechnen?probe=ankunft').includes('data-aktion="start"'));
+});
+
+test('Anzeige und Lösung: keine Ankunftszeile auf dem Ausschnitt, in der Lösung als erste Zeile daneben', () => {
+  for (const stufe of [2, 3]) {
+    for (const art of ['gate', 'relativ', 'kurve']) {
+      for (const antwort of ['eintippen', 'aufloesung']) {
+        const adresse = `#/blitzrechnen/stufe${stufe}?saat=4&art=${art}&antwort=${antwort}`;
+        const anzeige = ansichtFuer(`${adresse}&probe=anzeige`);
+        const loesung = ansichtFuer(`${adresse}&probe=loesung`);
+        for (const html of [anzeige, loesung]) {
+          const figur = html.slice(html.indexOf('<figure class="ausschnitt'), html.indexOf('</figure>'));
+          assert.ok(figur.length > 0 && !figur.includes('Ankunft') && !figur.includes('figcaption'), `${adresse}: Ausschnitt ohne Ankunft`);
+          assert.ok(!html.includes('Ankunft auf Kurs'), adresse);
+        }
+        assert.ok(!anzeige.includes('ankunft-zeile'), `${adresse}: Anzeige ohne Lösungsblock`);
+        // In der Lösung rechts im Lösungsblock, vor den Lösungen der Fragen
+        const seite = loesung.slice(loesung.indexOf('<div class="ausschnitt-seite">'));
+        const zeile = seite.indexOf('<p class="ankunft-zeile"><span class="frage-text">Ankunft</span><span class="loesung-wert">');
+        assert.ok(zeile > 0 && zeile < seite.indexOf('<ol class="loesungen">'), `${adresse}: Ankunft als erste Zeile`);
+        assert.equal(zaehle(loesung, /class="ankunft-zeile"/g), 1);
+        // Die Ankunft zählt nicht als Frage
+        assert.ok(!/<li class="[^"]*"><span class="frage-text">Ankunft/.test(loesung));
+      }
+    }
+  }
 });

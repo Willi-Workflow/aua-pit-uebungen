@@ -5,7 +5,7 @@
 // Prüfmodus: Eine Übungsadresse mit "?probe=..." zeigt einen Zustand direkt
 // und mit angehaltenem Zeitbalken, etwa für Bildschirmfotos:
 //   #/blitzrechnen/kopfrechnen?probe=aufgabe|ergebnis|loesung
-//   #/blitzrechnen/stufe2?probe=anzeige|ausgeblendet|loesung
+//   #/blitzrechnen/stufe2?probe=ankunft|anzeige|ausgeblendet|loesung
 // dazu wahlweise art=<Aufgabenart>, saat=<Text>, frage=<Nummer ab 0>,
 // antwort=eintippen|aufloesung, stellung=geschrieben|ton|beides,
 // schwierigkeit=leicht|normal|schwer.
@@ -13,6 +13,7 @@
 import { EINSTELLUNGEN, einstellungenLesen, einstellungenKurz, zeitenNachSchwierigkeit } from './blitzeinstellungen.js';
 import { KOPF_ARTEN, erzeugeKopfaufgabe } from './kopfrechnen.js';
 import { AUSSCHNITT_ARTEN, erzeugeAusschnitt, zeichneAusschnitt } from './ausschnitt.js';
+import { kursrose } from './kursrose.js';
 import { frageRichtig, loesungText, eingabeText, kursAnzeige, richtungName } from './antwort.js';
 import { kursText, normieren } from './kurs.js';
 import { Zufall } from './zufall.js';
@@ -42,6 +43,9 @@ export const BEREICHE = {
 
 // Ein Ausschnitt erscheint doppelt so groß wie seine Einheiten, höchstens so breit wie der Platz
 const AUSSCHNITT_MASSSTAB = 2;
+
+// Kantenlänge der Kursanzeige in der Ankunft; auf dem Handy kleiner über style.css
+const ANKUNFT_ROSE = 220;
 
 function html(text) {
   return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -220,33 +224,71 @@ export function kopfBuehne(aufgabe, einstellungen, zustand, stand) {
 
 // ------------------------------------------------------------ Ausschnitte
 
+// Phasen eines Ausschnitts in ihrer Reihenfolge: Ankunftskurs mit Kursanzeige,
+// der Ausschnitt zum Einprägen, ausgeblendet mit den Fragen, die Lösung
+export const AUSSCHNITT_PHASEN = ['ankunft', 'anzeige', 'ausgeblendet', 'loesung'];
+
+// Sekunden, nach denen eine Phase von selbst endet; 0 heißt, sie wartet auf
+// Weiter. Ankunft und Anzeige dauern je die Anzeigezeit. Ausgeblendet gilt beim
+// Eintippen die Antwortzeit je Frage, weil die Fragen nacheinander kommen, bei
+// der Auflösung die Antwortzeit mal Anzahl der Fragen für alle zugleich.
+export function phasenZeit(phase, einstellungen, anzahlFragen) {
+  if (phase === 'ankunft' || phase === 'anzeige') return einstellungen.anzeigezeit;
+  if (phase === 'ausgeblendet') return einstellungen.antwortzeit * (einstellungen.antwortart === 'aufloesung' ? anzahlFragen : 1);
+  return 0;
+}
+
+// Der ganze Ablauf eines Ausschnitts als Schritte { phase, sekunden }, beim
+// Eintippen ein Schritt "ausgeblendet" je Frage mit ihrer Nummer ("frage"), bei
+// der Auflösung einer für alle. blitzlauf.js geht diese Schritte der Reihe nach
+// durch; die Ankunft endet auf Klick, Tippen oder Leertaste früher, eine Frage
+// mit der Antwort.
+export function ausschnittAblauf(a, einstellungen) {
+  const n = a.fragen.length;
+  const schritt = (phase, extra = {}) => ({ phase, sekunden: phasenZeit(phase, einstellungen, n), ...extra });
+  const fragen = einstellungen.antwortart === 'aufloesung'
+    ? [schritt('ausgeblendet', { frage: null })]
+    : a.fragen.map((_, frage) => schritt('ausgeblendet', { frage }));
+  return [schritt('ankunft'), schritt('anzeige'), ...fragen, schritt('loesung')];
+}
+
 function ausschnittFigur(a, ausgeblendet) {
   const svg = zeichneAusschnitt(a);
   const breite = Number(svg.match(/viewBox="[-\d.]+ [-\d.]+ ([\d.]+) /)[1]);
   const abdeckung = ausgeblendet ? '\n<div class="abdeckung"><span>Ausschnitt ausgeblendet</span></div>' : '';
   return `<figure class="ausschnitt${ausgeblendet ? ' ausgeblendet' : ''}">
-<figcaption class="ankunft">Ankunft auf Kurs ${kursText(a.ankunft)}</figcaption>
 <div class="ausschnitt-bild" style="max-width: ${Math.round(breite * AUSSCHNITT_MASSSTAB)}px">${svg}</div>${abdeckung}
 </figure>`;
 }
 
-// Zustände: "anzeige", "ausgeblendet" ({ frage, antworten } beim Eintippen,
-// die Fragen nacheinander; bei der Auflösung alle Fragen zugleich), "loesung"
-// ({ antworten, markiert })
+// Vor dem Ausschnitt: der Ankunftskurs groß, daneben die Kursanzeige auf
+// diesem Kurs. Die Rose ist für Vorleseprogramme verborgen, der Text sagt dasselbe.
+function ankunftFlaeche(a, sekunden) {
+  return '<div class="ankunft-flaeche">'
+    + `<div class="ankunft-text"><p class="aufgabe-text">Ankunft auf Kurs ${kursText(a.ankunft)}</p>`
+    + `<p class="phase-text">Der Ausschnitt kommt nach ${sekunden} s, mit Klick, Tippen oder Leertaste sofort.</p></div>`
+    + `<div class="ankunft-rose" aria-hidden="true">${kursrose(ANKUNFT_ROSE, true, a.ankunft)}</div>`
+    + '</div>';
+}
+
+// Zustände: "ankunft", "anzeige", "ausgeblendet" ({ frage, antworten } beim
+// Eintippen, die Fragen nacheinander; bei der Auflösung alle Fragen zugleich),
+// "loesung" ({ antworten, markiert }). Der Ausschnitt selbst nennt den
+// Ankunftskurs nicht, in der Lösung steht er als erste Zeile daneben.
 export function ausschnittBuehne(a, einstellungen, zustand, stand) {
   const aufloesung = einstellungen.antwortart === 'aufloesung';
   const { fragen } = a;
-  let sekunden = 0;
+  const sekunden = phasenZeit(zustand.phase, einstellungen, fragen.length);
+  if (zustand.phase === 'ankunft') {
+    return `<div class="blitz-aufgabe">${zaehlerLeiste(stand)}${zeitbalken(sekunden, zustand)}${ankunftFlaeche(a, sekunden)}</div>`;
+  }
   let seite;
   if (zustand.phase === 'anzeige') {
-    sekunden = einstellungen.anzeigezeit;
     seite = `<p class="phase">Einprägen</p><p class="phase-text">Der Ausschnitt verschwindet nach ${sekunden} s.</p>`;
   } else if (zustand.phase === 'ausgeblendet' && aufloesung) {
-    sekunden = einstellungen.antwortzeit * fragen.length;
     seite = `<p class="phase">Im Kopf rechnen</p><ol class="fragenliste">${fragen.map((f) => `<li>${f.text}</li>`).join('')}</ol>`
       + `<p class="phase-text">Die Lösung erscheint nach ${sekunden} s.</p>`;
   } else if (zustand.phase === 'ausgeblendet') {
-    sekunden = einstellungen.antwortzeit;
     const j = zustand.frage;
     const erledigt = zustand.antworten.length
       ? `<ol class="erledigt">${zustand.antworten.map((r, k) => `<li><span class="frage-text">${fragen[k].text}</span> <span class="wert">${html(eingabeText(fragen[k], r.eingabe))}</span></li>`).join('')}</ol>`
@@ -267,7 +309,8 @@ export function ausschnittBuehne(a, einstellungen, zustand, stand) {
       const alle = anzahl === fragen.length;
       abschluss = urteil(alle, fragen.length === 1 ? (alle ? 'Richtig' : 'Falsch') : alle ? 'Alles richtig' : `${anzahl} von ${fragen.length} richtig`);
     }
-    seite = `<p class="phase">Lösung</p><ol class="loesungen">${zeilen.join('')}</ol>${abschluss}${WEITER}`;
+    const ankunft = `<p class="ankunft-zeile"><span class="frage-text">Ankunft</span><span class="loesung-wert">${kursText(a.ankunft)}</span></p>`;
+    seite = `<p class="phase">Lösung</p><div class="loesungsblock">${ankunft}<ol class="loesungen">${zeilen.join('')}</ol></div>${abschluss}${WEITER}`;
   }
   return `<div class="blitz-aufgabe">${zaehlerLeiste(stand)}${zeitbalken(sekunden, zustand)}`
     + `<div class="ausschnitt-flaeche">${ausschnittFigur(a, zustand.phase === 'ausgeblendet')}<div class="ausschnitt-seite">${seite}</div></div></div>`;
@@ -303,6 +346,7 @@ function probeBuehne(name, abfrage, einstellungen) {
   }
   const { stufe } = BEREICHE[name];
   const a = erzeugeAusschnitt(zufall, stufe, AUSSCHNITT_ARTEN[stufe].includes(abfrage.art) ? abfrage.art : null, e.schwierigkeit);
+  if (abfrage.probe === 'ankunft') return ausschnittBuehne(a, e, { phase: 'ankunft', angehalten: true }, leer);
   if (abfrage.probe === 'anzeige') return ausschnittBuehne(a, e, { phase: 'anzeige', angehalten: true }, leer);
   if (abfrage.probe === 'ausgeblendet') {
     const frage = Math.max(0, Math.min(Number(abfrage.frage) || 0, a.fragen.length - 1));

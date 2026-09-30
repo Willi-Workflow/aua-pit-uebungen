@@ -32,7 +32,7 @@ export const EINSTELLUNGEN = {
   },
   anzeigezeit: {
     titel: 'Anzeigezeit des Ausschnitts',
-    text: 'So lange ist ein Ausschnitt in Stufe 2 und 3 zu sehen. Ohne eigene Wahl leicht 8 s, normal 5 s, schwer 3 s.',
+    text: 'So lange steht in Stufe 2 und 3 erst der Ankunftskurs da, dann der Ausschnitt. Ohne eigene Wahl leicht 8 s, normal 5 s, schwer 3 s.',
     werte: [3, 5, 8],
     vorgabe: VORGABEZEITEN[VORGABE_SCHWIERIGKEIT].anzeigezeit,
     namen: { 3: '3 s', 5: '5 s', 8: '8 s' },

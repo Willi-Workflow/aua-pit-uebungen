@@ -140,8 +140,9 @@ export function erzeugeAusschnitt(zufall, stufe, art = null, schwierigkeit = VOR
 
 // Beschriftet ist nur das Stück mit der Rechnung: Das Segment, auf dem man
 // ankommt, und das Folgesegment bleiben ohne Beschriftung. Den Ankunftskurs
-// nennt die Zeile über dem Ausschnitt (Willis Wunsch, damit nichts doppelt
-// dasteht und kein fertiger Kurs ablenkt). Ausnahme: Nach einem Gate mit
+// zeigt die Ankunft vor dem Ausschnitt mit der Kursanzeige, der Ausschnitt
+// selbst nennt ihn nicht (Willis Wunsch, damit nichts doppelt dasteht und kein
+// fertiger Kurs ablenkt). Ausnahme: Nach einem Gate mit
 // Anschlusszeile ("über N auf K") braucht man K, das Folgesegment bleibt dann
 // beschriftet.
 export function zeichneAusschnitt(ausschnitt) {

@@ -6,9 +6,12 @@
 // Kopfrechnen: Aufgabe, Antwortzeit, Ergebnis (Eintippen) oder Lösung mit
 // Selbstzählung (Auflösung), dann Weiter. Per Ton beginnt die Antwortzeit erst,
 // wenn die Tonfolge zu Ende ist.
-// Ausschnitte: Anzeigezeit, dann ausgeblendet; beim Eintippen die Fragen
-// nacheinander mit je eigener Antwortzeit, bei der Auflösung alle zugleich mit
-// der Antwortzeit je Frage; dann der Ausschnitt mit den Lösungen daneben.
+// Ausschnitte: Schritte aus ausschnittAblauf. Zuerst der Ankunftskurs mit der
+// Kursanzeige für die Anzeigezeit (Klick, Tippen oder Leertaste beenden das
+// früher), dann der Ausschnitt für die Anzeigezeit, dann ausgeblendet; beim
+// Eintippen die Fragen nacheinander mit je eigener Antwortzeit, bei der
+// Auflösung alle zugleich mit der Antwortzeit je Frage; dann der Ausschnitt mit
+// den Lösungen daneben.
 
 import {
   EINSTELLUNGEN, einstellungenLesen, einstellungenSchreiben, einstellungSetzen, zeitenZuruecksetzen,
@@ -16,7 +19,9 @@ import {
 import { erzeugeKopfaufgabe, klangPfad } from './kopfrechnen.js';
 import { erzeugeAusschnitt } from './ausschnitt.js';
 import { frageRichtig } from './antwort.js';
-import { BEREICHE, kopfBuehne, ausschnittBuehne, eigeneZeitenText } from './blitzansicht.js';
+import {
+  BEREICHE, kopfBuehne, ausschnittBuehne, ausschnittAblauf, eigeneZeitenText,
+} from './blitzansicht.js';
 import { Zufall } from './zufall.js';
 
 // Pause zwischen zwei Tonschnipseln in Millisekunden
@@ -85,6 +90,8 @@ function uebungLaufen(seite) {
     stand: { richtig: 0, gesamt: 0, serie: 0 },
     aufgabe: null,
     zustand: null,
+    ablauf: [],
+    schritt: 0,
     zeitgeber: null,
     tonNummer: 0,
     klaenge: [],
@@ -232,44 +239,48 @@ function uebungLaufen(seite) {
 
   // ---------------------------------------------------------- Ausschnitte
 
-  function loesungZeigen() {
+  // Beginnt Schritt "nummer" des Ablaufs: Zustand setzen, zeigen, Zeit starten.
+  // Die Antworten laufen von Frage zu Frage mit; die Lösung zählt beim Eintippen
+  // den Ausschnitt als richtig, wenn alle Fragen richtig sind.
+  function schrittBeginnen(nummer) {
     zeitStoppen();
-    const antworten = z.zustand.antworten || [];
-    if (z.einstellungen.antwortart === 'eintippen') zaehlen(antworten.length > 0 && antworten.every((r) => r.richtig));
-    z.zustand = { phase: 'loesung', antworten, markiert: null };
+    const schritt = z.ablauf[nummer];
+    const antworten = nummer === 0 ? [] : z.zustand.antworten || [];
+    z.schritt = nummer;
+    if (schritt.phase === 'loesung') {
+      if (z.einstellungen.antwortart === 'eintippen') zaehlen(antworten.length > 0 && antworten.every((r) => r.richtig));
+      z.zustand = { phase: 'loesung', antworten, markiert: null };
+    } else {
+      z.zustand = { phase: schritt.phase, frage: schritt.frage ?? null, antworten };
+    }
     zeigen();
+    if (schritt.sekunden) nach(schritt.sekunden, schrittAbgelaufen);
+  }
+
+  const schrittWeiter = () => schrittBeginnen(z.schritt + 1);
+
+  // Läuft die Zeit einer Frage beim Eintippen ab, zählt sie ohne Antwort
+  function schrittAbgelaufen() {
+    if (z.zustand.phase === 'ausgeblendet' && z.zustand.frage !== null) frageBeantwortet(null);
+    else schrittWeiter();
   }
 
   function frageBeantwortet(eingabe) {
     if (z.zustand.phase !== 'ausgeblendet' || z.zustand.frage === null) return;
     const frage = z.aufgabe.fragen[z.zustand.frage];
     z.zustand.antworten.push({ eingabe, richtig: frageRichtig(frage, eingabe) });
-    if (z.zustand.frage + 1 < z.aufgabe.fragen.length) {
-      z.zustand.frage += 1;
-      zeigen();
-      nach(z.einstellungen.antwortzeit, () => frageBeantwortet(null));
-    } else {
-      loesungZeigen();
-    }
+    schrittWeiter();
   }
 
-  function ausblenden() {
-    if (z.einstellungen.antwortart === 'aufloesung') {
-      z.zustand = { phase: 'ausgeblendet', frage: null, antworten: [] };
-      zeigen();
-      nach(z.einstellungen.antwortzeit * z.aufgabe.fragen.length, loesungZeigen);
-    } else {
-      z.zustand = { phase: 'ausgeblendet', frage: 0, antworten: [] };
-      zeigen();
-      nach(z.einstellungen.antwortzeit, () => frageBeantwortet(null));
-    }
+  // Klick, Tippen oder Leertaste während der Ankunft: gleich zum Ausschnitt
+  function ankunftBeenden() {
+    if (z.zustand && z.zustand.phase === 'ankunft') schrittWeiter();
   }
 
   function ausschnittNaechste() {
     z.aufgabe = erzeugeAusschnitt(z.zufall, bereich.stufe, null, z.einstellungen.schwierigkeit);
-    z.zustand = { phase: 'anzeige' };
-    zeigen();
-    nach(z.einstellungen.anzeigezeit, ausblenden);
+    z.ablauf = ausschnittAblauf(z.aufgabe, z.einstellungen);
+    schrittBeginnen(0);
   }
 
   // ---------------------------------------------------------- gemeinsam
@@ -309,7 +320,12 @@ function uebungLaufen(seite) {
 
   const klick = (ereignis) => {
     const knopf = ereignis.target.closest('[data-aktion]');
-    if (!knopf || !seite.contains(knopf)) return;
+    if (!knopf || !seite.contains(knopf)) {
+      // Ein Klick oder Tippen irgendwo auf die Übung beendet die Ankunft, nur
+      // nicht auf einem Link, Knopf oder Feld
+      if (!ereignis.target.closest('a, button, input')) ankunftBeenden();
+      return;
+    }
     const { aktion, wert } = knopf.dataset;
     if (aktion === 'start') starten();
     else if (aktion === 'beenden') {
@@ -339,11 +355,18 @@ function uebungLaufen(seite) {
   };
 
   // Enter geht weiter, wenn gerade kein Feld oder Knopf den Fokus hat; auf einem
-  // Knopf löst Enter ihn selbst aus
+  // Knopf löst Enter ihn selbst aus. Die Leertaste beendet ebenso die Ankunft,
+  // gehaltene Tasten zählen nur einmal.
   function taste(ereignis) {
-    if (ereignis.key !== 'Enter' || !z.aktiv) return;
+    if (!z.aktiv) return;
     const ziel = ereignis.target;
     if (ziel && ziel.closest && ziel.closest('input, button, a, textarea, select')) return;
+    if (ereignis.key === ' ' && z.zustand && z.zustand.phase === 'ankunft') {
+      ereignis.preventDefault();
+      if (!ereignis.repeat) ankunftBeenden();
+      return;
+    }
+    if (ereignis.key !== 'Enter') return;
     if (z.zustand && ['ergebnis', 'aufloesung', 'loesung'].includes(z.zustand.phase)) {
       ereignis.preventDefault();
       weiter();
